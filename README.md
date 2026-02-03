@@ -1,2 +1,332 @@
-# mm
-Movie Manager, flip it around WICKED WITCH
+# Movie Recommendation Tracker PWA
+
+A full-stack Progressive Web App for tracking movie recommendations with offline-first architecture. Built with React, FastAPI, and SQLite.
+
+## Features
+
+- **Offline-First**: Works without internet connection using IndexedDB and service workers
+- **Movie Search**: Search and add movies using TMDB API with OMDb ratings
+- **Recommendations Tracking**: Track who recommended each movie and when
+- **Watch History**: Mark movies as watched and rate them (1-10)
+- **Smart Status Management**: Automatically categorize movies as "To Watch", "Watched", "Questionable", or "Deleted"
+- **People Management**: Mark recommenders as trusted or untrusted
+- **Rating-Based Prompts**: When rating a movie below 6, get prompted to manage that person's other recommendations
+- **Sync Queue**: All changes sync automatically when online with conflict resolution
+- **Mobile-First Design**: Bottom navigation, dark mode, and touch-optimized UI
+- **PWA Features**: Install to home screen, offline caching, background sync
+
+## Tech Stack
+
+### Backend
+- **FastAPI**: Modern Python web framework
+- **SQLite**: Lightweight database with Alembic migrations
+- **uv**: Fast Python package manager
+- **SQLAlchemy**: ORM for database operations
+
+### Frontend
+- **React**: UI library with hooks
+- **Vite**: Fast build tool
+- **Tailwind CSS**: Utility-first CSS framework (dark mode)
+- **IndexedDB**: Local-first storage via `idb` library
+- **React Router**: Client-side routing
+- **Lucide React**: Icon library
+
+### APIs
+- **TMDB API**: Movie search and metadata (40 req/s)
+- **OMDb API**: IMDb and Rotten Tomatoes ratings (1000 req/day)
+
+## Project Structure
+
+```
+mm/
+├── backend/
+│   ├── main.py              # FastAPI app with all endpoints
+│   ├── models.py            # SQLAlchemy models
+│   ├── database.py          # Database configuration
+│   ├── pyproject.toml       # Python dependencies
+│   ├── alembic.ini          # Alembic configuration
+│   ├── alembic/             # Database migrations
+│   ├── app.db              # SQLite database (gitignored)
+│   └── .env.example        # Environment variables template
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/      # React components
+│   │   ├── services/        # API clients and storage
+│   │   ├── hooks/           # React hooks
+│   │   ├── utils/           # Helper functions
+│   │   ├── App.jsx          # Main app component
+│   │   └── index.css        # Tailwind CSS
+│   ├── public/
+│   │   ├── manifest.json    # PWA manifest
+│   │   └── sw.js           # Service worker
+│   ├── package.json         # Node dependencies
+│   └── .env.example        # Environment variables template
+│
+└── README.md
+```
+
+## Setup Instructions
+
+### Prerequisites
+
+- **Python 3.11+** (for backend)
+- **Node.js 18+** (for frontend)
+- **uv** (Python package manager) - Install: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+- **TMDB API Key** - Get from: https://www.themoviedb.org/settings/api
+- **OMDb API Key** - Get from: http://www.omdbapi.com/apikey.aspx
+
+### Backend Setup
+
+1. Navigate to backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Install dependencies:
+   ```bash
+   uv sync
+   ```
+
+3. Create `.env` file (optional, for API key proxying):
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your API keys if needed
+   ```
+
+4. Run migrations (database is auto-created):
+   ```bash
+   uv run alembic upgrade head
+   ```
+
+5. Start the backend server:
+   ```bash
+   uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+   The API will be available at: `http://localhost:8000`
+   API docs: `http://localhost:8000/docs`
+
+### Frontend Setup
+
+1. Navigate to frontend directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Create `.env` file:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Edit `.env` and add your API keys:
+   ```env
+   VITE_API_URL=http://localhost:8000
+   VITE_TMDB_API_KEY=your_tmdb_api_key_here
+   VITE_OMDB_API_KEY=your_omdb_api_key_here
+   ```
+
+5. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+   The app will be available at: `http://localhost:5173`
+
+## Usage
+
+### Adding a Movie
+
+1. Click the **"Add"** button in the top right
+2. Search for a movie using the search bar
+3. Select the movie from results
+4. Enter the name of who recommended it (autocomplete available)
+5. Click **"Add Recommendation"**
+
+The movie will be added to your "To Watch" list with TMDB and OMDb data.
+
+### Marking as Watched
+
+1. Click on a movie card to open details
+2. Click **"Mark as Watched"**
+3. Use the slider to rate the movie (1-10)
+4. Click **"Save"**
+
+If you rate below 6, you'll be prompted to manage other recommendations from that person.
+
+### Managing People
+
+1. Go to the **"People"** tab in bottom navigation
+2. View all recommenders with their recommendation counts
+3. Toggle **"Trust"** status for any person
+4. Filter by trusted/untrusted
+
+### Sync Status
+
+The sync indicator in the top right shows:
+- **✓ Synced** (green): All changes synced to server
+- **↻ Pending** (yellow): Changes waiting to sync
+- **⚠ Conflict** (orange): Some syncs failed (click to retry)
+- **⊗ Offline** (gray): No internet connection
+
+## API Endpoints
+
+### Movies
+- `GET /api/movies` - Get all movies
+- `GET /api/movies/{imdbId}` - Get movie details
+- `PUT /api/movies/{imdbId}/status` - Update movie status
+
+### Recommendations
+- `POST /api/movies/{imdbId}/recommendations` - Add recommendation
+- `DELETE /api/movies/{imdbId}/recommendations/{person}` - Remove recommendation
+
+### Watch History
+- `PUT /api/movies/{imdbId}/watch` - Mark as watched with rating
+
+### People
+- `GET /api/people` - Get all people
+- `POST /api/people` - Add person
+- `PUT /api/people/{name}` - Update trusted status
+
+### Sync
+- `GET /api/sync?since={timestamp}` - Get changes since timestamp
+- `POST /api/sync` - Process queued action
+
+### Health
+- `GET /api/health` - Health check
+
+## Deployment
+
+### Backend (Railway/Render)
+
+1. Create a new project on Railway or Render
+2. Connect your GitHub repository
+3. Set build command:
+   ```bash
+   cd backend && uv sync
+   ```
+4. Set start command:
+   ```bash
+   cd backend && uv run uvicorn main:app --host 0.0.0.0 --port $PORT
+   ```
+5. Add a persistent volume for `backend/app.db`
+6. Set environment variables if proxying API keys
+
+### Frontend (Vercel/Netlify)
+
+1. Create a new project on Vercel or Netlify
+2. Connect your GitHub repository
+3. Set root directory: `frontend`
+4. Build command: `npm run build`
+5. Output directory: `dist`
+6. Add environment variables:
+   - `VITE_API_URL` - Your backend URL
+   - `VITE_TMDB_API_KEY` - TMDB API key
+   - `VITE_OMDB_API_KEY` - OMDb API key
+
+## Database Schema
+
+### movies
+- `imdb_id` (PK, TEXT) - IMDb ID
+- `tmdb_data` (TEXT/JSON) - TMDB movie data
+- `omdb_data` (TEXT/JSON) - OMDb movie data
+- `last_modified` (FLOAT) - Unix timestamp
+
+### recommendations
+- `id` (PK, INTEGER) - Auto-increment ID
+- `imdb_id` (FK, TEXT) - Movie IMDb ID
+- `person` (TEXT) - Recommender name
+- `date_recommended` (FLOAT) - Unix timestamp
+
+### watch_history
+- `imdb_id` (PK, FK, TEXT) - Movie IMDb ID
+- `date_watched` (FLOAT) - Unix timestamp
+- `my_rating` (FLOAT) - Rating 1.0-10.0
+
+### people
+- `name` (PK, TEXT) - Person name
+- `is_trusted` (BOOLEAN) - Trusted status
+
+### movie_status
+- `imdb_id` (PK, FK, TEXT) - Movie IMDb ID
+- `status` (TEXT) - Status: toWatch, watched, questionable, deleted
+
+## Offline Architecture
+
+### Data Flow
+
+1. **User Action** → Saved to IndexedDB immediately (optimistic update)
+2. **Sync Queue** → Action added to queue with timestamp and retry count
+3. **Queue Processor** → Runs every 30s, when online, or on user action
+4. **Backend** → Processes action and returns `lastModified` timestamp
+5. **Conflict Resolution** → Last-write-wins using server timestamp
+
+### IndexedDB Stores
+
+- **movies**: Movie data with status, recommendations, watch history
+- **syncQueue**: Pending actions to sync to server
+- **metadata**: App metadata (lastSync timestamp)
+- **people**: People/recommenders data
+
+## Development
+
+### Adding a New Migration
+
+```bash
+cd backend
+uv run alembic revision --autogenerate -m "description"
+uv run alembic upgrade head
+```
+
+### Clearing IndexedDB (for testing)
+
+Open DevTools → Application → IndexedDB → Delete `movieRecommendations`
+
+### Running Backend Tests
+
+```bash
+cd backend
+uv run pytest  # (tests not included in MVP)
+```
+
+## Troubleshooting
+
+### Backend won't start
+- Check Python version: `python --version` (need 3.11+)
+- Reinstall dependencies: `uv sync --reinstall`
+- Check if port 8000 is already in use
+
+### Frontend won't start
+- Check Node version: `node --version` (need 18+)
+- Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
+- Check if port 5173 is already in use
+
+### Sync not working
+- Check backend is running and accessible
+- Check browser console for errors
+- Verify `VITE_API_URL` in frontend `.env`
+- Check CORS settings in backend `main.py`
+
+### Movies not appearing
+- Check IndexedDB in DevTools → Application tab
+- Verify API keys are correct in `.env`
+- Check browser console for API errors
+
+## License
+
+MIT License - see LICENSE file
+
+## Credits
+
+- Movie data from [TMDB](https://www.themoviedb.org/)
+- Ratings from [OMDb](http://www.omdbapi.com/)
+- Icons from [Lucide](https://lucide.dev/)
+
+---
+
+Built with by [Your Name] • [GitHub](https://github.com/yourusername/mm)
