@@ -200,34 +200,54 @@ The sync indicator in the top right shows:
 ### Health
 - `GET /api/health` - Health check
 
-## Deployment
+## Production Deployment
 
-### Backend (Railway/Render)
+This app serves both frontend and backend from a single FastAPI server, making deployment simple.
 
-1. Create a new project on Railway or Render
-2. Connect your GitHub repository
-3. Set build command:
+### Build and Run Locally (Production Mode)
+
+1. Build the frontend:
    ```bash
-   cd backend && uv sync
+   cd frontend
+   npm run build
    ```
-4. Set start command:
+
+2. Start the backend (serves both API and frontend):
+   ```bash
+   cd ../backend
+   uv run uvicorn main:app --host 0.0.0.0 --port 8000
+   ```
+
+3. Access the app at `http://localhost:8000`
+
+The backend automatically serves:
+- API endpoints at `/api/*`
+- Static assets at `/assets/*`
+- The PWA frontend for all other routes
+
+### Deploy to Railway/Render/Fly.io
+
+1. Create a new project and connect your GitHub repository
+
+2. Set build command:
+   ```bash
+   cd frontend && npm install && npm run build && cd ../backend && uv sync
+   ```
+
+3. Set start command:
    ```bash
    cd backend && uv run uvicorn main:app --host 0.0.0.0 --port $PORT
    ```
-5. Add a persistent volume for `backend/app.db`
-6. Set environment variables if proxying API keys
 
-### Frontend (Vercel/Netlify)
+4. Add a persistent volume for `backend/app.db`
 
-1. Create a new project on Vercel or Netlify
-2. Connect your GitHub repository
-3. Set root directory: `frontend`
-4. Build command: `npm run build`
-5. Output directory: `dist`
-6. Add environment variables:
-   - `VITE_API_URL` - Your backend URL
-   - `VITE_TMDB_API_KEY` - TMDB API key
-   - `VITE_OMDB_API_KEY` - OMDb API key
+5. (Optional) Set environment variables for API key proxying:
+   - `TMDB_API_KEY` - TMDB API key
+   - `OMDB_API_KEY` - OMDb API key
+
+6. Deploy!
+
+Note: The frontend will automatically use the same server for API calls (same-origin) in production.
 
 ## Database Schema
 

@@ -3,17 +3,17 @@
  */
 
 export const MOVIE_STATUS = {
-  TO_WATCH: 'toWatch',
-  WATCHED: 'watched',
-  QUESTIONABLE: 'questionable',
-  DELETED: 'deleted',
+  TO_WATCH: "toWatch",
+  WATCHED: "watched",
+  DELETED: "deleted",
+  CUSTOM: "custom", // For custom lists
 };
 
 export const SYNC_STATUS = {
-  SYNCED: 'synced',
-  PENDING: 'pending',
-  CONFLICT: 'conflict',
-  OFFLINE: 'offline',
+  SYNCED: "synced",
+  PENDING: "pending",
+  CONFLICT: "conflict",
+  OFFLINE: "offline",
 };
 
 export const RATING_THRESHOLD = 6.0; // Threshold for triggering questionable prompt
@@ -23,4 +23,25 @@ export const API_LIMITS = {
   OMDB_DAILY_LIMIT: 1000, // 1000 requests per day
 };
 
-export const POSTER_PLACEHOLDER = 'https://via.placeholder.com/500x750?text=No+Poster';
+export const POSTER_PLACEHOLDER = "https://via.placeholder.com/500x750?text=No+Poster";
+
+// Default recommender options
+export const DEFAULT_RECOMMENDERS = [
+  { name: "Random YouTube Video", isDefault: true },
+  { name: "Oscar Winner/Nominee", isDefault: true },
+  { name: "Random Person", isDefault: true },
+  { name: "Google Search", isDefault: true },
+];
+
+// iOS Design tokens
+export const IOS_COLORS = {
+  blue: "#0a84ff",
+  green: "#30d158",
+  red: "#ff453a",
+  orange: "#ff9f0a",
+  yellow: "#ffd60a",
+  purple: "#bf5af2",
+  pink: "#ff375f",
+  teal: "#64d2ff",
+  gray: "#8e8e93",
+};

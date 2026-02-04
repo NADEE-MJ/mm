@@ -2,18 +2,18 @@
  * Helper utility functions
  */
 
-import { POSTER_PLACEHOLDER } from './constants';
+import { POSTER_PLACEHOLDER } from "./constants";
 
 /**
  * Format date to readable string
  */
 export function formatDate(timestamp) {
-  if (!timestamp) return '';
+  if (!timestamp) return "";
   const date = new Date(timestamp);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 }
 
@@ -21,7 +21,7 @@ export function formatDate(timestamp) {
  * Format rating to 1 decimal place
  */
 export function formatRating(rating) {
-  if (!rating && rating !== 0) return 'N/A';
+  if (!rating && rating !== 0) return "N/A";
   return rating.toFixed(1);
 }
 
@@ -39,45 +39,45 @@ export function sortMovies(movies, sortBy) {
   const sorted = [...movies];
 
   switch (sortBy) {
-    case 'dateRecommended':
+    case "dateRecommended":
       return sorted.sort((a, b) => {
-        const aDate = Math.max(...(a.recommendations?.map(r => r.date_recommended) || [0]));
-        const bDate = Math.max(...(b.recommendations?.map(r => r.date_recommended) || [0]));
+        const aDate = Math.max(...(a.recommendations?.map((r) => r.date_recommended) || [0]));
+        const bDate = Math.max(...(b.recommendations?.map((r) => r.date_recommended) || [0]));
         return bDate - aDate;
       });
 
-    case 'dateWatched':
+    case "dateWatched":
       return sorted.sort((a, b) => {
         const aDate = a.watchHistory?.dateWatched || 0;
         const bDate = b.watchHistory?.dateWatched || 0;
         return bDate - aDate;
       });
 
-    case 'myRating':
+    case "myRating":
       return sorted.sort((a, b) => {
         const aRating = a.watchHistory?.myRating || 0;
         const bRating = b.watchHistory?.myRating || 0;
         return bRating - aRating;
       });
 
-    case 'imdbRating':
+    case "imdbRating":
       return sorted.sort((a, b) => {
         const aRating = a.omdbData?.imdbRating || 0;
         const bRating = b.omdbData?.imdbRating || 0;
         return bRating - aRating;
       });
 
-    case 'year':
+    case "year":
       return sorted.sort((a, b) => {
         const aYear = a.omdbData?.year || a.tmdbData?.year || 0;
         const bYear = b.omdbData?.year || b.tmdbData?.year || 0;
         return bYear - aYear;
       });
 
-    case 'title':
+    case "title":
       return sorted.sort((a, b) => {
-        const aTitle = a.omdbData?.title || a.tmdbData?.title || '';
-        const bTitle = b.omdbData?.title || b.tmdbData?.title || '';
+        const aTitle = a.omdbData?.title || a.tmdbData?.title || "";
+        const bTitle = b.omdbData?.title || b.tmdbData?.title || "";
         return aTitle.localeCompare(bTitle);
       });
 
@@ -94,14 +94,14 @@ export function filterMovies(movies, filters) {
 
   // Filter by recommender
   if (filters.recommender) {
-    filtered = filtered.filter(m =>
-      m.recommendations?.some(r => r.person === filters.recommender)
+    filtered = filtered.filter((m) =>
+      m.recommendations?.some((r) => r.person === filters.recommender),
     );
   }
 
   // Filter by genre
   if (filters.genre) {
-    filtered = filtered.filter(m => {
+    filtered = filtered.filter((m) => {
       const genres = m.omdbData?.genres || m.tmdbData?.genres || [];
       return genres.includes(filters.genre);
     });
@@ -109,7 +109,7 @@ export function filterMovies(movies, filters) {
 
   // Filter by decade
   if (filters.decade) {
-    filtered = filtered.filter(m => {
+    filtered = filtered.filter((m) => {
       const year = m.omdbData?.year || m.tmdbData?.year;
       if (!year) return false;
       const decade = Math.floor(year / 10) * 10;
@@ -123,11 +123,11 @@ export function filterMovies(movies, filters) {
 /**
  * Get all unique genres from movies
  */
-export function getAllGenres(movies) {
+export function getGenres(movies) {
   const genresSet = new Set();
-  movies.forEach(movie => {
+  movies.forEach((movie) => {
     const genres = movie.omdbData?.genres || movie.tmdbData?.genres || [];
-    genres.forEach(genre => genresSet.add(genre));
+    genres.forEach((genre) => genresSet.add(genre));
   });
   return Array.from(genresSet).sort();
 }
@@ -135,9 +135,9 @@ export function getAllGenres(movies) {
 /**
  * Get all unique decades from movies
  */
-export function getAllDecades(movies) {
+export function getDecades(movies) {
   const decadesSet = new Set();
-  movies.forEach(movie => {
+  movies.forEach((movie) => {
     const year = movie.omdbData?.year || movie.tmdbData?.year;
     if (year) {
       const decade = Math.floor(year / 10) * 10;
@@ -152,8 +152,8 @@ export function getAllDecades(movies) {
  */
 export function getAllRecommenders(movies) {
   const recommendersSet = new Set();
-  movies.forEach(movie => {
-    movie.recommendations?.forEach(r => recommendersSet.add(r.person));
+  movies.forEach((movie) => {
+    movie.recommendations?.forEach((r) => recommendersSet.add(r.person));
   });
   return Array.from(recommendersSet).sort();
 }

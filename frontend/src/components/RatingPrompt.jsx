@@ -1,107 +1,145 @@
 /**
- * RatingPrompt component
+ * RatingPrompt component - iOS Style
  * Prompts user when rating is below threshold
  */
 
-import { useState } from 'react';
-import { AlertCircle } from 'lucide-react';
-import { MOVIE_STATUS, RATING_THRESHOLD } from '../utils/constants';
+import { useState } from "react";
+import { AlertTriangle, Trash2, CheckCircle, X } from "lucide-react";
+import { RATING_THRESHOLD } from "../utils/constants";
 
 export default function RatingPrompt({ movie, recommenders, onAction, onClose }) {
   const [selectedAction, setSelectedAction] = useState(null);
+  const [processing, setProcessing] = useState(false);
 
   if (!movie || !recommenders || recommenders.length === 0) return null;
 
   const handleAction = async () => {
     if (!selectedAction) return;
-
-    await onAction(selectedAction);
-    onClose();
+    setProcessing(true);
+    try {
+      await onAction(selectedAction);
+    } finally {
+      setProcessing(false);
+    }
   };
 
+  const actions = [
+    {
+      value: "keep",
+      icon: CheckCircle,
+      label: "Keep Movies",
+      description: "Give them another chance",
+      color: "ios-green",
+    },
+    {
+      value: "delete",
+      icon: Trash2,
+      label: "Delete All",
+      description: "Remove their recommendations",
+      color: "ios-red",
+    },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
-      <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-        {/* Icon */}
-        <div className="flex justify-center mb-4">
-          <AlertCircle className="w-16 h-16 text-yellow-500" />
+    <div className="fixed inset-0 z-50">
+      <div className="ios-sheet-backdrop" onClick={onClose} />
+      <div className="ios-sheet ios-slide-up">
+        <div className="ios-sheet-handle" />
+
+        {/* Header */}
+        <div className="p-6 text-center">
+          <div className="w-16 h-16 bg-ios-orange/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-8 h-8 text-ios-orange" />
+          </div>
+          <h2 className="text-ios-title2 font-bold text-ios-label mb-2">Low Rating</h2>
+          <p className="text-ios-body text-ios-secondary-label">
+            You rated this movie below {RATING_THRESHOLD}/10
+          </p>
         </div>
 
-        {/* Title */}
-        <h2 className="text-2xl font-bold text-center mb-4">
-          Low Rating Detected
-        </h2>
+        <div className="px-4 pb-6">
+          {/* Recommenders */}
+          <div className="ios-card p-4 mb-6">
+            <p className="text-ios-caption1 text-ios-secondary-label mb-3">Recommended by:</p>
+            <div className="flex flex-wrap gap-2">
+              {recommenders.map((rec) => (
+                <span
+                  key={rec.person}
+                  className="px-3 py-1.5 bg-ios-fill rounded-full text-ios-body text-ios-label"
+                >
+                  {rec.person}
+                </span>
+              ))}
+            </div>
+          </div>
 
-        {/* Message */}
-        <p className="text-gray-300 text-center mb-6">
-          You rated this movie below {RATING_THRESHOLD}. This movie was recommended by:
-        </p>
+          {/* Question */}
+          <p className="text-ios-body text-ios-label mb-4 text-center">
+            What would you like to do with their other recommendations?
+          </p>
 
-        {/* Recommenders */}
-        <div className="mb-6 p-4 bg-gray-700 rounded">
-          <ul className="list-disc list-inside space-y-1">
-            {recommenders.map(rec => (
-              <li key={rec.person} className="text-white">
-                {rec.person}
-              </li>
-            ))}
-          </ul>
-        </div>
+          {/* Actions */}
+          <div className="space-y-3 mb-6">
+            {actions.map((action) => {
+              const Icon = action.icon;
+              const isSelected = selectedAction === action.value;
+              const colorClasses =
+                action.color === "ios-red"
+                  ? "border-ios-red bg-ios-red/10"
+                  : "border-ios-green bg-ios-green/10";
 
-        {/* Question */}
-        <p className="text-gray-300 text-center mb-6">
-          What would you like to do with {recommenders.length > 1 ? 'their' : 'this person\'s'} other recommendations?
-        </p>
+              return (
+                <button
+                  key={action.value}
+                  onClick={() => setSelectedAction(action.value)}
+                  className={`w-full p-4 rounded-2xl flex items-center gap-4 transition-all border-2 ${
+                    isSelected ? colorClasses : "border-transparent bg-ios-secondary-fill"
+                  }`}
+                >
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      action.color === "ios-red" ? "bg-ios-red/20" : "bg-ios-green/20"
+                    }`}
+                  >
+                    <Icon
+                      className={`w-5 h-5 ${
+                        action.color === "ios-red" ? "text-ios-red" : "text-ios-green"
+                      }`}
+                    />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-ios-body font-semibold text-ios-label">{action.label}</p>
+                    <p className="text-ios-caption1 text-ios-secondary-label">
+                      {action.description}
+                    </p>
+                  </div>
+                  {isSelected && (
+                    <CheckCircle
+                      className={`w-6 h-6 ${
+                        action.color === "ios-red" ? "text-ios-red" : "text-ios-green"
+                      }`}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* Actions */}
-        <div className="space-y-3">
-          <button
-            onClick={() => setSelectedAction('questionable')}
-            className={`w-full py-3 rounded-lg font-medium transition-colors ${
-              selectedAction === 'questionable'
-                ? 'bg-yellow-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Move to Questionable
-          </button>
-          <button
-            onClick={() => setSelectedAction('keep')}
-            className={`w-full py-3 rounded-lg font-medium transition-colors ${
-              selectedAction === 'keep'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Keep in To Watch
-          </button>
-          <button
-            onClick={() => setSelectedAction('delete')}
-            className={`w-full py-3 rounded-lg font-medium transition-colors ${
-              selectedAction === 'delete'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Delete Recommendations
-          </button>
-        </div>
-
-        {/* Confirm/Cancel */}
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={handleAction}
-            disabled={!selectedAction}
-            className="flex-1 btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Confirm
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 btn-secondary"
-          >
-            Cancel
-          </button>
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 btn-ios-secondary py-3.5">
+              Cancel
+            </button>
+            <button
+              onClick={handleAction}
+              disabled={!selectedAction || processing}
+              className={`flex-1 py-3.5 rounded-xl font-semibold transition-all disabled:opacity-50 ${
+                selectedAction === "delete" ? "bg-ios-red text-white" : "btn-ios-primary"
+              }`}
+            >
+              {processing ? "Processing..." : "Confirm"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
