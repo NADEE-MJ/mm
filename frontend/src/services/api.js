@@ -128,22 +128,22 @@ class APIClient {
     return this.request("/api/people");
   }
 
-  async addPerson(name, isTrusted = false) {
+  async addPerson(name, { isTrusted = false, color = "#0a84ff", emoji = null } = {}) {
     return this.request("/api/people", {
       method: "POST",
       body: JSON.stringify({
         name,
         is_trusted: isTrusted,
+        color,
+        emoji,
       }),
     });
   }
 
-  async updatePersonTrust(name, isTrusted) {
+  async updatePerson(name, updates) {
     return this.request(`/api/people/${encodeURIComponent(name)}`, {
       method: "PUT",
-      body: JSON.stringify({
-        is_trusted: isTrusted,
-      }),
+      body: JSON.stringify(updates),
     });
   }
 

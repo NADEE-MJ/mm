@@ -3,14 +3,186 @@
  * Manage people/recommenders with detailed stats
  */
 
-import { useState, useMemo } from "react";
-import { Users, Star, StarOff, ChevronRight, Film, TrendingUp, Eye, Clock, X } from "lucide-react";
+import { useState, useMemo, useEffect } from "react";
+import {
+  Users,
+  Star,
+  StarOff,
+  ChevronRight,
+  Film,
+  TrendingUp,
+  Eye,
+  Clock,
+  X,
+  Plus,
+  Palette,
+  Smile,
+  Check,
+} from "lucide-react";
 import { usePeople } from "../hooks/usePeople";
 import { getPoster, formatRating } from "../utils/helpers";
-import { DEFAULT_RECOMMENDERS } from "../utils/constants";
+import { DEFAULT_RECOMMENDERS, IOS_COLORS } from "../utils/constants";
 
-function PersonDetailSheet({ person, onClose, onToggleTrust }) {
+const COLOR_OPTIONS = [
+  IOS_COLORS.blue,
+  IOS_COLORS.green,
+  IOS_COLORS.orange,
+  IOS_COLORS.purple,
+  IOS_COLORS.pink,
+  IOS_COLORS.teal,
+  IOS_COLORS.yellow,
+  IOS_COLORS.gray,
+];
+
+const EMOJI_OPTIONS = ["🍿", "🎬", "🎯", "🔥", "🌟", "💡", "🤝", "🎲", "🧠", "📽️"];
+
+function AddPersonCard({ onAdd, existingNames }) {
+  const [name, setName] = useState("");
+  const [color, setColor] = useState(COLOR_OPTIONS[0]);
+  const [emoji, setEmoji] = useState(EMOJI_OPTIONS[0]);
+  const [isTrusted, setIsTrusted] = useState(false);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setError("Name is required");
+      return;
+    }
+
+    const lower = trimmed.toLowerCase();
+    if (existingNames.some((existing) => existing.toLowerCase() === lower)) {
+      setError("Person already exists");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await onAdd({
+        name: trimmed,
+        color,
+        emoji,
+        isTrusted,
+      });
+      setName("");
+      setIsTrusted(false);
+      setError(null);
+    } catch (err) {
+      setError(err.message || "Unable to add person");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="ios-card p-4 space-y-4">
+      <div className="flex items-center gap-2">
+        <Plus className="w-5 h-5 text-ios-blue" />
+        <h3 className="text-ios-headline font-semibold text-ios-label">Add Person</h3>
+      </div>
+
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name"
+          className="ios-input"
+          autoComplete="off"
+        />
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-ios-secondary-label text-sm font-medium uppercase tracking-wide">
+              <Palette className="w-4 h-4" />
+              Color
+            </div>
+            <span className="text-ios-caption2 text-ios-tertiary-label">{color}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {COLOR_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setColor(option)}
+                className={`w-10 h-10 rounded-full border-2 ${
+                  color === option ? "border-ios-blue" : "border-transparent"
+                }`}
+                style={{ backgroundColor: option }}
+                aria-label={`Select color ${option}`}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-2 text-ios-secondary-label text-sm font-medium uppercase tracking-wide mb-2">
+            <Smile className="w-4 h-4" />
+            Emoji
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {EMOJI_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setEmoji(option)}
+                className={`px-3 py-2 rounded-xl text-lg ${
+                  emoji === option ? "bg-ios-blue text-white" : "bg-ios-fill"
+                }`}
+              >
+                {option}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setEmoji(null)}
+              className={`px-3 py-2 rounded-xl text-sm font-medium ${
+                emoji == null ? "bg-ios-blue/10 text-ios-blue" : "bg-ios-fill text-ios-secondary-label"
+              }`}
+            >
+              None
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-ios-secondary-label">Trusted recommender</span>
+          <button
+            type="button"
+            onClick={() => setIsTrusted((prev) => !prev)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium ${
+              isTrusted ? "bg-ios-yellow/20 text-ios-yellow" : "bg-ios-fill text-ios-label"
+            }`}
+          >
+            {isTrusted ? "Trusted" : "Not Trusted"}
+          </button>
+        </div>
+
+        {error && <p className="text-ios-red text-sm">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={submitting || !name.trim()}
+          className="btn-ios-primary w-full disabled:opacity-50"
+        >
+          {submitting ? "Adding..." : "Save Person"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function PersonDetailSheet({ person, onClose, onToggleTrust, onUpdatePerson, colorCounts, emojiCounts }) {
   if (!person) return null;
+
+  const avatarColor = person.color || IOS_COLORS.gray;
+  const avatarEmoji = person.emoji || person.name.charAt(0).toUpperCase();
+  const colorKey = person.color || "default";
+  const emojiKey = person.emoji || "none";
+  const sharedColors = Math.max(0, (colorCounts[colorKey] || 1) - 1);
+  const sharedEmoji = Math.max(0, (emojiCounts[emojiKey] || 1) - 1);
 
   const stats = [
     {
@@ -43,16 +215,12 @@ function PersonDetailSheet({ person, onClose, onToggleTrust }) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    person.is_trusted ? "bg-ios-yellow/20" : "bg-ios-fill"
-                  }`}
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-xl font-semibold text-white relative"
+                  style={{ backgroundColor: avatarColor }}
                 >
-                  {person.is_trusted ? (
-                    <Star className="w-6 h-6 text-ios-yellow fill-current" />
-                  ) : (
-                    <span className="text-xl font-semibold text-ios-secondary-label">
-                      {person.name.charAt(0).toUpperCase()}
-                    </span>
+                  {avatarEmoji}
+                  {person.is_trusted && (
+                    <Star className="w-4 h-4 text-ios-yellow fill-current absolute -bottom-1 -right-1 drop-shadow" />
                   )}
                 </div>
                 <div>
@@ -114,6 +282,76 @@ function PersonDetailSheet({ person, onClose, onToggleTrust }) {
             </div>
           )}
 
+          {/* Color selection */}
+          <div className="ios-card p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-ios-secondary-label text-sm font-medium uppercase tracking-wide">
+                <Palette className="w-4 h-4" />
+                Color
+              </div>
+              <span className="text-ios-caption2 text-ios-tertiary-label">
+                {sharedColors === 0
+                  ? "Unique color"
+                  : `${sharedColors} other${sharedColors === 1 ? "" : "s"}`}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {COLOR_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => onUpdatePerson(person.name, { color: option })}
+                  className={`w-10 h-10 rounded-full border-2 ${
+                    person.color === option ? "border-ios-blue" : "border-transparent"
+                  }`}
+                  style={{ backgroundColor: option }}
+                >
+                  {person.color === option && <Check className="w-4 h-4 text-white" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Emoji selection */}
+          <div className="ios-card p-4 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-ios-secondary-label text-sm font-medium uppercase tracking-wide">
+                <Smile className="w-4 h-4" />
+                Emoji
+              </div>
+              <span className="text-ios-caption2 text-ios-tertiary-label">
+                {sharedEmoji === 0
+                  ? "Unique emoji"
+                  : `${sharedEmoji} other${sharedEmoji === 1 ? "" : "s"}`}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {EMOJI_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => onUpdatePerson(person.name, { emoji: option })}
+                  className={`px-3 py-2 rounded-xl text-lg ${
+                    person.emoji === option ? "bg-ios-blue text-white" : "bg-ios-fill"
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => onUpdatePerson(person.name, { emoji: null })}
+                className={`px-3 py-2 rounded-xl text-sm font-medium ${
+                  person.emoji == null
+                    ? "bg-ios-blue/10 text-ios-blue"
+                    : "bg-ios-fill text-ios-secondary-label"
+                }`}
+              >
+                None
+              </button>
+            </div>
+          </div>
+
           {/* Movies List */}
           {person.movies.length > 0 && (
             <div>
@@ -167,9 +405,27 @@ function PersonDetailSheet({ person, onClose, onToggleTrust }) {
 }
 
 export default function PeopleManager({ movies }) {
-  const { people, updateTrust } = usePeople();
+  const { people, addPerson, updatePerson, updateTrust } = usePeople();
   const [filter, setFilter] = useState("all");
   const [selectedPerson, setSelectedPerson] = useState(null);
+
+  const existingNames = useMemo(() => people.map((person) => person.name), [people]);
+
+  const colorCounts = useMemo(() => {
+    return people.reduce((acc, person) => {
+      const key = person.color || "default";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+  }, [people]);
+
+  const emojiCounts = useMemo(() => {
+    return people.reduce((acc, person) => {
+      const key = person.emoji || "none";
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+  }, [people]);
 
   // Calculate recommendation stats
   const peopleWithStats = useMemo(() => {
@@ -216,6 +472,26 @@ export default function PeopleManager({ movies }) {
       console.error("Error toggling trust:", err);
     }
   };
+
+  const handleAddPerson = async (payload) => {
+    await addPerson(payload);
+  };
+
+  const handleUpdatePerson = async (name, updates) => {
+    try {
+      await updatePerson(name, updates);
+    } catch (err) {
+      console.error("Error updating person metadata:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedPerson) return;
+    const updated = peopleWithStats.find((person) => person.name === selectedPerson.name);
+    if (updated && updated !== selectedPerson) {
+      setSelectedPerson(updated);
+    }
+  }, [peopleWithStats, selectedPerson]);
 
   return (
     <div className="space-y-6">
@@ -264,6 +540,9 @@ export default function PeopleManager({ movies }) {
         </div>
       </div>
 
+      {/* Add person */}
+      <AddPersonCard onAdd={handleAddPerson} existingNames={existingNames} />
+
       {/* People List */}
       {filteredPeople.length === 0 ? (
         <div className="ios-card text-center py-16">
@@ -275,31 +554,24 @@ export default function PeopleManager({ movies }) {
         </div>
       ) : (
         <div className="ios-list">
-          {filteredPeople.map((person) => (
-            <button
-              key={person.name}
-              onClick={() => setSelectedPerson(person)}
-              className="ios-list-item py-4 w-full text-left"
-            >
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                {/* Avatar */}
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    person.is_trusted
-                      ? "bg-ios-yellow/20"
-                      : person.isDefault
-                        ? "bg-ios-purple/20"
-                        : "bg-ios-fill"
-                  }`}
+          {filteredPeople.map((person) => {
+            const colorMatchCount = Math.max(0, (colorCounts[person.color || "default"] || 1) - 1);
+            const emojiMatchCount = Math.max(0, (emojiCounts[person.emoji || "none"] || 1) - 1);
+            return (
+              <button
+                key={person.name}
+                onClick={() => setSelectedPerson(person)}
+                className="ios-list-item py-4 w-full text-left"
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {/* Avatar */}
+                  <div
+                    className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 text-lg font-semibold text-white relative"
+                    style={{ backgroundColor: person.color || (person.isDefault ? IOS_COLORS.purple : IOS_COLORS.gray) }}
                 >
-                  {person.is_trusted ? (
-                    <Star className="w-6 h-6 text-ios-yellow fill-current" />
-                  ) : person.isDefault ? (
-                    <Users className="w-5 h-5 text-ios-purple" />
-                  ) : (
-                    <span className="text-lg font-semibold text-ios-secondary-label">
-                      {person.name.charAt(0).toUpperCase()}
-                    </span>
+                  {person.emoji || person.name.charAt(0).toUpperCase()}
+                  {person.is_trusted && (
+                    <Star className="w-4 h-4 text-ios-yellow fill-current absolute -bottom-1 -right-1" />
                   )}
                 </div>
 
@@ -327,6 +599,23 @@ export default function PeopleManager({ movies }) {
                       </>
                     )}
                   </div>
+                  <div className="flex items-center gap-2 text-ios-caption2 text-ios-tertiary-label mt-1">
+                    <span>
+                      {colorMatchCount === 0
+                        ? "Unique color"
+                        : `${colorMatchCount} share color`}
+                    </span>
+                    {person.emoji && (
+                      <>
+                        <span>•</span>
+                        <span>
+                          {emojiMatchCount === 0
+                            ? "Unique emoji"
+                            : `${emojiMatchCount} share emoji`}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -338,8 +627,9 @@ export default function PeopleManager({ movies }) {
                 </div>
                 <ChevronRight className="w-5 h-5 text-ios-tertiary-label flex-shrink-0" />
               </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -349,6 +639,9 @@ export default function PeopleManager({ movies }) {
           person={selectedPerson}
           onClose={() => setSelectedPerson(null)}
           onToggleTrust={handleToggleTrust}
+          onUpdatePerson={handleUpdatePerson}
+          colorCounts={colorCounts}
+          emojiCounts={emojiCounts}
         />
       )}
     </div>

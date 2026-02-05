@@ -42,7 +42,13 @@ async def sync_get_changes(
 
     people = db.query(Person).filter(Person.user_id == user.id).all()
     people_payload = [
-        {"name": p.name, "is_trusted": p.is_trusted, "is_default": p.is_default}
+        {
+            "name": p.name,
+            "is_trusted": p.is_trusted,
+            "is_default": p.is_default,
+            "color": p.color,
+            "emoji": p.emoji,
+        }
         for p in people
     ]
 
@@ -212,7 +218,12 @@ async def sync_process_action(
             )
             if not person:
                 person = Person(
-                    name=name, user_id=user.id, is_trusted=data.get("is_trusted", False)
+                    name=name,
+                    user_id=user.id,
+                    is_trusted=data.get("is_trusted", False),
+                    is_default=data.get("is_default", False),
+                    color=data.get("color") or "#0a84ff",
+                    emoji=data.get("emoji"),
                 )
                 db.add(person)
                 db.commit()
@@ -220,7 +231,7 @@ async def sync_process_action(
 
             return SyncResponse(success=True, last_modified=time.time())
 
-        if action_type == "updatePersonTrust":
+        if action_type in {"updatePerson", "updatePersonTrust"}:
             name = data.get("name")
             person = (
                 db.query(Person)
@@ -228,7 +239,17 @@ async def sync_process_action(
                 .first()
             )
             if person:
-                person.is_trusted = data.get("is_trusted")
+                if action_type == "updatePersonTrust":
+                    person.is_trusted = data.get("is_trusted")
+                else:
+                    if "is_trusted" in data:
+                        person.is_trusted = data.get("is_trusted")
+                    if "color" in data:
+                        person.color = data.get("color")
+                    if "emoji" in data:
+                        person.emoji = data.get("emoji")
+                    if "is_default" in data:
+                        person.is_default = data.get("is_default")
                 db.commit()
                 await notify_people_change(user.id)
 

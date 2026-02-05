@@ -92,11 +92,36 @@ export function sortMovies(movies, sortBy) {
 export function filterMovies(movies, filters) {
   let filtered = [...movies];
 
+  const searchTerm = filters.search?.trim().toLowerCase();
+
   // Filter by recommender
   if (filters.recommender) {
     filtered = filtered.filter((m) =>
       m.recommendations?.some((r) => r.person === filters.recommender),
     );
+  }
+
+  // Search across title, genres, cast, and director/writer metadata
+  if (searchTerm) {
+    filtered = filtered.filter((movie) => {
+      const tmdb = movie.tmdbData || {};
+      const omdb = movie.omdbData || {};
+
+      const searchableFields = [
+        omdb.title,
+        tmdb.title,
+        (omdb.genres || []).join(" "),
+        (tmdb.genres || []).join(" "),
+        (omdb.actors || []).join(" "),
+        (tmdb.cast || []).join(" "),
+        omdb.director,
+        omdb.writer,
+      ]
+        .filter(Boolean)
+        .map((value) => value.toLowerCase());
+
+      return searchableFields.some((field) => field.includes(searchTerm));
+    });
   }
 
   // Filter by genre

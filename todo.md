@@ -6,3 +6,11 @@
   - i want to be able to sort these by popularity, release date, and rating
 - add a way to click into genre information to see movies in that genre
 - add a way to click into production company information to see movies from that company
+- add a way to search for new movies from like oscar winners / stuff like that
+- add a way to show you recommendations based on the movies you have upvoted and downvoted, not sure if this is possible with the tmdb api but it would be really cool
+- add a refresh button so i can get refresh the information on the movie, mostly imdb and rotten tomatoes scores, without having to wait for the scheduled refresh
+- add a way to see the movies that are coming out soon, maybe in the next month
+- add a way to see the movies that are currently in theaters
+- add a way to see the movies that are popular right now
+- add a way to see the movies that are top rated right now
+- add a way to see the movies that are trending right now

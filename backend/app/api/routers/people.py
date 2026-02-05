@@ -47,7 +47,14 @@ async def add_person(
             status_code=status.HTTP_409_CONFLICT, detail="Person already exists"
         )
 
-    db_person = Person(name=person.name, user_id=user.id, is_trusted=person.is_trusted)
+    db_person = Person(
+        name=person.name,
+        user_id=user.id,
+        is_trusted=person.is_trusted,
+        is_default=person.is_default,
+        color=person.color or "#0a84ff",
+        emoji=person.emoji,
+    )
     db.add(db_person)
     db.commit()
     db.refresh(db_person)
@@ -63,7 +70,7 @@ async def update_person(
     user: User = Depends(get_required_user),
     db: Session = Depends(get_db),
 ):
-    """Update a person's trusted status."""
+    """Update a person's metadata."""
     person = (
         db.query(Person).filter(Person.name == name, Person.user_id == user.id).first()
     )
@@ -72,7 +79,12 @@ async def update_person(
             status_code=status.HTTP_404_NOT_FOUND, detail="Person not found"
         )
 
-    person.is_trusted = person_update.is_trusted
+    if person_update.is_trusted is not None:
+        person.is_trusted = person_update.is_trusted
+    if person_update.color is not None:
+        person.color = person_update.color
+    if person_update.emoji is not None:
+        person.emoji = person_update.emoji
     db.commit()
     db.refresh(person)
 
@@ -133,4 +145,6 @@ async def get_person_stats(
         "watched_movies": watched_movies,
         "average_rating": average_rating,
         "movies": [serialize_movie(movie) for movie in movies],
+        "color": person.color,
+        "emoji": person.emoji,
     }

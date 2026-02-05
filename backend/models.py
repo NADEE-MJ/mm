@@ -141,6 +141,8 @@ class Person(Base):
     )
     is_trusted = Column(Boolean, default=False)
     is_default = Column(Boolean, default=False)  # For system default recommenders
+    color = Column(String, default="#0a84ff")
+    emoji = Column(String, nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="people")

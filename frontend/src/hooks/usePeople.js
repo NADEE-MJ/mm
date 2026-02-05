@@ -23,11 +23,17 @@ export function usePeople() {
       const missingDefaultRecs = DEFAULT_RECOMMENDERS.filter(
         defaultRec => !existingNames.has(defaultRec.name)
       );
-      
+
       if (missingDefaultRecs.length > 0) {
         const results = await Promise.allSettled(
           missingDefaultRecs.map(defaultRec => 
-            savePerson({ name: defaultRec.name, is_trusted: false, is_default: true })
+            savePerson({
+              name: defaultRec.name,
+              is_trusted: false,
+              is_default: true,
+              color: defaultRec.color || '#0a84ff',
+              emoji: defaultRec.emoji || null,
+            })
           )
         );
         
@@ -55,20 +61,55 @@ export function usePeople() {
   }, []);
 
   // Add a person
-  const addPerson = async (name, isTrusted = false) => {
+  const addPerson = async ({ name, isTrusted = false, color = '#0a84ff', emoji = null, isDefault = false }) => {
     try {
-      const person = { name, is_trusted: isTrusted };
+      const trimmedName = name?.trim();
+      if (!trimmedName) {
+        throw new Error('Name is required');
+      }
+
+      const person = {
+        name: trimmedName,
+        is_trusted: isTrusted,
+        is_default: isDefault,
+        color,
+        emoji,
+      };
+
       await savePerson(person);
 
       // Add to sync queue
       await addToSyncQueue('addPerson', {
-        name,
+        name: trimmedName,
         is_trusted: isTrusted,
+        is_default: isDefault,
+        color,
+        emoji,
       });
 
       await loadPeople();
     } catch (err) {
       console.error('Error adding person:', err);
+      throw err;
+    }
+  };
+
+  const updatePerson = async (name, updates = {}) => {
+    try {
+      const person = people.find(p => p.name === name);
+      if (!person) throw new Error('Person not found');
+
+      const updatedPerson = { ...person, ...updates };
+      await savePerson(updatedPerson);
+
+      await addToSyncQueue('updatePerson', {
+        name,
+        ...updates,
+      });
+
+      await loadPeople();
+    } catch (err) {
+      console.error('Error updating person:', err);
       throw err;
     }
   };
@@ -79,16 +120,7 @@ export function usePeople() {
       const person = people.find(p => p.name === name);
       if (!person) throw new Error('Person not found');
 
-      person.is_trusted = isTrusted;
-      await savePerson(person);
-
-      // Add to sync queue
-      await addToSyncQueue('updatePersonTrust', {
-        name,
-        is_trusted: isTrusted,
-      });
-
-      await loadPeople();
+      await updatePerson(name, { is_trusted: isTrusted });
     } catch (err) {
       console.error('Error updating trust:', err);
       throw err;
@@ -111,6 +143,7 @@ export function usePeople() {
     error,
     loadPeople,
     addPerson,
+    updatePerson,
     updateTrust,
     getPeopleNames,
     getTrustedPeople,

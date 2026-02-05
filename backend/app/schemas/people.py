@@ -13,6 +13,8 @@ class PersonCreate(BaseModel):
     name: str
     is_trusted: bool = False
     is_default: bool = False
+    color: Optional[str] = None
+    emoji: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -21,12 +23,16 @@ class PersonResponse(BaseModel):
     name: str
     is_trusted: bool
     is_default: bool = False
+    color: Optional[str] = None
+    emoji: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class PersonUpdate(BaseModel):
-    is_trusted: bool
+    is_trusted: Optional[bool] = None
+    color: Optional[str] = None
+    emoji: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -39,5 +45,7 @@ class PersonStatsResponse(BaseModel):
     watched_movies: int
     average_rating: Optional[float] = None
     movies: List[MovieResponse] = Field(default_factory=list)
+    color: Optional[str] = None
+    emoji: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

@@ -288,6 +288,7 @@ function MovieList({ status, movies, onMovieClick, onRefresh }) {
   const [filterRecommender, setFilterRecommender] = useState("");
   const [filterGenre, setFilterGenre] = useState("");
   const [filterDecade, setFilterDecade] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -299,8 +300,9 @@ function MovieList({ status, movies, onMovieClick, onRefresh }) {
         recommender: filterRecommender,
         genre: filterGenre,
         decade: filterDecade,
+        search: searchQuery,
       }),
-    [statusMovies, filterRecommender, filterGenre, filterDecade],
+    [statusMovies, filterRecommender, filterGenre, filterDecade, searchQuery],
   );
 
   const sortedMovies = useMemo(() => sortMovies(filteredMovies, sortBy), [filteredMovies, sortBy]);
@@ -310,6 +312,7 @@ function MovieList({ status, movies, onMovieClick, onRefresh }) {
   const decades = useMemo(() => getDecades(statusMovies), [statusMovies]);
 
   const activeFiltersCount = [filterRecommender, filterGenre, filterDecade].filter(Boolean).length;
+  const hasSearchQuery = searchQuery.trim().length > 0;
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -353,14 +356,38 @@ function MovieList({ status, movies, onMovieClick, onRefresh }) {
         </div>
       </div>
 
+      {/* Search */}
+      <div className="relative">
+        <Search className="w-4 h-4 text-ios-tertiary-label absolute left-3 top-1/2 -translate-y-1/2" />
+        {hasSearchQuery && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-ios-tertiary-label hover:text-ios-secondary-label"
+            aria-label="Clear search"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        <input
+          type="text"
+          className="ios-search pl-10 pr-9"
+          placeholder="Search title, genre, cast, director..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          aria-label="Search movies"
+          autoComplete="off"
+        />
+      </div>
+
       {/* Movie List */}
       {sortedMovies.length === 0 ? (
         <div className="ios-card text-center py-16">
           <Film className="w-16 h-16 mx-auto mb-4 text-ios-tertiary-label" />
           <p className="text-ios-headline mb-1">No movies here</p>
           <p className="text-ios-secondary-label text-sm">
-            {activeFiltersCount > 0
-              ? "Try adjusting your filters"
+            {hasSearchQuery || activeFiltersCount > 0
+              ? "Try adjusting your search or filters"
               : status === MOVIE_STATUS.TO_WATCH
                 ? "Add your first movie!"
                 : "Movies will appear here"}
@@ -673,6 +700,7 @@ function AppContent() {
         <AddMovie
           onAdd={handleAddRecommendation}
           onClose={() => setShowAddMovie(false)}
+          people={people}
           peopleNames={getPeopleNames()}
         />
       )}

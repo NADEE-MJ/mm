@@ -27,10 +27,10 @@ export const POSTER_PLACEHOLDER = "https://via.placeholder.com/500x750?text=No+P
 
 // Default recommender options
 export const DEFAULT_RECOMMENDERS = [
-  { name: "Random YouTube Video", isDefault: true },
-  { name: "Oscar Winner/Nominee", isDefault: true },
-  { name: "Random Person", isDefault: true },
-  { name: "Google Search", isDefault: true },
+  { name: "Random YouTube Video", isDefault: true, color: "#bf5af2", emoji: "📺" },
+  { name: "Oscar Winner/Nominee", isDefault: true, color: "#ffd60a", emoji: "🏆" },
+  { name: "Random Person", isDefault: true, color: "#30d158", emoji: "🤝" },
+  { name: "Google Search", isDefault: true, color: "#64d2ff", emoji: "🔎" },
 ];
 
 // iOS Design tokens

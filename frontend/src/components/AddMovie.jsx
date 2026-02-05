@@ -3,14 +3,14 @@
  * Search and add movies with recommendations
  */
 
-import { useState, useRef, useEffect } from "react";
-import { Search, Plus, X, ChevronRight, Loader2, Users, Check } from "lucide-react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Search, Plus, X, ChevronRight, Loader2, Check } from "lucide-react";
 import { searchMovies as searchTMDB, getMovieDetails } from "../services/tmdbAPI";
 import { getMovieByImdbId } from "../services/omdbAPI";
 import { getPoster } from "../utils/helpers";
 import { DEFAULT_RECOMMENDERS } from "../utils/constants";
 
-export default function AddMovie({ onAdd, onClose, peopleNames = [] }) {
+export default function AddMovie({ onAdd, onClose, people = [], peopleNames = [] }) {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -24,11 +24,41 @@ export default function AddMovie({ onAdd, onClose, peopleNames = [] }) {
   const searchInputRef = useRef(null);
   const customInputRef = useRef(null);
 
+  const userPeople = people.length
+    ? people
+    : peopleNames.map((name) => ({ name, color: "#0a84ff", emoji: null, is_default: false }));
+
   // Combine default recommenders with user's people
-  const allRecommenders = [
-    ...DEFAULT_RECOMMENDERS.map((r) => r.name),
-    ...peopleNames.filter((name) => !DEFAULT_RECOMMENDERS.some((d) => d.name === name)),
-  ];
+  const allRecommenders = useMemo(() => {
+    const map = new Map();
+    const register = (option) => {
+      if (!option?.name) return;
+      const key = option.name.toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, option);
+      }
+    };
+
+    DEFAULT_RECOMMENDERS.forEach((rec) =>
+      register({
+        name: rec.name,
+        color: rec.color || "#0a84ff",
+        emoji: rec.emoji || "🎬",
+        isDefault: true,
+      }),
+    );
+
+    userPeople.forEach((person) =>
+      register({
+        name: person.name,
+        color: person.color || "#0a84ff",
+        emoji: person.emoji,
+        isDefault: person.is_default ?? false,
+      }),
+    );
+
+    return Array.from(map.values());
+  }, [people, peopleNames]);
 
   // Focus search input on mount
   useEffect(() => {
@@ -337,27 +367,25 @@ export default function AddMovie({ onAdd, onClose, peopleNames = [] }) {
 
               {/* Recommender Options */}
               <div className="ios-list">
-                {allRecommenders.map((name) => {
-                  const isSelected = selectedRecommenders.includes(name);
-                  const isDefault = DEFAULT_RECOMMENDERS.some((d) => d.name === name);
+                {allRecommenders.map((option) => {
+                  const isSelected = selectedRecommenders.includes(option.name);
+                  const avatarBg = option.color || "#f2f2f7";
+                  const displayEmoji = option.emoji || option.name?.charAt(0)?.toUpperCase() || "?";
                   return (
                     <button
-                      key={name}
-                      onClick={() => toggleRecommender(name)}
+                      key={option.name}
+                      onClick={() => toggleRecommender(option.name)}
                       className={`ios-list-item py-3 w-full text-left ${isSelected ? "bg-ios-blue/5" : ""}`}
                     >
                       <div className="flex items-center gap-3">
                         <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            isDefault ? "bg-ios-purple/20" : "bg-ios-fill"
-                          }`}
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-base font-semibold text-white"
+                          style={{ backgroundColor: avatarBg }}
                         >
-                          <Users
-                            className={`w-4 h-4 ${isDefault ? "text-ios-purple" : "text-ios-secondary-label"}`}
-                          />
+                          {displayEmoji}
                         </div>
-                        <span className="text-ios-label">{name}</span>
-                        {isDefault && (
+                        <span className="text-ios-label">{option.name}</span>
+                        {option.isDefault && (
                           <span className="text-ios-caption2 text-ios-purple bg-ios-purple/10 px-2 py-0.5 rounded-full">
                             Quick
                           </span>

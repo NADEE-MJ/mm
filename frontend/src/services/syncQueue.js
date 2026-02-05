@@ -101,6 +101,8 @@ async function mergePeopleFromServer(people = []) {
       name: person.name,
       is_trusted: person.is_trusted ?? false,
       is_default: person.is_default ?? false,
+      color: person.color || "#0a84ff",
+      emoji: person.emoji || null,
     });
   }
 
