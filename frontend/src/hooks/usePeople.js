@@ -19,9 +19,14 @@ export function usePeople() {
       let allPeople = await getAllPeople();
       
       // Initialize default recommenders if they don't exist
-      if (allPeople.length === 0) {
+      const existingNames = new Set(allPeople.map(p => p.name));
+      const missingDefaultRecs = DEFAULT_RECOMMENDERS.filter(
+        defaultRec => !existingNames.has(defaultRec.name)
+      );
+      
+      if (missingDefaultRecs.length > 0) {
         await Promise.all(
-          DEFAULT_RECOMMENDERS.map(defaultRec => 
+          missingDefaultRecs.map(defaultRec => 
             savePerson({ name: defaultRec.name, is_trusted: false })
           )
         );
