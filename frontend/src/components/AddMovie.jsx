@@ -140,7 +140,8 @@ export default function AddMovie({ onAdd, onClose, peopleNames = [] }) {
         }
         setAddingMovie(false);
       } else {
-        // Close modal after all recommenders are added successfully
+        // All recommenders added successfully
+        setAddingMovie(false);
         onClose();
       }
     } catch (err) {
