@@ -1,0 +1,8 @@
+- add a way to add someone who downvoted a movie and track that in the users score
+- user score calculation should be based on the movies they have downvoted and the movies they have upvoted, and the scores of those movies.
+- add icons to imdb and rotten tomatoes instead of just the text
+- add background opacity on the banners in the movie details
+- add a way to click into actor / director information to see their filmography and details
+  - i want to be able to sort these by popularity, release date, and rating
+- add a way to click into genre information to see movies in that genre
+- add a way to click into production company information to see movies from that company

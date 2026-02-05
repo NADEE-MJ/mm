@@ -1,0 +1,43 @@
+"""Schemas for person/recommender related endpoints."""
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.movies import MovieResponse
+
+
+class PersonCreate(BaseModel):
+    name: str
+    is_trusted: bool = False
+    is_default: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PersonResponse(BaseModel):
+    name: str
+    is_trusted: bool
+    is_default: bool = False
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PersonUpdate(BaseModel):
+    is_trusted: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PersonStatsResponse(BaseModel):
+    name: str
+    is_trusted: bool
+    is_default: bool
+    total_movies: int
+    watched_movies: int
+    average_rating: Optional[float] = None
+    movies: List[MovieResponse] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True)

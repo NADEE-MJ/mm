@@ -154,7 +154,7 @@ export default function SyncIndicator() {
               </div>
 
               {/* Connection Status */}
-              <div className="mt-6 text-center">
+              <div className="mt-6 text-center space-y-2">
                 <p className="text-ios-caption1 text-ios-tertiary-label">
                   {navigator.onLine ? (
                     <span className="flex items-center justify-center gap-2">
@@ -167,6 +167,11 @@ export default function SyncIndicator() {
                       Offline - changes will sync when online
                     </span>
                   )}
+                </p>
+                <p className="text-ios-caption2 text-ios-secondary-label">
+                  {syncStatus.isRealtimeConnected
+                    ? "Live updates active via WebSocket"
+                    : "Listening for updates via background sync"}
                 </p>
               </div>
             </div>

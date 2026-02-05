@@ -12,15 +12,24 @@ import {
   saveMovie,
   savePerson,
   getAllMovies,
+  getMovie,
+  getAllPeople,
+  deletePerson,
 } from "./storage";
 import { api } from "./api";
+import { getAuthToken } from "../contexts/AuthContext";
 
 const MAX_RETRIES = 3;
 const SYNC_INTERVAL = 30000; // 30 seconds
+const WS_RECONNECT_DELAY = 5000;
 
 let syncInterval = null;
 let isProcessing = false;
 let isSyncingFromServer = false;
+let syncSocket = null;
+let wsReconnectTimeout = null;
+let wsConnected = false;
+let realtimeSyncTimeout = null;
 
 // Event emitter for sync status updates
 const syncListeners = new Set();
@@ -33,6 +42,162 @@ export function addSyncListener(callback) {
 function notifySyncListeners() {
   getSyncStatus().then((status) => {
     syncListeners.forEach((callback) => callback(status));
+  });
+}
+
+function transformServerMovie(serverMovie) {
+  if (!serverMovie) return null;
+
+  const serverTimestamp = (serverMovie.last_modified || serverMovie.lastModified || 0) * 1000;
+  return {
+    imdbId: serverMovie.imdb_id,
+    tmdbData: serverMovie.tmdb_data,
+    omdbData: serverMovie.omdb_data,
+    lastModified: serverTimestamp,
+    status: serverMovie.status || "toWatch",
+    recommendations:
+      serverMovie.recommendations?.map((r) => ({
+        id: r.id,
+        person: r.person,
+        date_recommended: r.date_recommended,
+      })) || [],
+    watchHistory: serverMovie.watch_history
+      ? {
+          imdbId: serverMovie.watch_history.imdb_id,
+          dateWatched: serverMovie.watch_history.date_watched * 1000,
+          myRating: serverMovie.watch_history.my_rating,
+        }
+      : null,
+  };
+}
+
+async function upsertMovieFromServer(serverMovie) {
+  const normalized = transformServerMovie(serverMovie);
+  if (!normalized) return;
+  await saveMovie(normalized, { preserveTimestamp: true });
+}
+
+async function updateLocalMovieTimestamp(imdbId, serverTimestamp) {
+  if (!imdbId || !serverTimestamp) return;
+  try {
+    const movie = await getMovie(imdbId);
+    if (!movie) return;
+    movie.lastModified = serverTimestamp * 1000;
+    await saveMovie(movie, { preserveTimestamp: true });
+  } catch (error) {
+    console.warn("Could not update local lastModified:", error);
+  }
+}
+
+async function mergePeopleFromServer(people = []) {
+  const existing = await getAllPeople();
+  const existingMap = new Map(existing.map((person) => [person.name, person]));
+  const incomingNames = new Set();
+
+  for (const person of people) {
+    if (!person?.name) continue;
+    incomingNames.add(person.name);
+    await savePerson({
+      name: person.name,
+      is_trusted: person.is_trusted ?? false,
+      is_default: person.is_default ?? false,
+    });
+  }
+
+  for (const [name, person] of existingMap.entries()) {
+    if (!incomingNames.has(name) && !person.is_default) {
+      await deletePerson(name);
+    }
+  }
+}
+
+function getWebSocketUrl(token) {
+  const base = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, "");
+  const protocol = base.startsWith("https") ? "wss" : "ws";
+  const wsBase = base.replace(/^https?/, protocol);
+  return `${wsBase}/ws/sync?token=${encodeURIComponent(token)}`;
+}
+
+function teardownWebSocket() {
+  if (syncSocket) {
+    try {
+      syncSocket.close();
+    } catch (error) {
+      console.warn("Error closing sync socket", error);
+    }
+    syncSocket = null;
+  }
+  if (wsReconnectTimeout) {
+    clearTimeout(wsReconnectTimeout);
+    wsReconnectTimeout = null;
+  }
+  if (realtimeSyncTimeout) {
+    clearTimeout(realtimeSyncTimeout);
+    realtimeSyncTimeout = null;
+  }
+  if (wsConnected) {
+    wsConnected = false;
+    notifySyncListeners();
+  }
+}
+
+function scheduleWebSocketReconnect() {
+  if (wsReconnectTimeout || !navigator.onLine) return;
+  wsReconnectTimeout = setTimeout(() => {
+    wsReconnectTimeout = null;
+    ensureWebSocketConnection();
+  }, WS_RECONNECT_DELAY);
+}
+
+function scheduleRealtimeSync() {
+  if (realtimeSyncTimeout) return;
+  realtimeSyncTimeout = setTimeout(() => {
+    realtimeSyncTimeout = null;
+    fullSync().catch((error) => console.error("Realtime sync failed", error));
+  }, 250);
+}
+
+function handleWebSocketMessage(event) {
+  try {
+    const data = JSON.parse(event.data);
+    if (data.type === "movieUpdated" || data.type === "peopleUpdated") {
+      scheduleRealtimeSync();
+    }
+  } catch (error) {
+    console.warn("Invalid sync websocket payload", error);
+  }
+}
+
+export function ensureWebSocketConnection() {
+  if (syncSocket || !navigator.onLine) return;
+  const token = getAuthToken();
+  if (!token) return;
+
+  try {
+    const wsUrl = getWebSocketUrl(token);
+    syncSocket = new WebSocket(wsUrl);
+  } catch (error) {
+    console.error("Unable to open sync websocket", error);
+    scheduleWebSocketReconnect();
+    return;
+  }
+
+  syncSocket.addEventListener("open", () => {
+    wsConnected = true;
+    notifySyncListeners();
+  });
+
+  syncSocket.addEventListener("message", handleWebSocketMessage);
+
+  syncSocket.addEventListener("close", () => {
+    wsConnected = false;
+    syncSocket = null;
+    notifySyncListeners();
+    scheduleWebSocketReconnect();
+  });
+
+  syncSocket.addEventListener("error", (event) => {
+    console.error("Sync websocket error", event);
   });
 }
 
@@ -94,17 +259,14 @@ export async function processQueue() {
 
           // Update local movie's lastModified if returned
           if (result.last_modified && item.data.imdb_id) {
-            try {
-              const movies = await getAllMovies();
-              const movie = movies.find((m) => m.imdbId === item.data.imdb_id);
-              if (movie) {
-                movie.lastModified = result.last_modified * 1000;
-                await saveMovie(movie);
-              }
-            } catch (e) {
-              console.warn("Could not update local lastModified:", e);
-            }
+            await updateLocalMovieTimestamp(item.data.imdb_id, result.last_modified);
           }
+        } else if (result.conflict && result.server_state) {
+          console.warn(
+            `Conflict while syncing ${item.action} for ${item.data.imdb_id}, server state applied.`,
+          );
+          await removeSyncQueueItem(item.id);
+          await upsertMovieFromServer(result.server_state);
         } else {
           // Increment retries on failure
           await updateSyncQueueItem(item.id, {
@@ -161,6 +323,10 @@ export async function syncFromServer() {
 
     const response = await api.syncGetChanges(lastSyncSeconds);
 
+    if (response?.people) {
+      await mergePeopleFromServer(response.people);
+    }
+
     if (response && response.movies && response.movies.length > 0) {
       console.log(`Received ${response.movies.length} movies from server`);
 
@@ -178,29 +344,8 @@ export async function syncFromServer() {
           !localMovie || !localMovie.lastModified || serverTimestamp >= localMovie.lastModified;
 
         if (shouldUpdate) {
-          // Transform server data to local format
-          const movieData = {
-            imdbId: serverMovie.imdb_id,
-            tmdbData: serverMovie.tmdb_data,
-            omdbData: serverMovie.omdb_data,
-            lastModified: serverTimestamp,
-            status: serverMovie.status || "toWatch",
-            recommendations:
-              serverMovie.recommendations?.map((r) => ({
-                id: r.id,
-                person: r.person,
-                date_recommended: r.date_recommended,
-              })) || [],
-            watchHistory: serverMovie.watch_history
-              ? {
-                  imdbId: serverMovie.watch_history.imdb_id,
-                  dateWatched: serverMovie.watch_history.date_watched * 1000,
-                  myRating: serverMovie.watch_history.my_rating,
-                }
-              : null,
-          };
-
-          await saveMovie(movieData);
+          const movieData = transformServerMovie(serverMovie);
+          await saveMovie(movieData, { preserveTimestamp: true });
           console.log(`✓ Updated movie: ${imdbId}`);
         } else {
           console.log(`→ Skipped movie ${imdbId} (local is newer)`);
@@ -258,6 +403,7 @@ export function startAutoSync() {
 
   // Run immediately
   fullSync();
+  ensureWebSocketConnection();
 
   // Run on interval
   syncInterval = setInterval(() => {
@@ -268,10 +414,12 @@ export function startAutoSync() {
   const handleOnline = () => {
     console.log("Back online, triggering sync...");
     fullSync();
+    ensureWebSocketConnection();
   };
 
   const handleOffline = () => {
     console.log("Went offline");
+    teardownWebSocket();
     notifySyncListeners();
   };
 
@@ -289,6 +437,8 @@ export function startAutoSync() {
   startAutoSync._cleanup = () => {
     window.removeEventListener("online", handleOnline);
     window.removeEventListener("offline", handleOffline);
+    window.removeEventListener("sw-sync-requested", handleSWSync);
+    teardownWebSocket();
   };
 }
 
@@ -312,6 +462,7 @@ export function stopAutoSync() {
  */
 export async function getSyncStatus() {
   const queue = await getSyncQueue();
+  const lastSync = await getLastSync();
   const pending = queue.filter(
     (item) => item.status === "pending" || item.status === "processing",
   ).length;
@@ -339,11 +490,14 @@ export async function getSyncStatus() {
     pending,
     failed,
     retrying,
+    pendingCount: pending,
+    failedCount: failed,
     isOnline,
     isProcessing,
     isSyncingFromServer,
+    isRealtimeConnected: wsConnected,
     queueItems: queue,
-    isProcessing,
+    lastSync,
   };
 }
 

@@ -27,7 +27,7 @@ export function usePeople() {
       if (missingDefaultRecs.length > 0) {
         const results = await Promise.allSettled(
           missingDefaultRecs.map(defaultRec => 
-            savePerson({ name: defaultRec.name, is_trusted: false })
+            savePerson({ name: defaultRec.name, is_trusted: false, is_default: true })
           )
         );
         

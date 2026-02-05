@@ -1,0 +1,17 @@
+{
+  "name": "mm-cli",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "cli": "bash scripts/mm-cli.sh",
+    "help": "bash scripts/mm-cli.sh help",
+    "install:all": "bash scripts/mm-cli.sh install:all",
+    "install:frontend": "bash scripts/mm-cli.sh install:frontend",
+    "install:backend": "bash scripts/mm-cli.sh install:backend",
+    "build:frontend": "bash scripts/mm-cli.sh build:frontend",
+    "frontend:dev": "bash scripts/mm-cli.sh frontend:dev",
+    "backend:migrate": "bash scripts/mm-cli.sh backend:migrate",
+    "backend:start": "bash scripts/mm-cli.sh backend:start",
+    "start": "bash scripts/mm-cli.sh start"
+  }
+}

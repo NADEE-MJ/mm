@@ -26,7 +26,7 @@ import {
 import { useAuth } from "./contexts/AuthContext";
 import { useMovies } from "./hooks/useMovies";
 import { usePeople } from "./hooks/usePeople";
-import { startAutoSync, fullSync } from "./services/syncQueue";
+import { startAutoSync, stopAutoSync, fullSync } from "./services/syncQueue";
 import { MOVIE_STATUS, RATING_THRESHOLD } from "./utils/constants";
 import {
   sortMovies,
@@ -515,7 +515,13 @@ function AppContent() {
   useEffect(() => {
     if (isAuthenticated) {
       startAutoSync();
+      return () => {
+        stopAutoSync();
+      };
     }
+
+    stopAutoSync();
+    return undefined;
   }, [isAuthenticated]);
 
   const handleRefresh = useCallback(async () => {

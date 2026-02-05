@@ -46,9 +46,12 @@ export async function getAllMovies() {
   return db.getAll('movies');
 }
 
-export async function saveMovie(movie) {
+export async function saveMovie(movie, options = {}) {
   const db = await initDB();
-  movie.lastModified = Date.now();
+  const preserveTimestamp = options.preserveTimestamp || false;
+  if (!preserveTimestamp || !movie.lastModified) {
+    movie.lastModified = Date.now();
+  }
   return db.put('movies', movie);
 }
 

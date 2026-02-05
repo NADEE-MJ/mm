@@ -23,9 +23,9 @@ export function useSync() {
     isOnline: navigator.onLine,
     isProcessing: false,
     isSyncingFromServer: false,
+    isRealtimeConnected: false,
     queueItems: [],
   });
-  const [lastSyncTime, setLastSyncTime] = useState(null);
 
   // Update sync status
   const updateStatus = useCallback(async () => {
@@ -69,7 +69,6 @@ export function useSync() {
     try {
       const result = await fullSync();
       await updateStatus();
-      setLastSyncTime(Date.now());
       return result;
     } catch (err) {
       console.error("Error triggering sync:", err);
@@ -101,7 +100,6 @@ export function useSync() {
 
   return {
     syncStatus,
-    lastSyncTime,
     updateStatus,
     triggerSync,
     retryFailed: handleRetryFailed,
