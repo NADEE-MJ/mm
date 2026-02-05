@@ -114,8 +114,9 @@ export default function AddMovie({ onAdd, onClose, peopleNames = [] }) {
     if (!selectedMovie || selectedRecommenders.length === 0) return;
 
     setAddingMovie(true);
+    setError(null);
     try {
-      // Add movie with first recommender, then add additional recommenders
+      // Add movie with all recommenders
       for (const recommender of selectedRecommenders) {
         await onAdd(
           selectedMovie.imdbId,
@@ -124,6 +125,8 @@ export default function AddMovie({ onAdd, onClose, peopleNames = [] }) {
           selectedMovie.omdbData,
         );
       }
+      // Close modal after all recommenders are added successfully
+      onClose();
     } catch (err) {
       setError(err.message);
       setAddingMovie(false);
