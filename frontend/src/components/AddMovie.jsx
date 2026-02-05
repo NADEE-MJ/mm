@@ -116,19 +116,21 @@ export default function AddMovie({ onAdd, onClose, peopleNames = [] }) {
     setAddingMovie(true);
     setError(null);
     try {
-      // Add movie with all recommenders
-      for (const recommender of selectedRecommenders) {
-        await onAdd(
-          selectedMovie.imdbId,
-          recommender,
-          selectedMovie.tmdbData,
-          selectedMovie.omdbData,
-        );
-      }
+      // Add movie with all recommenders concurrently
+      await Promise.all(
+        selectedRecommenders.map(recommender =>
+          onAdd(
+            selectedMovie.imdbId,
+            recommender,
+            selectedMovie.tmdbData,
+            selectedMovie.omdbData,
+          )
+        )
+      );
       // Close modal after all recommenders are added successfully
       onClose();
     } catch (err) {
-      setError(err.message);
+      setError(`Failed to add some recommenders: ${err.message}. Please try again.`);
       setAddingMovie(false);
     }
   };
