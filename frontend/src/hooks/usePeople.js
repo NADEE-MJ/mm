@@ -25,11 +25,18 @@ export function usePeople() {
       );
       
       if (missingDefaultRecs.length > 0) {
-        await Promise.all(
+        const results = await Promise.allSettled(
           missingDefaultRecs.map(defaultRec => 
             savePerson({ name: defaultRec.name, is_trusted: false })
           )
         );
+        
+        // Log any failures but continue
+        const failed = results.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+          console.warn(`Failed to initialize ${failed.length} default recommender(s)`);
+        }
+        
         allPeople = await getAllPeople();
       }
       

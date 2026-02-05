@@ -138,14 +138,13 @@ export default function AddMovie({ onAdd, onClose, peopleNames = [] }) {
         } else {
           setError(`Failed to add recommenders. Please try again.`);
         }
-        setAddingMovie(false);
       } else {
         // All recommenders added successfully
-        setAddingMovie(false);
         onClose();
       }
     } catch (err) {
       setError(`An unexpected error occurred: ${err.message}`);
+    } finally {
       setAddingMovie(false);
     }
   };
