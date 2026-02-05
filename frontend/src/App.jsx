@@ -525,7 +525,6 @@ function AppContent() {
 
   const handleAddRecommendation = async (imdbId, person, tmdbData, omdbData) => {
     await addRecommendation(imdbId, person, tmdbData, omdbData);
-    setShowAddMovie(false);
   };
 
   const handleMarkWatched = async (imdbId, rating) => {

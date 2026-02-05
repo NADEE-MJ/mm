@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { getAllPeople, savePerson, addToSyncQueue } from '../services/storage';
+import { DEFAULT_RECOMMENDERS } from '../utils/constants';
 
 export function usePeople() {
   const [people, setPeople] = useState([]);
@@ -15,7 +16,30 @@ export function usePeople() {
   const loadPeople = async () => {
     try {
       setLoading(true);
-      const allPeople = await getAllPeople();
+      let allPeople = await getAllPeople();
+      
+      // Initialize default recommenders if they don't exist
+      const existingNames = new Set(allPeople.map(p => p.name));
+      const missingDefaultRecs = DEFAULT_RECOMMENDERS.filter(
+        defaultRec => !existingNames.has(defaultRec.name)
+      );
+      
+      if (missingDefaultRecs.length > 0) {
+        const results = await Promise.allSettled(
+          missingDefaultRecs.map(defaultRec => 
+            savePerson({ name: defaultRec.name, is_trusted: false })
+          )
+        );
+        
+        // Log any failures but continue
+        const failed = results.filter(r => r.status === 'rejected');
+        if (failed.length > 0) {
+          console.warn(`Failed to initialize ${failed.length} default recommender(s)`);
+        }
+        
+        allPeople = await getAllPeople();
+      }
+      
       setPeople(allPeople);
       setError(null);
     } catch (err) {

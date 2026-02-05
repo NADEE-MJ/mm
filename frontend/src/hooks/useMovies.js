@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { getAllMovies, saveMovie, addToSyncQueue } from '../services/storage';
+import { getAllMovies, saveMovie, addToSyncQueue, getPerson, savePerson } from '../services/storage';
 
 export function useMovies() {
   const [movies, setMovies] = useState([]);
@@ -44,6 +44,12 @@ export function useMovies() {
   // Add a recommendation
   const addRecommendation = async (imdbId, person, tmdbData = null, omdbData = null) => {
     try {
+      // Ensure person exists in people store
+      const existingPerson = await getPerson(person);
+      if (!existingPerson) {
+        await savePerson({ name: person, is_trusted: false });
+      }
+
       // Optimistic update
       const movie = movies.find(m => m.imdbId === imdbId) || {
         imdbId,

@@ -114,18 +114,37 @@ export default function AddMovie({ onAdd, onClose, peopleNames = [] }) {
     if (!selectedMovie || selectedRecommenders.length === 0) return;
 
     setAddingMovie(true);
+    setError(null);
     try {
-      // Add movie with first recommender, then add additional recommenders
-      for (const recommender of selectedRecommenders) {
-        await onAdd(
-          selectedMovie.imdbId,
-          recommender,
-          selectedMovie.tmdbData,
-          selectedMovie.omdbData,
-        );
+      // Add movie with all recommenders concurrently
+      const results = await Promise.allSettled(
+        selectedRecommenders.map(recommender =>
+          onAdd(
+            selectedMovie.imdbId,
+            recommender,
+            selectedMovie.tmdbData,
+            selectedMovie.omdbData,
+          )
+        )
+      );
+      
+      // Check for failures
+      const failed = results.filter(r => r.status === 'rejected');
+      if (failed.length > 0) {
+        const failedCount = failed.length;
+        const successCount = results.length - failedCount;
+        if (successCount > 0) {
+          setError(`Added ${successCount} recommender(s), but ${failedCount} failed. Please try again for the failed ones.`);
+        } else {
+          setError(`Failed to add recommenders. Please try again.`);
+        }
+      } else {
+        // All recommenders added successfully
+        onClose();
       }
     } catch (err) {
-      setError(err.message);
+      setError(`An unexpected error occurred: ${err.message}`);
+    } finally {
       setAddingMovie(false);
     }
   };
