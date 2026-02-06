@@ -1,45 +1,69 @@
 @import "tailwindcss";
 
 @theme {
-  /* iOS color palette as Tailwind colors */
+  /* Background Colors - Pure Black */
   --color-ios-bg: #000000;
-  --color-ios-bg-secondary: #1c1c1e;
-  --color-ios-bg-tertiary: #2c2c2e;
-  --color-ios-bg-elevated: #1c1c1e;
+  --color-ios-bg-secondary: #1a1a1a;
+  --color-ios-bg-tertiary: #2a2a2a;
+  --color-ios-bg-elevated: #1a1a1a;
   --color-ios-bg-grouped: #000000;
-  --color-ios-bg-grouped-secondary: #1c1c1e;
+  --color-ios-bg-grouped-secondary: #1a1a1a;
 
+  /* Primary Yellow Colors (IMDb-inspired) */
+  --color-ios-yellow: #DBA506;         /* Primary yellow - buttons, active tabs, ratings */
+  --color-ios-yellow-light: #F2DB83;   /* Lighter yellow - hover states, highlights */
+  --color-ios-yellow-dark: #B88A05;    /* Darker yellow - pressed states */
+
+  /* Text Colors */
   --color-ios-label: #ffffff;
-  --color-ios-label-secondary: rgba(235, 235, 245, 0.6);
-  --color-ios-label-tertiary: rgba(235, 235, 245, 0.3);
-  --color-ios-label-quaternary: rgba(235, 235, 245, 0.18);
+  --color-ios-label-secondary: rgba(255, 255, 255, 0.7);
+  --color-ios-label-tertiary: rgba(255, 255, 255, 0.5);
+  --color-ios-label-quaternary: rgba(255, 255, 255, 0.3);
 
-  --color-ios-separator: rgba(84, 84, 88, 0.65);
-  --color-ios-separator-opaque: #38383a;
+  /* UI Element Colors */
+  --color-ios-separator: rgba(255, 255, 255, 0.1);
+  --color-ios-separator-opaque: #2a2a2a;
+  --color-ios-fill: rgba(255, 255, 255, 0.15);
+  --color-ios-fill-secondary: rgba(255, 255, 255, 0.1);
+  --color-ios-fill-tertiary: rgba(255, 255, 255, 0.08);
+  --color-ios-fill-quaternary: rgba(255, 255, 255, 0.05);
+  --color-ios-secondary-fill: rgba(255, 255, 255, 0.1);
 
-  --color-ios-fill: rgba(120, 120, 128, 0.36);
-  --color-ios-fill-secondary: rgba(120, 120, 128, 0.32);
-  --color-ios-fill-tertiary: rgba(118, 118, 128, 0.24);
-  --color-ios-fill-quaternary: rgba(116, 118, 128, 0.18);
+  /* Status Colors */
+  --color-ios-red: #ff453a;      /* Errors, destructive actions, downvotes */
+  --color-ios-green: #30d158;    /* Success, watched status, upvotes */
+  --color-ios-blue: #0a84ff;     /* Links, secondary actions (minimal use) */
+  --color-ios-orange: #ff9f0a;   /* Warnings */
 
-  --color-ios-secondary-fill: rgba(120, 120, 128, 0.32);
-
-  /* iOS Accent Colors */
-  --color-ios-blue: #0a84ff;
-  --color-ios-green: #30d158;
+  /* Keep for backward compatibility during transition */
   --color-ios-indigo: #5e5ce6;
-  --color-ios-orange: #ff9f0a;
   --color-ios-pink: #ff375f;
   --color-ios-purple: #bf5af2;
-  --color-ios-red: #ff453a;
   --color-ios-teal: #64d2ff;
-  --color-ios-yellow: #ffd60a;
   --color-ios-gray: #8e8e93;
 
-  --color-ios-secondary-label: rgba(235, 235, 245, 0.6);
-  --color-ios-tertiary-label: rgba(235, 235, 245, 0.3);
+  /* Alias for consistency */
+  --color-ios-secondary-label: rgba(255, 255, 255, 0.7);
+  --color-ios-tertiary-label: rgba(255, 255, 255, 0.5);
   --color-ios-caption1: inherit;
   --color-ios-caption2: inherit;
+
+  /* App-specific color names (for future migration) */
+  --color-app-bg: #000000;
+  --color-app-bg-secondary: #1a1a1a;
+  --color-app-bg-tertiary: #2a2a2a;
+  --color-app-yellow: #DBA506;
+  --color-app-yellow-light: #F2DB83;
+  --color-app-yellow-dark: #B88A05;
+  --color-app-text: #ffffff;
+  --color-app-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-app-text-tertiary: rgba(255, 255, 255, 0.5);
+  --color-app-separator: rgba(255, 255, 255, 0.1);
+  --color-app-fill: rgba(255, 255, 255, 0.15);
+  --color-app-red: #ff453a;
+  --color-app-green: #30d158;
+  --color-app-blue: #0a84ff;
+  --color-app-orange: #ff9f0a;
 }
 
 :root {
@@ -59,7 +83,7 @@
 
 html {
   overscroll-behavior: none;
-  background-color: var(--ios-bg);
+  background-color: var(--color-ios-bg);
 }
 
 body {
@@ -67,8 +91,8 @@ body {
   padding: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  background-color: var(--ios-bg);
-  color: var(--ios-label);
+  background-color: var(--color-ios-bg);
+  color: var(--color-ios-label);
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
@@ -185,7 +209,7 @@ input[type="range"] {
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
-  background: var(--ios-fill-tertiary);
+  background: var(--color-ios-fill-tertiary);
   height: 4px;
   border-radius: 2px;
 }
@@ -202,7 +226,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 input[type="range"]::-moz-range-track {
-  background: var(--ios-fill-tertiary);
+  background: var(--color-ios-fill-tertiary);
   height: 4px;
   border-radius: 2px;
 }
@@ -255,8 +279,9 @@ input[type="number"] {
     transition: all 0.15s ease;
     font-size: 17px;
     letter-spacing: -0.41px;
-    color: white;
-    background-color: var(--ios-blue);
+    color: black;
+    background-color: var(--color-ios-yellow);
+    font-weight: 700;
   }
 
   .btn-ios-filled:active {
@@ -279,7 +304,7 @@ input[type="number"] {
     font-size: 17px;
     letter-spacing: -0.41px;
     color: white;
-    background-color: var(--ios-fill);
+    background-color: var(--color-ios-fill);
   }
 
   .btn-ios-gray:active {
@@ -298,7 +323,7 @@ input[type="number"] {
     font-size: 17px;
     letter-spacing: -0.41px;
     background-color: rgba(10, 132, 255, 0.15);
-    color: var(--ios-blue);
+    color: var(--color-ios-blue);
   }
 
   .btn-ios-tinted:active {
@@ -310,7 +335,7 @@ input[type="number"] {
     @apply font-semibold transition-all duration-150 flex items-center justify-center;
     font-size: 17px;
     background: transparent;
-    color: var(--ios-blue);
+    color: var(--color-ios-blue);
   }
 
   .btn-ios-destructive {
@@ -324,7 +349,7 @@ input[type="number"] {
     font-size: 17px;
     letter-spacing: -0.41px;
     color: white;
-    background-color: var(--ios-red);
+    background-color: var(--color-ios-red);
   }
 
   .btn-ios-destructive:active {
@@ -334,28 +359,28 @@ input[type="number"] {
 
   /* iOS-style grouped list */
   .ios-list-group {
-    background-color: var(--ios-bg-grouped-secondary);
+    background-color: var(--color-ios-bg-grouped-secondary);
     border-radius: 12px;
     overflow: hidden;
   }
 
   .ios-list-item {
     @apply flex items-center justify-between px-4 py-3;
-    background-color: var(--ios-bg-grouped-secondary);
+    background-color: var(--color-ios-bg-grouped-secondary);
     min-height: 44px;
   }
 
   .ios-list-item:not(:last-child) {
-    border-bottom: 0.5px solid var(--ios-separator);
+    border-bottom: 0.5px solid var(--color-ios-separator);
   }
 
   .ios-list-item:active {
-    background-color: var(--ios-fill-tertiary);
+    background-color: var(--color-ios-fill-tertiary);
   }
 
   /* iOS-style card */
   .ios-card {
-    background-color: var(--ios-bg-secondary);
+    background-color: var(--color-ios-bg-secondary);
     border-radius: 12px;
     overflow: hidden;
   }
@@ -363,15 +388,15 @@ input[type="number"] {
   /* iOS-style text field */
   .ios-input {
     @apply w-full px-4 py-3 rounded-xl;
-    background-color: var(--ios-fill-tertiary);
-    color: var(--ios-label);
+    background-color: var(--color-ios-fill-tertiary);
+    color: var(--color-ios-label);
     border: none;
     font-size: 17px;
     letter-spacing: -0.41px;
   }
 
   .ios-input::placeholder {
-    color: var(--ios-label-tertiary);
+    color: var(--color-ios-label-tertiary);
   }
 
   .ios-input:focus {
@@ -382,45 +407,45 @@ input[type="number"] {
   /* iOS-style search field */
   .ios-search {
     @apply w-full px-4 py-2.5 rounded-xl;
-    background-color: var(--ios-fill-tertiary);
-    color: var(--ios-label);
+    background-color: var(--color-ios-fill-tertiary);
+    color: var(--color-ios-label);
     border: none;
     font-size: 17px;
   }
 
   .ios-search::placeholder {
-    color: var(--ios-label-tertiary);
+    color: var(--color-ios-label-tertiary);
   }
 
   /* iOS-style segmented control */
   .ios-segmented {
     @apply flex p-0.5 rounded-lg;
-    background-color: var(--ios-fill-tertiary);
+    background-color: var(--color-ios-fill-tertiary);
   }
 
   .ios-segment {
     @apply flex-1 py-1.5 px-3 rounded-md text-center transition-all;
     font-size: 13px;
     font-weight: 500;
-    color: var(--ios-label);
+    color: var(--color-ios-label);
   }
 
   .ios-segment-active {
-    background-color: var(--ios-bg-tertiary);
+    background-color: var(--color-ios-bg-tertiary);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
 
   /* iOS-style navigation bar */
   .ios-navbar {
-    @apply sticky top-0 z-50 px-4;
+    @apply sticky top-0 z-10 px-4;
     background-color: rgba(0, 0, 0, 0.8);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
 
-  /* iOS-style tab bar - Floating liquid glass design */
+  /* iOS-style tab bar - Floating liquid glass design - Always on top */
   .ios-tabbar {
-    @apply fixed left-0 right-0 flex justify-center z-50;
+    @apply fixed left-0 right-0 flex justify-center z-60;
     bottom: max(20px, calc(20px + var(--sab)));
     pointer-events: none;
   }
@@ -452,12 +477,12 @@ input[type="number"] {
   /* Active tab indicator/slider */
   .ios-tabbar-slider {
     @apply absolute rounded-full transition-all duration-300 ease-out;
-    background: rgba(255, 255, 255, 0.15);
+    background: linear-gradient(135deg, rgba(219, 165, 6, 0.3) 0%, rgba(219, 165, 6, 0.2) 100%);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     height: calc(100% - 8px);
     top: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 8px rgba(219, 165, 6, 0.3);
   }
 
   .ios-tab {
@@ -475,17 +500,17 @@ input[type="number"] {
     font-weight: 500;
   }
 
-  /* iOS-style sheet/modal */
+  /* iOS-style sheet/modal - Default first layer modal */
   .ios-sheet {
-    @apply fixed inset-x-0 bottom-0 z-50 rounded-t-3xl flex flex-col;
-    background-color: var(--ios-bg-elevated);
+    @apply fixed inset-x-0 bottom-0 z-40 rounded-t-3xl flex flex-col;
+    background-color: var(--color-ios-bg-elevated);
     max-height: 85vh;
     max-height: 85dvh;
   }
 
   .ios-sheet-handle {
     @apply w-9 h-1 mx-auto mt-2 mb-2 rounded-full;
-    background-color: var(--ios-fill);
+    background-color: var(--color-ios-fill);
   }
 
   /* iOS-style badge */
@@ -499,11 +524,11 @@ input[type="number"] {
   /* iOS-style toggle/switch */
   .ios-toggle {
     @apply relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-200 shrink-0;
-    background-color: var(--ios-fill);
+    background-color: var(--color-ios-fill);
   }
 
   .ios-toggle-active {
-    background-color: var(--ios-green);
+    background-color: var(--color-ios-green);
   }
 
   .ios-toggle-thumb {
@@ -515,9 +540,9 @@ input[type="number"] {
     transform: translateX(24px);
   }
 
-  /* iOS-style action sheet */
+  /* iOS-style action sheet - First layer modal */
   .ios-action-sheet {
-    @apply fixed inset-0 z-50 flex flex-col justify-end;
+    @apply fixed inset-0 z-40 flex flex-col justify-end;
   }
 
   .ios-action-sheet-backdrop {
@@ -530,14 +555,14 @@ input[type="number"] {
 
   .ios-action-group {
     @apply rounded-xl overflow-hidden;
-    background-color: var(--ios-bg-elevated);
+    background-color: var(--color-ios-bg-elevated);
   }
 
   .ios-action {
     @apply w-full py-4 text-center transition-colors border-b;
     font-size: 20px;
-    color: var(--ios-blue);
-    border-color: var(--ios-separator);
+    color: var(--color-ios-blue);
+    border-color: var(--color-ios-separator);
   }
 
   .ios-action:last-child {
@@ -545,17 +570,17 @@ input[type="number"] {
   }
 
   .ios-action:active {
-    background-color: var(--ios-fill-tertiary);
+    background-color: var(--color-ios-fill-tertiary);
   }
 
   .ios-action-destructive {
-    color: var(--ios-red);
+    color: var(--color-ios-red);
   }
 
   .ios-action-cancel {
     @apply rounded-xl mt-2;
     font-weight: 600;
-    background-color: var(--ios-bg-elevated);
+    background-color: var(--color-ios-bg-elevated);
   }
 
   /* Additional utility classes for components */
@@ -563,8 +588,9 @@ input[type="number"] {
     @apply flex items-center justify-center font-semibold py-3 px-6 rounded-xl transition-all duration-150;
     font-size: 17px;
     letter-spacing: -0.41px;
-    background-color: var(--ios-blue);
-    color: white;
+    background-color: var(--color-ios-yellow);
+    color: black;
+    font-weight: 700;
   }
 
   .btn-ios-primary:active {
@@ -581,8 +607,8 @@ input[type="number"] {
     @apply flex items-center justify-center font-semibold py-3 px-6 rounded-xl transition-all duration-150;
     font-size: 17px;
     letter-spacing: -0.41px;
-    background-color: var(--ios-fill);
-    color: var(--ios-label);
+    background-color: var(--color-ios-fill);
+    color: var(--color-ios-label);
   }
 
   .btn-ios-secondary:active {
@@ -592,7 +618,7 @@ input[type="number"] {
 
   /* iOS List styles */
   .ios-list {
-    background-color: var(--ios-bg-secondary);
+    background-color: var(--color-ios-bg-secondary);
     border-radius: 12px;
     overflow: hidden;
   }
@@ -606,13 +632,13 @@ input[type="number"] {
     @apply relative flex flex-col items-center justify-center px-4 py-2;
     min-width: 70px;
     min-height: 52px;
-    color: var(--ios-label-tertiary);
+    color: var(--color-ios-label-tertiary);
     transition: all 0.25s ease;
     z-index: 2;
   }
 
   .ios-tabbar-item.active {
-    color: var(--ios-label);
+    color: var(--color-ios-yellow);
   }
 
   .ios-tabbar-item:active {
@@ -659,14 +685,14 @@ input[type="number"] {
     width: 52px;
     height: 52px;
     min-width: 52px;
-    background: linear-gradient(135deg, var(--ios-blue) 0%, #0066cc 100%);
+    background: linear-gradient(135deg, var(--color-ios-yellow) 0%, var(--color-ios-yellow-dark) 100%);
     border-radius: 16px;
-    color: white;
+    color: black;
     transition: all 0.2s ease;
     z-index: 2;
     box-shadow:
-      0 4px 12px rgba(10, 132, 255, 0.4),
-      0 2px 4px rgba(10, 132, 255, 0.2);
+      0 4px 12px rgba(219, 165, 6, 0.4),
+      0 2px 4px rgba(219, 165, 6, 0.2);
   }
 
   @media (min-width: 768px) {
@@ -694,48 +720,48 @@ input[type="number"] {
     font-size: 12px;
     font-weight: 600;
     min-width: 20px;
-    background-color: var(--ios-fill);
-    color: var(--ios-label-secondary);
+    background-color: var(--color-ios-fill);
+    color: var(--color-ios-label-secondary);
   }
 
   .ios-badge-mini {
     @apply absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center;
     font-size: 10px;
     font-weight: 700;
-    background-color: var(--ios-red);
+    background-color: var(--color-ios-red);
     color: white;
   }
 
   /* iOS icon button */
   .ios-icon-button {
     @apply relative p-2 rounded-full transition-all;
-    color: var(--ios-label-secondary);
+    color: var(--color-ios-label-secondary);
   }
 
   .ios-icon-button:active {
-    background-color: var(--ios-fill);
+    background-color: var(--color-ios-fill);
     transform: scale(0.95);
   }
 
   .ios-icon-button.active {
-    color: var(--ios-blue);
+    color: var(--color-ios-blue);
   }
 
   /* iOS segmented control */
   .ios-segmented-control {
     @apply flex p-1 rounded-xl;
-    background-color: var(--ios-fill-tertiary);
+    background-color: var(--color-ios-fill-tertiary);
   }
 
   .ios-segment {
     @apply flex-1 py-2 px-4 rounded-lg text-center transition-all font-medium;
     font-size: 13px;
-    color: var(--ios-label-secondary);
+    color: var(--color-ios-label-secondary);
   }
 
   .ios-segment.active {
-    background-color: var(--ios-bg-tertiary);
-    color: var(--ios-label);
+    background-color: var(--color-ios-bg-tertiary);
+    color: var(--color-ios-label);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
 
@@ -743,13 +769,14 @@ input[type="number"] {
   .ios-pill {
     @apply px-4 py-2 rounded-full transition-all font-medium;
     font-size: 15px;
-    background-color: var(--ios-fill);
-    color: var(--ios-label);
+    background-color: var(--color-ios-fill);
+    color: var(--color-ios-label);
   }
 
   .ios-pill.active {
-    background-color: var(--ios-blue);
-    color: white;
+    background-color: var(--color-ios-yellow);
+    color: black;
+    font-weight: 600;
   }
 
   .ios-pill:active {
@@ -759,22 +786,22 @@ input[type="number"] {
   /* iOS sheet header */
   .ios-sheet-header {
     @apply flex items-center justify-between px-4 py-3 border-b;
-    border-color: var(--ios-separator);
+    border-color: var(--color-ios-separator);
   }
 
   .ios-sheet-title {
     font-size: 17px;
     font-weight: 600;
-    color: var(--ios-label);
+    color: var(--color-ios-label);
   }
 
   .ios-sheet-close {
     @apply p-1 rounded-full;
-    color: var(--ios-label-secondary);
+    color: var(--color-ios-label-secondary);
   }
 
   .ios-sheet-close:active {
-    background-color: var(--ios-fill);
+    background-color: var(--color-ios-fill);
   }
 
   .ios-sheet-content {
@@ -783,7 +810,7 @@ input[type="number"] {
   }
 
   .ios-sheet-backdrop {
-    @apply absolute inset-0 bg-black/50;
+    @apply fixed inset-0 bg-black/50;
   }
 
   /* iOS action sheet */
@@ -796,14 +823,14 @@ input[type="number"] {
 
   .ios-action-group {
     @apply rounded-xl overflow-hidden;
-    background-color: var(--ios-bg-elevated);
+    background-color: var(--color-ios-bg-elevated);
   }
 
   .ios-action-item {
     @apply w-full py-4 text-center flex items-center justify-center gap-2 transition-colors border-b;
     font-size: 20px;
-    color: var(--ios-blue);
-    border-color: var(--ios-separator);
+    color: var(--color-ios-blue);
+    border-color: var(--color-ios-separator);
   }
 
   .ios-action-item:last-child {
@@ -811,23 +838,23 @@ input[type="number"] {
   }
 
   .ios-action-item:active {
-    background-color: var(--ios-fill-tertiary);
+    background-color: var(--color-ios-fill-tertiary);
   }
 
   .ios-action-item.destructive {
-    color: var(--ios-red);
+    color: var(--color-ios-red);
   }
 
   .ios-action-cancel {
     @apply w-full py-4 text-center rounded-xl mt-2;
     font-size: 20px;
     font-weight: 600;
-    background-color: var(--ios-bg-elevated);
-    color: var(--ios-blue);
+    background-color: var(--color-ios-bg-elevated);
+    color: var(--color-ios-blue);
   }
 
   .ios-action-cancel:active {
-    background-color: var(--ios-fill-tertiary);
+    background-color: var(--color-ios-fill-tertiary);
   }
 
   /* iOS navigation header */
@@ -836,7 +863,7 @@ input[type="number"] {
     background-color: rgba(0, 0, 0, 0.9);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
-    border-bottom: 0.5px solid var(--ios-separator);
+    border-bottom: 0.5px solid var(--color-ios-separator);
   }
 
   .ios-nav-header-content {
@@ -846,7 +873,7 @@ input[type="number"] {
   /* iOS loading screen */
   .ios-loading-screen {
     @apply min-h-screen flex flex-col items-center justify-center;
-    background-color: var(--ios-bg);
+    background-color: var(--color-ios-bg);
   }
 
   /* iOS main content area */
@@ -858,7 +885,7 @@ input[type="number"] {
   /* iOS app container */
   .ios-app {
     @apply min-h-screen;
-    background-color: var(--ios-bg);
+    background-color: var(--color-ios-bg);
   }
 
   /* iOS animation classes */
@@ -874,15 +901,15 @@ input[type="number"] {
     animation: ios-scale-in 0.25s cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  /* Navigation Stack System */
+  /* Navigation Stack System - Navigation pages */
   .nav-stack-page {
-    @apply fixed inset-0 bg-ios-bg z-40;
+    @apply fixed inset-0 bg-ios-bg z-30;
     padding-bottom: max(120px, calc(100px + var(--sab)));
     overflow-y: auto;
   }
 
   .nav-stack-blur-backdrop {
-    @apply fixed inset-0 z-30;
+    @apply fixed inset-0 z-20;
     backdrop-filter: blur(20px) brightness(0.6);
     -webkit-backdrop-filter: blur(20px) brightness(0.6);
     background: rgba(0, 0, 0, 0.3);
@@ -943,11 +970,11 @@ input[type="number"] {
 
   /* Navigation stack header */
   .nav-stack-header {
-    @apply sticky top-0 z-50 px-4 py-3 flex items-center gap-3;
+    @apply sticky top-0 z-10 px-4 py-3 flex items-center gap-3;
     background-color: rgba(0, 0, 0, 0.95);
     backdrop-filter: saturate(180%) blur(20px);
     -webkit-backdrop-filter: saturate(180%) blur(20px);
-    border-bottom: 0.5px solid var(--ios-separator);
+    border-bottom: 0.5px solid var(--color-ios-separator);
     padding-top: max(12px, calc(12px + var(--sat)));
   }
 
@@ -1034,26 +1061,29 @@ input[type="number"] {
 }
 
 /* Color utilities */
-.text-ios-label { color: var(--ios-label); }
-.text-ios-secondary-label { color: var(--ios-label-secondary); }
-.text-ios-tertiary-label { color: var(--ios-label-tertiary); }
-.text-ios-blue { color: var(--ios-blue); }
-.text-ios-green { color: var(--ios-green); }
-.text-ios-red { color: var(--ios-red); }
-.text-ios-orange { color: var(--ios-orange); }
-.text-ios-yellow { color: var(--ios-yellow); }
-.text-ios-purple { color: var(--ios-purple); }
-.text-ios-pink { color: var(--ios-pink); }
-.text-ios-teal { color: var(--ios-teal); }
-.text-ios-gray { color: var(--ios-gray); }
+.text-ios-label { color: var(--color-ios-label); }
+.text-ios-secondary-label { color: var(--color-ios-label-secondary); }
+.text-ios-tertiary-label { color: var(--color-ios-label-tertiary); }
+.text-ios-blue { color: var(--color-ios-blue); }
+.text-ios-green { color: var(--color-ios-green); }
+.text-ios-red { color: var(--color-ios-red); }
+.text-ios-orange { color: var(--color-ios-orange); }
+.text-ios-yellow { color: var(--color-ios-yellow); }
+.text-ios-yellow-light { color: var(--color-ios-yellow-light); }
+.text-ios-purple { color: var(--color-ios-purple); }
+.text-ios-pink { color: var(--color-ios-pink); }
+.text-ios-teal { color: var(--color-ios-teal); }
+.text-ios-gray { color: var(--color-ios-gray); }
 
-.bg-ios-bg { background-color: var(--ios-bg); }
-.bg-ios-secondary { background-color: var(--ios-bg-secondary); }
-.bg-ios-fill { background-color: var(--ios-fill); }
-.bg-ios-secondary-fill { background-color: var(--ios-fill-secondary); }
-.bg-ios-blue { background-color: var(--ios-blue); }
-.bg-ios-green { background-color: var(--ios-green); }
-.bg-ios-red { background-color: var(--ios-red); }
-.bg-ios-orange { background-color: var(--ios-orange); }
+.bg-ios-bg { background-color: var(--color-ios-bg); }
+.bg-ios-secondary { background-color: var(--color-ios-bg-secondary); }
+.bg-ios-fill { background-color: var(--color-ios-fill); }
+.bg-ios-secondary-fill { background-color: var(--color-ios-fill-secondary); }
+.bg-ios-blue { background-color: var(--color-ios-blue); }
+.bg-ios-green { background-color: var(--color-ios-green); }
+.bg-ios-red { background-color: var(--color-ios-red); }
+.bg-ios-orange { background-color: var(--color-ios-orange); }
+.bg-ios-yellow { background-color: var(--color-ios-yellow); }
+.bg-ios-yellow-light { background-color: var(--color-ios-yellow-light); }
 
-.border-ios-separator { border-color: var(--ios-separator); }
+.border-ios-separator { border-color: var(--color-ios-separator); }

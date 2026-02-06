@@ -41,7 +41,7 @@ export default function MovieCard({ movie, onClick }) {
             loading="lazy"
           />
           {myRating && (
-            <div className="absolute -top-1.5 -right-1.5 bg-ios-blue text-white text-xs font-semibold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-lg">
+            <div className="absolute -top-1.5 -right-1.5 bg-ios-yellow text-black text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-lg">
               <Star className="w-3 h-3 fill-current" />
               {formatRating(myRating)}
             </div>

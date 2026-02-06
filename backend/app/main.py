@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from app.api.router import register_routers
+from app.config import config
 from database import engine
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -34,14 +35,10 @@ def create_app() -> FastAPI:
 
 
 def configure_cors(app: FastAPI) -> None:
-    """Apply permissive local dev CORS configuration."""
+    """Apply CORS configuration from environment."""
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://localhost:3000",
-        ],
+        allow_origins=config.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

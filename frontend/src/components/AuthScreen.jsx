@@ -55,8 +55,8 @@ export default function AuthScreen() {
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 safe-area-top safe-area-bottom">
         {/* Logo */}
         <div className="mb-10 text-center">
-          <div className="w-24 h-24 bg-ios-blue rounded-[28px] flex items-center justify-center mx-auto mb-5 shadow-lg">
-            <Film className="w-12 h-12 text-white" />
+          <div className="w-24 h-24 bg-ios-yellow rounded-[28px] flex items-center justify-center mx-auto mb-5 shadow-lg">
+            <Film className="w-12 h-12 text-black" />
           </div>
           <h1 className="text-ios-large-title font-bold text-ios-label">Movie Tracker</h1>
           <p className="text-ios-body text-ios-secondary-label mt-2">

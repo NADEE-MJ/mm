@@ -6,20 +6,21 @@ to reduce external API calls and improve response times.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 
 import httpx
 from cachetools import TTLCache
 from fastapi import HTTPException, status
 
+from app.config import config
+
 # Cache configuration: 500 items, 1 hour TTL
 # This cache is shared across all requests and lives in memory
 _cache: TTLCache = TTLCache(maxsize=500, ttl=3600)
 
 # API configuration from environment
-TMDB_API_KEY = os.getenv("TMDB_API_KEY")
-OMDB_API_KEY = os.getenv("OMDB_API_KEY")
+TMDB_API_KEY = config.TMDB_API_KEY
+OMDB_API_KEY = config.OMDB_API_KEY
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 OMDB_BASE_URL = "https://www.omdbapi.com"
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p"
