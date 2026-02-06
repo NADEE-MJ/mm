@@ -515,10 +515,13 @@ input[type="number"] {
 
   /* iOS-style sheet/modal - Default first layer modal */
   .ios-sheet {
-    @apply fixed inset-x-0 bottom-0 z-40 rounded-t-3xl flex flex-col;
+    @apply fixed inset-x-0 z-40 rounded-t-3xl flex flex-col;
     background-color: var(--color-ios-bg-elevated);
-    max-height: 85vh;
-    max-height: 85dvh;
+    bottom: 0;
+    /* Extend into safe area to cover bottom bar on iOS PWA */
+    padding-bottom: env(safe-area-inset-bottom);
+    max-height: calc(85vh + env(safe-area-inset-bottom));
+    max-height: calc(85dvh + env(safe-area-inset-bottom));
   }
 
   .ios-sheet-handle {
