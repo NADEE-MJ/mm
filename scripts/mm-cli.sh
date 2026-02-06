@@ -35,6 +35,16 @@ install_backend() {
   run_in_dir "$BACKEND_DIR" uv sync
 }
 
+install_sync() {
+  require_cmd npm
+  require_cmd uv
+  log "Syncing frontend dependencies (npm ci)"
+  run_in_dir "$FRONTEND_DIR" npm ci
+  log "Syncing backend dependencies (uv sync)"
+  run_in_dir "$BACKEND_DIR" uv sync
+  log "Frontend and backend dependencies synced"
+}
+
 build_frontend() {
   require_cmd npm
   log "Building frontend"
@@ -184,6 +194,7 @@ Commands:
   install:all        Install frontend and backend dependencies
   install:frontend   Install only frontend dependencies
   install:backend    Install only backend dependencies
+  install:sync       Sync frontend (npm ci) and backend (uv sync) dependencies from lock files
   build:frontend     Build the frontend bundle
   frontend:dev       Start the frontend dev server (opts: --host, --port, use -- to pass extra Vite args)
   backend:migrate    Apply the latest Alembic migrations
@@ -205,6 +216,9 @@ case "$COMMAND" in
     ;;
   install:backend)
     install_backend
+    ;;
+  install:sync)
+    install_sync
     ;;
   build:frontend)
     build_frontend
