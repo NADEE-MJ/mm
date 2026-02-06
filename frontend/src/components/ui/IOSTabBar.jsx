@@ -44,8 +44,8 @@ export default function IOSTabBar({ onAddClick }) {
   }, [activeTabIndex]);
 
   return (
-    <>
-      <nav className="ios-tabbar">
+    <nav className="ios-tabbar">
+      <div className="ios-tabbar-wrapper">
         <div className="ios-tabbar-container">
           {activeTabIndex >= 0 && <div className="ios-tabbar-slider" style={sliderStyle} />}
           {tabs.map((tab, index) => {
@@ -66,11 +66,11 @@ export default function IOSTabBar({ onAddClick }) {
             );
           })}
         </div>
-      </nav>
-      {/* Floating Add Button - Separate from tab bar */}
-      <button onClick={onAddClick} className="ios-tabbar-add-button" aria-label="Add movie">
-        <Plus className="w-6 h-6 md:w-7 md:h-7" strokeWidth={2.5} />
-      </button>
-    </>
+        {/* Add Button - Next to tab bar with gap */}
+        <button onClick={onAddClick} className="ios-tabbar-add-button" aria-label="Add movie">
+          <Plus className="w-6 h-6 md:w-7 md:h-7" strokeWidth={2.5} />
+        </button>
+      </div>
+    </nav>
   );
 }
