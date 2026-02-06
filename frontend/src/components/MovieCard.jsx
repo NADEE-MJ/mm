@@ -3,8 +3,9 @@
  * Displays movie card in list view
  */
 
-import { Star, Users, ChevronRight } from "lucide-react";
+import { Star, Users, ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
 import { getPoster, formatRating, formatDate } from "../utils/helpers";
+import { VOTE_TYPE } from "../utils/constants";
 
 export default function MovieCard({ movie, onClick }) {
   const tmdb = movie.tmdbData || {};
@@ -17,10 +18,12 @@ export default function MovieCard({ movie, onClick }) {
   const imdbRating = omdb.imdbRating;
   const rtRating = omdb.rtRating;
   const myRating = movie.watchHistory?.myRating;
-  const recommenders = movie.recommendations || [];
+  const allVotes = movie.recommendations || [];
+  const upvotes = allVotes.filter(v => v.vote_type !== VOTE_TYPE.DOWNVOTE);
+  const downvotes = allVotes.filter(v => v.vote_type === VOTE_TYPE.DOWNVOTE);
   const dateAdded =
-    recommenders.length > 0
-      ? Math.max(...recommenders.map((r) => r.date_recommended || 0)) * 1000
+    allVotes.length > 0
+      ? Math.max(...allVotes.map((r) => r.date_recommended || 0)) * 1000
       : null;
 
   return (
@@ -84,15 +87,21 @@ export default function MovieCard({ movie, onClick }) {
             )}
           </div>
 
-          {/* Recommenders */}
-          {recommenders.length > 0 && (
-            <div className="flex items-center gap-1.5 mt-1 text-ios-caption1 text-ios-secondary-label">
-              <Users className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="truncate">
-                {recommenders.length === 1
-                  ? recommenders[0].person
-                  : `${recommenders[0].person} +${recommenders.length - 1}`}
-              </span>
+          {/* Votes */}
+          {allVotes.length > 0 && (
+            <div className="flex items-center gap-2 mt-1 text-ios-caption1">
+              {upvotes.length > 0 && (
+                <div className="flex items-center gap-1 text-ios-green">
+                  <ThumbsUp className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="font-medium">{upvotes.length}</span>
+                </div>
+              )}
+              {downvotes.length > 0 && (
+                <div className="flex items-center gap-1 text-ios-red">
+                  <ThumbsDown className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span className="font-medium">{downvotes.length}</span>
+                </div>
+              )}
               {dateAdded && (
                 <>
                   <span className="text-ios-tertiary-label">•</span>

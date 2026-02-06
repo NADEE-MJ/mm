@@ -95,12 +95,18 @@ async def sync_process_action(
 
             created_person = False
 
-            if not existing:
+            if existing:
+                # Update existing vote if vote_type changed
+                existing.vote_type = data.get("vote_type", "upvote")
+                existing.date_recommended = data.get("date_recommended", time.time())
+            else:
+                # Create new vote
                 recommendation = Recommendation(
                     imdb_id=imdb_id,
                     user_id=user.id,
                     person=person_name,
                     date_recommended=data.get("date_recommended", time.time()),
+                    vote_type=data.get("vote_type", "upvote"),
                 )
                 db.add(recommendation)
 

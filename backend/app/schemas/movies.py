@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class RecommendationCreate(BaseModel):
     person: str
     date_recommended: Optional[float] = None
+    vote_type: str = "upvote"  # 'upvote' or 'downvote'
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -19,6 +20,7 @@ class RecommendationResponse(BaseModel):
     imdb_id: str
     person: str
     date_recommended: float
+    vote_type: str = "upvote"
 
     model_config = ConfigDict(from_attributes=True)
 

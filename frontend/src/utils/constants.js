@@ -18,6 +18,11 @@ export const SYNC_STATUS = {
 
 export const RATING_THRESHOLD = 6.0; // Threshold for triggering questionable prompt
 
+export const VOTE_TYPE = {
+  UPVOTE: "upvote",
+  DOWNVOTE: "downvote",
+};
+
 export const API_LIMITS = {
   TMDB_RATE_LIMIT: 40, // 40 requests per second
   OMDB_DAILY_LIMIT: 1000, // 1000 requests per day

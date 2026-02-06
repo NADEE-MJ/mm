@@ -60,6 +60,7 @@ function transformServerMovie(serverMovie) {
         id: r.id,
         person: r.person,
         date_recommended: r.date_recommended,
+        vote_type: r.vote_type || "upvote",  // Default to upvote for backwards compat
       })) || [],
     watchHistory: serverMovie.watch_history
       ? {

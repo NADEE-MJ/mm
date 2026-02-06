@@ -55,6 +55,7 @@ def serialize_movie(movie: Movie) -> dict:
                 "imdb_id": r.imdb_id,
                 "person": r.person,
                 "date_recommended": r.date_recommended,
+                "vote_type": getattr(r, "vote_type", "upvote"),  # Default to upvote for backwards compat
             }
             for r in movie.recommendations
         ],

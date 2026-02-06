@@ -41,8 +41,8 @@ export function useMovies() {
     }
   };
 
-  // Add a recommendation
-  const addRecommendation = async (imdbId, person, tmdbData = null, omdbData = null) => {
+  // Add a vote (recommendation)
+  const addRecommendation = async (imdbId, person, tmdbData = null, omdbData = null, voteType = 'upvote') => {
     try {
       // Ensure person exists in people store
       const existingPerson = await getPerson(person);
@@ -63,10 +63,20 @@ export function useMovies() {
       const recommendation = {
         person,
         date_recommended: Date.now() / 1000,
+        vote_type: voteType,
       };
 
       movie.recommendations = movie.recommendations || [];
-      movie.recommendations.push(recommendation);
+
+      // Check if this person already has a vote
+      const existingIndex = movie.recommendations.findIndex(r => r.person === person);
+      if (existingIndex >= 0) {
+        // Update existing vote
+        movie.recommendations[existingIndex] = recommendation;
+      } else {
+        // Add new vote
+        movie.recommendations.push(recommendation);
+      }
 
       await saveMovie(movie);
 
@@ -75,13 +85,14 @@ export function useMovies() {
         imdb_id: imdbId,
         person,
         date_recommended: recommendation.date_recommended,
+        vote_type: voteType,
         tmdb_data: tmdbData,
         omdb_data: omdbData,
       });
 
       await loadMovies();
     } catch (err) {
-      console.error('Error adding recommendation:', err);
+      console.error('Error adding vote:', err);
       throw err;
     }
   };

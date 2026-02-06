@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Film,
   CheckCircle,
@@ -563,34 +563,15 @@ function DeletedListView({ movies, onMovieClick, onRefresh }) {
   );
 }
 
-function AppContent() {
-  const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
-  const { movies, loading, loadMovies, addRecommendation, markWatched, updateStatus } = useMovies();
+function MovieDetailPage() {
+  const { imdbId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { movies, loadMovies, markWatched, updateStatus, addRecommendation } = useMovies();
   const { people, getPeopleNames } = usePeople();
-  const [selectedMovie, setSelectedMovie] = useState(null);
-  const [showAddMovie, setShowAddMovie] = useState(false);
   const [ratingPrompt, setRatingPrompt] = useState(null);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      startAutoSync();
-      return () => {
-        stopAutoSync();
-      };
-    }
-
-    stopAutoSync();
-    return undefined;
-  }, [isAuthenticated]);
-
-  const handleRefresh = useCallback(async () => {
-    await fullSync();
-    await loadMovies();
-  }, [loadMovies]);
-
-  const handleAddRecommendation = async (imdbId, person, tmdbData, omdbData) => {
-    await addRecommendation(imdbId, person, tmdbData, omdbData);
-  };
+  const movie = useMemo(() => movies.find((m) => m.imdbId === imdbId), [movies, imdbId]);
 
   const handleMarkWatched = async (imdbId, rating) => {
     await markWatched(imdbId, rating);
@@ -605,8 +586,7 @@ function AppContent() {
       }
     }
 
-    setSelectedMovie(null);
-    loadMovies();
+    await loadMovies();
   };
 
   const handleRatingPromptAction = async (action) => {
@@ -628,14 +608,112 @@ function AppContent() {
     }
 
     setRatingPrompt(null);
-    loadMovies();
+    await loadMovies();
   };
 
   const handleUpdateStatus = async (imdbId, status) => {
     await updateStatus(imdbId, status);
-    setSelectedMovie(null);
-    loadMovies();
+    await loadMovies();
   };
+
+  if (!movie) {
+    return (
+      <div className="nav-stack-page slide-in-right">
+        <div className="nav-stack-blur-backdrop fade-in-backdrop" onClick={() => navigate(-1)} />
+        <div className="relative z-50 bg-ios-bg min-h-screen">
+          <header className="nav-stack-header">
+            <button onClick={() => navigate(-1)} className="nav-stack-back-button">
+              <ChevronRight className="w-5 h-5 rotate-180" />
+              <span>Back</span>
+            </button>
+          </header>
+          <div className="nav-stack-content">
+            <p className="text-ios-secondary-label">Movie not found</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="nav-stack-blur-backdrop fade-in-backdrop" onClick={() => navigate(-1)} />
+      <div className="nav-stack-page slide-in-right">
+        <MovieDetail
+          movie={movie}
+          onClose={() => navigate(-1)}
+          onMarkWatched={handleMarkWatched}
+          onUpdateStatus={handleUpdateStatus}
+          onAddVote={addRecommendation}
+          people={people}
+          peopleNames={getPeopleNames()}
+        />
+      </div>
+      {ratingPrompt && (
+        <RatingPrompt
+          movie={ratingPrompt.movie}
+          recommenders={ratingPrompt.recommenders}
+          onAction={handleRatingPromptAction}
+          onClose={() => setRatingPrompt(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function AddMoviePage() {
+  const navigate = useNavigate();
+  const { addRecommendation } = useMovies();
+  const { people, getPeopleNames } = usePeople();
+
+  const handleAdd = async (...args) => {
+    await addRecommendation(...args);
+    navigate(-1);
+  };
+
+  return (
+    <>
+      <div className="nav-stack-blur-backdrop fade-in-backdrop" onClick={() => navigate(-1)} />
+      <div className="nav-stack-page slide-in-right">
+        <AddMovie
+          onAdd={handleAdd}
+          onClose={() => navigate(-1)}
+          people={people}
+          peopleNames={getPeopleNames()}
+        />
+      </div>
+    </>
+  );
+}
+
+function AppContent() {
+  const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
+  const { movies, loading, loadMovies, addRecommendation, markWatched, updateStatus } = useMovies();
+  const { people, getPeopleNames } = usePeople();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [ratingPrompt, setRatingPrompt] = useState(null);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      startAutoSync();
+      return () => {
+        stopAutoSync();
+      };
+    }
+
+    stopAutoSync();
+    return undefined;
+  }, [isAuthenticated]);
+
+  const handleRefresh = useCallback(async () => {
+    await fullSync();
+    await loadMovies();
+  }, [loadMovies]);
+
+  const handleMovieClick = useCallback((movie) => {
+    navigate(`/movie/${movie.imdbId}`);
+  }, [navigate]);
 
   // Loading states
   if (authLoading) {
@@ -686,7 +764,7 @@ function AppContent() {
             element={
               <MoviesTab
                 movies={movies}
-                onMovieClick={setSelectedMovie}
+                onMovieClick={handleMovieClick}
                 onRefresh={handleRefresh}
               />
             }
@@ -695,7 +773,7 @@ function AppContent() {
           <Route
             path="/lists"
             element={
-              <ListsTab movies={movies} onMovieClick={setSelectedMovie} onRefresh={handleRefresh} />
+              <ListsTab movies={movies} onMovieClick={handleMovieClick} onRefresh={handleRefresh} />
             }
           />
           <Route
@@ -703,45 +781,19 @@ function AppContent() {
             element={
               <DeletedListView
                 movies={movies}
-                onMovieClick={setSelectedMovie}
+                onMovieClick={handleMovieClick}
                 onRefresh={handleRefresh}
               />
             }
           />
           <Route path="/stats" element={<UserStats movies={movies} user={user} />} />
+          <Route path="/movie/:imdbId" element={<MovieDetailPage />} />
+          <Route path="/add" element={<AddMoviePage />} />
         </Routes>
       </main>
 
       {/* Bottom Tab Bar */}
-      <IOSTabBar onAddClick={() => setShowAddMovie(true)} />
-
-      {/* Modals */}
-      {selectedMovie && (
-        <MovieDetail
-          movie={selectedMovie}
-          onClose={() => setSelectedMovie(null)}
-          onMarkWatched={handleMarkWatched}
-          onUpdateStatus={handleUpdateStatus}
-        />
-      )}
-
-      {showAddMovie && (
-        <AddMovie
-          onAdd={handleAddRecommendation}
-          onClose={() => setShowAddMovie(false)}
-          people={people}
-          peopleNames={getPeopleNames()}
-        />
-      )}
-
-      {ratingPrompt && (
-        <RatingPrompt
-          movie={ratingPrompt.movie}
-          recommenders={ratingPrompt.recommenders}
-          onAction={handleRatingPromptAction}
-          onClose={() => setRatingPrompt(null)}
-        />
-      )}
+      <IOSTabBar onAddClick={() => navigate("/add")} />
     </div>
   );
 }

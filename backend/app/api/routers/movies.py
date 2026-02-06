@@ -47,19 +47,22 @@ async def add_recommendation(
         )
         .first()
     )
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Recommendation from this person already exists",
-        )
 
-    db_recommendation = Recommendation(
-        imdb_id=imdb_id,
-        user_id=user.id,
-        person=recommendation.person,
-        date_recommended=recommendation.date_recommended or time.time(),
-    )
-    db.add(db_recommendation)
+    if existing:
+        # Update existing vote if vote_type changed
+        existing.vote_type = recommendation.vote_type
+        existing.date_recommended = recommendation.date_recommended or time.time()
+        db_recommendation = existing
+    else:
+        # Create new vote
+        db_recommendation = Recommendation(
+            imdb_id=imdb_id,
+            user_id=user.id,
+            person=recommendation.person,
+            date_recommended=recommendation.date_recommended or time.time(),
+            vote_type=recommendation.vote_type,
+        )
+        db.add(db_recommendation)
 
     created_person = False
     person = (

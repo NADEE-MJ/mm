@@ -15,13 +15,19 @@ import {
   Film,
   ChevronRight,
   ArrowUpRight,
+  ThumbsUp,
+  ThumbsDown,
+  Plus,
 } from "lucide-react";
 import { getPoster, formatDate, formatRating } from "../utils/helpers";
-import { MOVIE_STATUS } from "../utils/constants";
+import { MOVIE_STATUS, VOTE_TYPE } from "../utils/constants";
 
-export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateStatus }) {
+export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateStatus, onAddVote, people = [], peopleNames = [] }) {
   const [showRating, setShowRating] = useState(false);
   const [rating, setRating] = useState(7.0);
+  const [showAddDownvote, setShowAddDownvote] = useState(false);
+  const [downvotePersonQuery, setDownvotePersonQuery] = useState("");
+  const [selectedDownvotePerson, setSelectedDownvotePerson] = useState(null);
 
   if (!movie) return null;
 
@@ -38,8 +44,15 @@ export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateSta
   const imdbRating = omdb.imdbRating;
   const rtRating = omdb.rtRating;
   const runtime = omdb.runtime || (tmdb.runtime ? `${tmdb.runtime} min` : null);
-  const recommenders = movie.recommendations || [];
+  const allVotes = movie.recommendations || [];
+  const upvotes = allVotes.filter(v => v.vote_type !== VOTE_TYPE.DOWNVOTE);
+  const downvotes = allVotes.filter(v => v.vote_type === VOTE_TYPE.DOWNVOTE);
   const watchHistory = movie.watchHistory;
+
+  // Filter people for downvote selection
+  const availablePeople = peopleNames.filter(name =>
+    name.toLowerCase().includes(downvotePersonQuery.toLowerCase())
+  ).slice(0, 10);
 
   const handleMarkWatched = async () => {
     await onMarkWatched(movie.imdbId, rating);
@@ -48,6 +61,20 @@ export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateSta
 
   const handleStatusChange = async (newStatus) => {
     await onUpdateStatus(movie.imdbId, newStatus);
+  };
+
+  const handleAddDownvote = async () => {
+    if (!selectedDownvotePerson && !downvotePersonQuery.trim()) return;
+
+    const person = selectedDownvotePerson || downvotePersonQuery.trim();
+    try {
+      await onAddVote(movie.imdbId, person, movie.tmdbData, movie.omdbData, VOTE_TYPE.DOWNVOTE);
+      setShowAddDownvote(false);
+      setDownvotePersonQuery("");
+      setSelectedDownvotePerson(null);
+    } catch (error) {
+      console.error("Error adding downvote:", error);
+    }
   };
 
   const getStatusInfo = () => {
@@ -68,37 +95,31 @@ export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateSta
   const quickRatings = [5.0, 6.0, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0];
 
   return (
-    <div className="fixed inset-0 bg-ios-bg z-50 overflow-y-auto ios-fade-in">
-      <div className="min-h-screen">
-        {/* Header with backdrop */}
-        <div className="relative">
-          {/* Backdrop Image */}
-          <div
-            className="absolute inset-0 h-72 bg-cover bg-center"
-            style={{ backgroundImage: `url(${poster})` }}
-          />
-          <div className="absolute inset-0 h-72 bg-gradient-to-b from-black/60 via-black/40 to-ios-bg" />
+    <div className="bg-ios-bg min-h-screen">
+      {/* Header with back button */}
+      <header className="nav-stack-header">
+        <button onClick={onClose} className="nav-stack-back-button">
+          <ChevronRight className="w-5 h-5 rotate-180" />
+          <span>Back</span>
+        </button>
+        <div className="flex-1" />
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${statusInfo.color}`}>
+          <StatusIcon className="w-4 h-4" />
+          {statusInfo.text}
+        </span>
+      </header>
 
-          {/* Close Button */}
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-2 bg-ios-fill/80 backdrop-blur-xl rounded-full transition-all active:scale-95 safe-area-top"
-          >
-            <X className="w-6 h-6 text-white" />
-          </button>
+      {/* Movie Content */}
+      <div className="relative">
+        {/* Backdrop Image */}
+        <div
+          className="absolute inset-0 h-64 bg-cover bg-center"
+          style={{ backgroundImage: `url(${poster})` }}
+        />
+        <div className="absolute inset-0 h-64 bg-gradient-to-b from-black/60 via-black/40 to-ios-bg" />
 
-          {/* Status Badge */}
-          <div className="absolute top-4 left-4 z-10 safe-area-top">
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium backdrop-blur-xl ${statusInfo.color}`}
-            >
-              <StatusIcon className="w-4 h-4" />
-              {statusInfo.text}
-            </span>
-          </div>
-
-          {/* Movie Info Header */}
-          <div className="relative pt-36 px-4 pb-4">
+        {/* Movie Info Header */}
+        <div className="relative pt-20 px-4 pb-4">
             <div className="flex gap-4">
               {/* Poster */}
               <img
@@ -182,30 +203,83 @@ export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateSta
           </div>
 
           {/* Recommenders */}
-          {recommenders.length > 0 && (
+          {/* Votes Section */}
+          {allVotes.length > 0 && (
             <div>
-              <h3 className="text-ios-caption1 font-semibold text-ios-secondary-label uppercase tracking-wider mb-3">
-                Recommended by
-              </h3>
-              <div className="ios-list">
-                {recommenders.map((rec) => (
-                  <div key={rec.id || rec.person} className="ios-list-item py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-ios-fill flex items-center justify-center">
-                        <span className="text-sm font-medium text-ios-secondary-label">
-                          {rec.person.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                      <span className="text-ios-label font-medium">{rec.person}</span>
-                    </div>
-                    {rec.date_recommended && (
-                      <span className="text-ios-caption1 text-ios-tertiary-label">
-                        {formatDate(rec.date_recommended * 1000)}
-                      </span>
-                    )}
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-ios-caption1 font-semibold text-ios-secondary-label uppercase tracking-wider">
+                  Votes
+                </h3>
+                <button
+                  onClick={() => setShowAddDownvote(true)}
+                  className="text-ios-blue text-sm font-medium flex items-center gap-1"
+                >
+                  <ThumbsDown className="w-4 h-4" />
+                  Add Downvote
+                </button>
               </div>
+
+              {/* Upvotes */}
+              {upvotes.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ThumbsUp className="w-4 h-4 text-ios-green" />
+                    <span className="text-ios-caption1 text-ios-green font-medium">
+                      Upvotes ({upvotes.length})
+                    </span>
+                  </div>
+                  <div className="ios-list">
+                    {upvotes.map((vote) => (
+                      <div key={vote.id || vote.person} className="ios-list-item py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-ios-green/20 flex items-center justify-center">
+                            <span className="text-sm font-medium text-ios-green">
+                              {vote.person.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-ios-label font-medium">{vote.person}</span>
+                        </div>
+                        {vote.date_recommended && (
+                          <span className="text-ios-caption1 text-ios-tertiary-label">
+                            {formatDate(vote.date_recommended * 1000)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Downvotes */}
+              {downvotes.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <ThumbsDown className="w-4 h-4 text-ios-red" />
+                    <span className="text-ios-caption1 text-ios-red font-medium">
+                      Downvotes ({downvotes.length})
+                    </span>
+                  </div>
+                  <div className="ios-list">
+                    {downvotes.map((vote) => (
+                      <div key={vote.id || vote.person} className="ios-list-item py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-ios-red/20 flex items-center justify-center">
+                            <span className="text-sm font-medium text-ios-red">
+                              {vote.person.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-ios-label font-medium">{vote.person}</span>
+                        </div>
+                        {vote.date_recommended && (
+                          <span className="text-ios-caption1 text-ios-tertiary-label">
+                            {formatDate(vote.date_recommended * 1000)}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -230,8 +304,8 @@ export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateSta
           )}
         </div>
 
-        {/* Fixed Bottom Actions */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-ios-bg/95 backdrop-blur-xl border-t border-ios-separator safe-area-bottom">
+        {/* Bottom Actions */}
+        <div className="sticky bottom-0 left-0 right-0 px-4 py-4 mt-6 bg-ios-bg/95 backdrop-blur-xl border-t border-ios-separator">
           {!watchHistory ? (
             !showRating ? (
               <div className="flex gap-3">
@@ -350,6 +424,64 @@ export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateSta
           )}
         </div>
       </div>
+
+      {/* Add Downvote Modal */}
+      {showAddDownvote && (
+        <div className="fixed inset-0 z-50">
+          <div className="ios-sheet-backdrop" onClick={() => setShowAddDownvote(false)} />
+          <div className="ios-sheet ios-slide-up">
+            <div className="ios-sheet-handle" />
+            <div className="ios-sheet-header">
+              <h3 className="ios-sheet-title">Add Downvote</h3>
+              <button onClick={() => setShowAddDownvote(false)} className="ios-sheet-close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="ios-sheet-content">
+              <p className="text-ios-secondary-label text-sm mb-4">
+                Who doesn't recommend this movie?
+              </p>
+              <input
+                type="text"
+                placeholder="Type or select a person..."
+                value={downvotePersonQuery}
+                onChange={(e) => {
+                  setDownvotePersonQuery(e.target.value);
+                  setSelectedDownvotePerson(null);
+                }}
+                className="ios-input mb-3"
+                autoFocus
+              />
+
+              {availablePeople.length > 0 && (
+                <div className="ios-list mb-4">
+                  {availablePeople.map((name) => (
+                    <button
+                      key={name}
+                      onClick={() => {
+                        setSelectedDownvotePerson(name);
+                        setDownvotePersonQuery(name);
+                      }}
+                      className={`ios-list-item ${selectedDownvotePerson === name ? 'bg-ios-fill' : ''}`}
+                    >
+                      <span>{name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={handleAddDownvote}
+                disabled={!downvotePersonQuery.trim()}
+                className="btn-ios-primary w-full disabled:opacity-50"
+              >
+                <ThumbsDown className="w-5 h-5 mr-2" />
+                Add Downvote
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

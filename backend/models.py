@@ -73,7 +73,7 @@ class Movie(Base):
 
 
 class Recommendation(Base):
-    """Recommendation table tracking who recommended which movie."""
+    """Recommendation table tracking who voted for which movie (upvote or downvote)."""
 
     __tablename__ = "recommendations"
 
@@ -82,6 +82,7 @@ class Recommendation(Base):
     user_id = Column(String, nullable=False)
     person = Column(String, nullable=False)
     date_recommended = Column(Float, default=lambda: time.time())
+    vote_type = Column(String, nullable=False, default="upvote")  # 'upvote' or 'downvote'
 
     # Relationships
     movie = relationship(

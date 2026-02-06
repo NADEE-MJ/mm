@@ -864,6 +864,97 @@ input[type="number"] {
   .ios-scale-in {
     animation: ios-scale-in 0.25s cubic-bezier(0.32, 0.72, 0, 1);
   }
+
+  /* Navigation Stack System */
+  .nav-stack-page {
+    @apply fixed inset-0 bg-ios-bg z-40;
+    padding-bottom: max(120px, calc(100px + var(--sab)));
+    overflow-y: auto;
+  }
+
+  .nav-stack-blur-backdrop {
+    @apply fixed inset-0 z-30;
+    backdrop-filter: blur(20px) brightness(0.6);
+    -webkit-backdrop-filter: blur(20px) brightness(0.6);
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  /* Slide animations for navigation stack */
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes slide-out-right {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+
+  @keyframes fade-in-backdrop {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes fade-out-backdrop {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  .slide-in-right {
+    animation: slide-in-right 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .slide-out-right {
+    animation: slide-out-right 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  .fade-in-backdrop {
+    animation: fade-in-backdrop 0.35s ease-out;
+  }
+
+  .fade-out-backdrop {
+    animation: fade-out-backdrop 0.35s ease-out;
+  }
+
+  /* Navigation stack header */
+  .nav-stack-header {
+    @apply sticky top-0 z-50 px-4 py-3 flex items-center gap-3;
+    background-color: rgba(0, 0, 0, 0.95);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 0.5px solid var(--ios-separator);
+    padding-top: max(12px, calc(12px + var(--sat)));
+  }
+
+  .nav-stack-back-button {
+    @apply flex items-center gap-1 text-ios-blue font-medium transition-opacity;
+    font-size: 17px;
+    padding: 8px 0;
+  }
+
+  .nav-stack-back-button:active {
+    opacity: 0.5;
+  }
+
+  .nav-stack-content {
+    @apply px-4 py-4;
+  }
 }
 
 /* Typography utilities using iOS styles */

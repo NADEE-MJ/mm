@@ -182,28 +182,26 @@ export default function AddMovie({ onAdd, onClose, people = [], peopleNames = []
   const movieData = selectedMovie?.omdbData || selectedMovie?.tmdbData || {};
 
   return (
-    <div className="fixed inset-0 bg-ios-bg z-50 flex flex-col ios-fade-in">
+    <div className="bg-ios-bg flex flex-col min-h-screen">
       {/* Header */}
-      <header className="ios-nav-header safe-area-top">
-        <div className="ios-nav-header-content">
-          <button
-            onClick={selectedMovie ? () => setSelectedMovie(null) : onClose}
-            className="flex items-center gap-1 text-ios-blue font-medium"
-          >
-            <ChevronRight className="w-5 h-5 rotate-180" />
-            {selectedMovie ? "Back" : "Cancel"}
-          </button>
-          <h2 className="text-ios-headline font-semibold">
-            {selectedMovie ? "Who Recommended?" : "Add Movie"}
-          </h2>
-          <div className="w-16" /> {/* Spacer for centering */}
-        </div>
+      <header className="nav-stack-header">
+        <button
+          onClick={selectedMovie ? () => setSelectedMovie(null) : onClose}
+          className="nav-stack-back-button"
+        >
+          <ChevronRight className="w-5 h-5 rotate-180" />
+          <span>{selectedMovie ? "Back" : "Cancel"}</span>
+        </button>
+        <h2 className="text-ios-headline font-semibold flex-1 text-center">
+          {selectedMovie ? "Who Recommended?" : "Add Movie"}
+        </h2>
+        <div className="w-20" /> {/* Spacer for centering */}
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto nav-stack-content">
         {!selectedMovie ? (
-          <div className="p-4 space-y-4">
+          <div className="space-y-4">
             {/* Search Form */}
             <form onSubmit={handleSearch}>
               <div className="relative">
@@ -297,7 +295,7 @@ export default function AddMovie({ onAdd, onClose, people = [], peopleNames = []
             )}
           </div>
         ) : (
-          <div className="p-4 space-y-6">
+          <div className="space-y-6">
             {/* Selected Movie Preview */}
             <div className="ios-card p-4">
               <div className="flex gap-4">
