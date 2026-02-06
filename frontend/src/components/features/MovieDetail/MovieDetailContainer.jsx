@@ -19,6 +19,7 @@ export default function MovieDetailContainer({
   onMarkWatched,
   onUpdateStatus,
   onAddVote,
+  onRemoveVote,
   people = [],
   peopleNames = []
 }) {
@@ -49,6 +50,14 @@ export default function MovieDetailContainer({
     }
   };
 
+  const handleRemoveVote = async (person) => {
+    try {
+      await onRemoveVote(movie.imdbId, person);
+    } catch (error) {
+      console.error("Error removing vote:", error);
+    }
+  };
+
   return (
     <>
       <div className="bg-ios-bg min-h-screen">
@@ -68,6 +77,7 @@ export default function MovieDetailContainer({
             allVotes={allVotes}
             watchHistory={watchHistory}
             onShowAddDownvote={() => setShowAddDownvote(true)}
+            onRemoveVote={handleRemoveVote}
           />
         </div>
 

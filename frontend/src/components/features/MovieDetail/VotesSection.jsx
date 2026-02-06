@@ -1,8 +1,8 @@
-import { ThumbsUp, ThumbsDown, Plus, Calendar, Star } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Plus, Calendar, Star, X } from "lucide-react";
 import { formatDate, formatRating } from "../../../utils/helpers";
 import { VOTE_TYPE } from "../../../utils/constants";
 
-export default function VotesSection({ allVotes, watchHistory, onShowAddDownvote }) {
+export default function VotesSection({ allVotes, watchHistory, onShowAddDownvote, onRemoveVote }) {
   const upvotes = allVotes.filter(v => v.vote_type !== VOTE_TYPE.DOWNVOTE);
   const downvotes = allVotes.filter(v => v.vote_type === VOTE_TYPE.DOWNVOTE);
 
@@ -43,11 +43,20 @@ export default function VotesSection({ allVotes, watchHistory, onShowAddDownvote
                           </p>
                         )}
                       </div>
-                      {vote.vote_type === VOTE_TYPE.STRONG_RECOMMEND && (
-                        <span className="text-ios-caption2 text-ios-green bg-ios-green/10 px-2 py-0.5 rounded-full font-medium">
-                          Strong
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {vote.vote_type === VOTE_TYPE.STRONG_RECOMMEND && (
+                          <span className="text-ios-caption2 text-ios-green bg-ios-green/10 px-2 py-0.5 rounded-full font-medium">
+                            Strong
+                          </span>
+                        )}
+                        <button
+                          onClick={() => onRemoveVote(vote.person)}
+                          className="p-1.5 rounded-full hover:bg-ios-fill-tertiary active:bg-ios-fill-quaternary transition-colors"
+                          title="Remove recommendation"
+                        >
+                          <X className="w-4 h-4 text-ios-tertiary-label" />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -85,6 +94,13 @@ export default function VotesSection({ allVotes, watchHistory, onShowAddDownvote
                           </p>
                         )}
                       </div>
+                      <button
+                        onClick={() => onRemoveVote(vote.person)}
+                        className="p-1.5 rounded-full hover:bg-ios-fill-tertiary active:bg-ios-fill-quaternary transition-colors flex-shrink-0"
+                        title="Remove downvote"
+                      >
+                        <X className="w-4 h-4 text-ios-tertiary-label" />
+                      </button>
                     </div>
                   );
                 })}

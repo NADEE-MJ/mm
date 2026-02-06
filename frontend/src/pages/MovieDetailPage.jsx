@@ -10,7 +10,7 @@ import RatingPrompt from "../components/RatingPrompt";
 export default function MovieDetailPage() {
   const { imdbId } = useParams();
   const navigate = useNavigate();
-  const { movies, loadMovies, markWatched, updateStatus, addRecommendation } = useMovies();
+  const { movies, loadMovies, markWatched, updateStatus, addRecommendation, removeRecommendation } = useMovies();
   const { people, getPeopleNames } = usePeople();
   const [ratingPrompt, setRatingPrompt] = useState(null);
 
@@ -88,6 +88,7 @@ export default function MovieDetailPage() {
           onMarkWatched={handleMarkWatched}
           onUpdateStatus={handleUpdateStatus}
           onAddVote={addRecommendation}
+          onRemoveVote={removeRecommendation}
           people={people}
           peopleNames={getPeopleNames()}
         />

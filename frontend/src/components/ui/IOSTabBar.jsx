@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Film, Users, Folder, Plus } from "lucide-react";
+import { Film, Users, Folder, UserRound, Plus } from "lucide-react";
 
 export default function IOSTabBar({ onAddClick }) {
   const location = useLocation();
@@ -9,15 +9,22 @@ export default function IOSTabBar({ onAddClick }) {
 
   const tabs = [
     { path: "/", icon: Film, label: "Movies" },
-    { path: "/people", icon: Users, label: "People" },
+    { path: "/people", icon: Users, label: "Recommenders" },
     { path: "/lists", icon: Folder, label: "Lists" },
+    { path: "/account", icon: UserRound, label: "Account" },
   ];
 
   const activeTabIndex = useMemo(() => {
+    if (location.pathname.startsWith("/add")) {
+      return -1;
+    }
+    if (location.pathname.startsWith("/movie")) {
+      return 0;
+    }
     const index = tabs.findIndex((tab) =>
       tab.path === "/" ? location.pathname === "/" : location.pathname.startsWith(tab.path),
     );
-    return index >= 0 ? index : 0;
+    return index;
   }, [location.pathname]);
 
   useEffect(() => {
@@ -34,7 +41,7 @@ export default function IOSTabBar({ onAddClick }) {
   return (
     <nav className="ios-tabbar">
       <div className="ios-tabbar-container">
-        <div className="ios-tabbar-slider" style={sliderStyle} />
+        {activeTabIndex >= 0 && <div className="ios-tabbar-slider" style={sliderStyle} />}
         {tabs.map((tab, index) => {
           const Icon = tab.icon;
           const isActive =
@@ -54,7 +61,7 @@ export default function IOSTabBar({ onAddClick }) {
         })}
         <button
           onClick={onAddClick}
-          className="ios-tabbar-add-button"
+          className={`ios-tabbar-add-button ${location.pathname.startsWith("/add") ? "active" : ""}`}
           aria-label="Add movie"
         >
           <Plus className="w-6 h-6 md:w-7 md:h-7" strokeWidth={2.5} />

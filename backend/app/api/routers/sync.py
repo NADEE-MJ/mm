@@ -261,6 +261,38 @@ async def sync_process_action(
 
             return SyncResponse(success=True, last_modified=time.time())
 
+        if action_type == "removeRecommendation":
+            imdb_id = data.get("imdb_id")
+            person_name = data.get("person")
+
+            recommendation = (
+                db.query(Recommendation)
+                .filter(
+                    Recommendation.imdb_id == imdb_id,
+                    Recommendation.user_id == user.id,
+                    Recommendation.person == person_name,
+                )
+                .first()
+            )
+
+            if recommendation:
+                db.delete(recommendation)
+
+                movie = (
+                    db.query(Movie)
+                    .filter(Movie.imdb_id == imdb_id, Movie.user_id == user.id)
+                    .first()
+                )
+                if movie:
+                    movie.last_modified = time.time()
+
+                db.commit()
+                await notify_movie_change(user.id, imdb_id)
+
+                return SyncResponse(success=True, last_modified=movie.last_modified if movie else time.time())
+
+            return SyncResponse(success=True, last_modified=time.time())
+
         return SyncResponse(success=False, error=f"Unknown action type: {action_type}")
 
     except Exception as exc:  # noqa: BLE001
@@ -273,10 +305,17 @@ async def sync_process_action(
 async def sync_websocket_endpoint(
     websocket: WebSocket,
     token: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
 ):
     """WebSocket endpoint that pushes change notifications in real time."""
-    user = get_user_from_ws_token(db, token)
+    # Don't use Depends(get_db) for WebSocket - manually manage the session
+    from database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        user = get_user_from_ws_token(db, token)
+    finally:
+        db.close()
+
     if not user:
         await websocket.close(code=1008)
         return

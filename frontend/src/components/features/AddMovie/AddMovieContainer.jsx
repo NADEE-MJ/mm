@@ -149,7 +149,12 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
     try {
       // Add movie with all recommenders concurrently
       const promises = selectedRecommenders.map((recommenderName) =>
-        onAdd(selectedMovie.imdbId, recommenderName, selectedMovie).catch((err) => ({
+        onAdd(
+          selectedMovie.imdbId,
+          recommenderName,
+          selectedMovie.tmdbData,
+          selectedMovie.omdbData
+        ).catch((err) => ({
           error: true,
           message: err.message,
         })),

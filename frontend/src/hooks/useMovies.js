@@ -3,7 +3,7 @@
  * Manages movie data from IndexedDB with optimistic updates
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getAllMovies, saveMovie, addToSyncQueue, getPerson, savePerson } from '../services/storage';
 
 export function useMovies() {
@@ -12,7 +12,7 @@ export function useMovies() {
   const [error, setError] = useState(null);
 
   // Load movies from IndexedDB
-  const loadMovies = async () => {
+  const loadMovies = useCallback(async () => {
     try {
       setLoading(true);
       const allMovies = await getAllMovies();
@@ -24,7 +24,7 @@ export function useMovies() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadMovies();
@@ -97,6 +97,29 @@ export function useMovies() {
     }
   };
 
+  // Remove a vote (recommendation)
+  const removeRecommendation = async (imdbId, person) => {
+    try {
+      const movie = movies.find(m => m.imdbId === imdbId);
+      if (!movie) throw new Error('Movie not found');
+
+      // Optimistic update - remove the recommendation
+      movie.recommendations = movie.recommendations.filter(r => r.person !== person);
+      await saveMovie(movie);
+
+      // Add to sync queue
+      await addToSyncQueue('removeRecommendation', {
+        imdb_id: imdbId,
+        person,
+      });
+
+      await loadMovies();
+    } catch (err) {
+      console.error('Error removing recommendation:', err);
+      throw err;
+    }
+  };
+
   // Mark movie as watched
   const markWatched = async (imdbId, rating) => {
     try {
@@ -163,6 +186,7 @@ export function useMovies() {
     loadMovies,
     updateMovie,
     addRecommendation,
+    removeRecommendation,
     markWatched,
     updateStatus,
     getMoviesByStatus,

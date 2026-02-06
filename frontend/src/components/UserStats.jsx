@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { Users, Star, Film, Eye, Clock, TrendingUp, Trash2 } from "lucide-react";
 import { usePeople } from "../hooks/usePeople";
 
-export default function UserStats({ movies, user }) {
+export default function UserStats({ movies, user, showHeader = true, showUserCard = true }) {
   const { people } = usePeople();
 
   const stats = useMemo(() => {
@@ -39,22 +39,26 @@ export default function UserStats({ movies, user }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-ios-title1">Statistics</h2>
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <h2 className="text-ios-title1">Statistics</h2>
+        </div>
+      )}
 
       {/* User Info */}
-      <div className="ios-card p-5">
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-full bg-ios-blue/20 flex items-center justify-center">
-            <Users className="w-7 h-7 text-ios-blue" />
-          </div>
-          <div>
-            <p className="text-ios-title3 font-bold text-ios-label">{user?.username}</p>
-            <p className="text-ios-caption1 text-ios-secondary-label">Movie Manager User</p>
+      {showUserCard && (
+        <div className="ios-card p-5">
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-ios-blue/20 flex items-center justify-center">
+              <Users className="w-7 h-7 text-ios-blue" />
+            </div>
+            <div>
+              <p className="text-ios-title3 font-bold text-ios-label">{user?.username}</p>
+              <p className="text-ios-caption1 text-ios-secondary-label">Movie Manager User</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Movies Stats */}
       <div>

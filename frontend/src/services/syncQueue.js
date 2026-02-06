@@ -349,6 +349,7 @@ export async function syncFromServer() {
       await mergePeopleFromServer(response.people);
     }
 
+    let updatedCount = 0;
     if (response.movies && response.movies.length > 0) {
       console.log(`[Sync] Received ${response.movies.length} movies from server`);
 
@@ -368,6 +369,7 @@ export async function syncFromServer() {
         if (shouldUpdate) {
           const movieData = transformServerMovie(serverMovie);
           await saveMovie(movieData, { preserveTimestamp: true });
+          updatedCount++;
           console.log(`[Sync] ✓ Updated movie: ${imdbId}`);
         } else {
           console.log(`[Sync] → Skipped movie ${imdbId} (local is newer)`);
@@ -384,8 +386,8 @@ export async function syncFromServer() {
     }
 
     const syncedCount = response.movies?.length || 0;
-    console.log(`[Sync] Complete: ${syncedCount} movies synced`);
-    return { synced: syncedCount };
+    console.log(`[Sync] Complete: ${updatedCount} movies updated out of ${syncedCount} received`);
+    return { synced: syncedCount, updated: updatedCount };
   } catch (error) {
     console.error("[Sync] Error syncing from server:", error);
     // Don't update lastSync on error - we'll retry from the same point
@@ -411,7 +413,7 @@ export async function fullSync() {
 
 /**
  * Start automatic sync
- * Runs processQueue and syncFromServer on an interval
+ * Syncs on changes (via WebSocket) with a fallback interval for when WebSocket is down
  */
 export function startAutoSync() {
   if (syncInterval) {
@@ -430,10 +432,12 @@ export function startAutoSync() {
 
   ensureWebSocketConnection();
 
-  // Run on interval
+  // Longer fallback interval (5 minutes) in case WebSocket is down
+  // WebSocket notifications will trigger syncs when changes happen
   syncInterval = setInterval(() => {
+    console.log("[AutoSync] Fallback interval sync");
     fullSync();
-  }, SYNC_INTERVAL);
+  }, 300000); // 5 minutes
 
   // Run when coming online
   const handleOnline = () => {

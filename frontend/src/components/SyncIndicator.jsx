@@ -6,13 +6,12 @@
 import { useState } from "react";
 import { useSync } from "../hooks/useSync";
 import {
-  WifiOff,
-  Cloud,
   CloudOff,
-  AlertTriangle,
-  CheckCircle,
-  RefreshCw,
+  CheckCircle2,
+  Clock3,
   X,
+  XCircle,
+  RefreshCw,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -32,21 +31,27 @@ export default function SyncIndicator() {
   };
 
   const getStatusConfig = () => {
-    if (isSyncing || syncStatus.isProcessing || syncStatus.isSyncingFromServer) {
-      return { icon: RefreshCw, color: "text-ios-blue", spin: true, label: "Syncing..." };
+    const hasPendingItems = syncStatus.pendingCount > 0;
+    const hasFailedItems = syncStatus.failedCount > 0;
+
+    if (hasFailedItems || syncStatus.status === "error" || syncStatus.status === "offline") {
+      return { icon: XCircle, color: "text-ios-red", spin: false, label: "Sync issues" };
+    }
+
+    if (
+      hasPendingItems ||
+      isSyncing ||
+      syncStatus.isProcessing ||
+      syncStatus.isSyncingFromServer ||
+      syncStatus.status === "syncing" ||
+      syncStatus.status === "retrying"
+    ) {
+      return { icon: Clock3, color: "text-ios-yellow", spin: false, label: "Pending sync" };
     }
 
     switch (syncStatus.status) {
       case "synced":
-        return { icon: CheckCircle, color: "text-ios-green", spin: false, label: "Synced" };
-      case "syncing":
-        return { icon: RefreshCw, color: "text-ios-blue", spin: true, label: "Syncing..." };
-      case "retrying":
-        return { icon: RefreshCw, color: "text-ios-orange", spin: true, label: "Retrying..." };
-      case "error":
-        return { icon: AlertTriangle, color: "text-ios-red", spin: false, label: "Error" };
-      case "offline":
-        return { icon: WifiOff, color: "text-ios-gray", spin: false, label: "Offline" };
+        return { icon: CheckCircle2, color: "text-ios-green", spin: false, label: "Synced" };
       default:
         return { icon: CloudOff, color: "text-ios-gray", spin: false, label: "Unknown" };
     }

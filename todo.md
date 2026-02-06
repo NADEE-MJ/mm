@@ -14,3 +14,11 @@
 - add a way to see the movies that are popular right now
 - add a way to see the movies that are top rated right now
 - add a way to see the movies that are trending right now
+- database changes
+  - recommendations
+    - vote_type should be true or false for upvote downvote
+    - person should be person_id not person name
+    - the default recommenders should not exist in the database, maybe you link to them with negative numbers or some other way, not sure yet
+  - movies
+    - tmdb_data should be split up into tmdb data omdb data, its currently storing everything in omdb data
+  -

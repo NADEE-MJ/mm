@@ -3,26 +3,22 @@
  * Manage people/recommenders with detailed stats
  */
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Users,
   Star,
   ChevronRight,
-  X,
   Plus,
+  Search,
+  X,
 } from "lucide-react";
 import { usePeople } from "../../../hooks/usePeople";
 import { DEFAULT_RECOMMENDERS, IOS_COLORS } from "../../../utils/constants";
-import AddPersonCard from "./AddPersonCard";
-import PersonDetailSheet from "./PersonDetailSheet";
 
-export default function PeopleManagerContainer({ movies }) {
-  const { people, addPerson, updatePerson, updateTrust } = usePeople();
+export default function PeopleManagerContainer({ movies, onAddPerson, onPersonSelect }) {
+  const { people } = usePeople();
   const [filter, setFilter] = useState("people");
-  const [selectedPerson, setSelectedPerson] = useState(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-
-  const existingNames = useMemo(() => people.map((person) => person.name), [people]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const colorCounts = useMemo(() => {
     return people.reduce((acc, person) => {
@@ -78,34 +74,16 @@ export default function PeopleManagerContainer({ movies }) {
     return true;
   });
 
-  const handleToggleTrust = async (person) => {
-    try {
-      await updateTrust(person.name, !person.is_trusted);
-    } catch (err) {
-      console.error("Error toggling trust:", err);
-    }
-  };
-
-  const handleAddPerson = async (payload) => {
-    await addPerson(payload);
-    setShowAddModal(false);
-  };
-
-  const handleUpdatePerson = async (name, updates) => {
-    try {
-      await updatePerson(name, updates);
-    } catch (err) {
-      console.error("Error updating person metadata:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (!selectedPerson) return;
-    const updated = peopleWithStats.find((person) => person.name === selectedPerson.name);
-    if (updated && updated !== selectedPerson) {
-      setSelectedPerson(updated);
-    }
-  }, [peopleWithStats, selectedPerson]);
+  const visiblePeople = filteredPeople.filter((person) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    const matchesName = person.name.toLowerCase().includes(q);
+    const matchesMeta =
+      person.emoji?.toLowerCase().includes(q) ||
+      (person.is_trusted && "trusted".includes(q)) ||
+      (person.isDefault && "quick".includes(q));
+    return matchesName || matchesMeta;
+  });
 
   return (
     <div className="space-y-6">
@@ -113,9 +91,9 @@ export default function PeopleManagerContainer({ movies }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-ios-title1">Recommenders</h2>
-          <span className="ios-badge">{filteredPeople.length}</span>
+          <span className="ios-badge">{visiblePeople.length}</span>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="btn-ios-primary">
+        <button onClick={onAddPerson} className="btn-ios-primary">
           <Plus className="w-5 h-5" />
           <span className="ml-1">Add</span>
         </button>
@@ -138,24 +116,49 @@ export default function PeopleManagerContainer({ movies }) {
         ))}
       </div>
 
+      <div className="relative">
+        <Search className="w-4 h-4 text-ios-tertiary-label absolute left-3 top-1/2 -translate-y-1/2" />
+        {searchQuery.trim().length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSearchQuery("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-ios-tertiary-label hover:text-ios-secondary-label"
+            aria-label="Clear search"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        <input
+          type="text"
+          className="ios-search pl-10 pr-9"
+          placeholder="Search recommenders..."
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          aria-label="Search recommenders"
+          autoComplete="off"
+        />
+      </div>
+
       {/* People List */}
-      {filteredPeople.length === 0 ? (
+      {visiblePeople.length === 0 ? (
         <div className="ios-card text-center py-16">
           <Users className="w-16 h-16 mx-auto mb-4 text-ios-tertiary-label" />
-          <p className="text-ios-headline text-ios-label mb-1">No people found</p>
+          <p className="text-ios-headline text-ios-label mb-1">No recommenders found</p>
           <p className="text-ios-caption1 text-ios-secondary-label">
-            People who recommend movies will appear here
+            {searchQuery.trim()
+              ? "Try a different search query"
+              : "People who recommend movies will appear here"}
           </p>
         </div>
       ) : (
         <div className="ios-list">
-          {filteredPeople.map((person) => {
+          {visiblePeople.map((person) => {
             const colorMatchCount = Math.max(0, (colorCounts[person.color || "default"] || 1) - 1);
             const emojiMatchCount = Math.max(0, (emojiCounts[person.emoji || "none"] || 1) - 1);
             return (
               <button
                 key={person.name}
-                onClick={() => setSelectedPerson(person)}
+                onClick={() => onPersonSelect?.(person)}
                 className="ios-list-item py-4 w-full text-left"
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -223,40 +226,9 @@ export default function PeopleManagerContainer({ movies }) {
                   <ChevronRight className="w-5 h-5 text-ios-tertiary-label flex-shrink-0" />
                 </div>
               </button>
-            );
-          })}
+          );
+        })}
         </div>
-      )}
-
-      {/* Add Person Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50">
-          <div className="ios-sheet-backdrop" onClick={() => setShowAddModal(false)} />
-          <div className="ios-sheet ios-slide-up">
-            <div className="ios-sheet-handle" />
-            <div className="ios-sheet-header">
-              <h3 className="ios-sheet-title">Add Person</h3>
-              <button onClick={() => setShowAddModal(false)} className="ios-sheet-close">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="ios-sheet-content">
-              <AddPersonCard onAdd={handleAddPerson} existingNames={existingNames} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Person Detail Sheet */}
-      {selectedPerson && (
-        <PersonDetailSheet
-          person={selectedPerson}
-          onClose={() => setSelectedPerson(null)}
-          onToggleTrust={handleToggleTrust}
-          onUpdatePerson={handleUpdatePerson}
-          colorCounts={colorCounts}
-          emojiCounts={emojiCounts}
-        />
       )}
     </div>
   );
