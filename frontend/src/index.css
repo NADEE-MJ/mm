@@ -913,7 +913,6 @@ input[type="number"] {
   /* Navigation Stack System - Navigation pages */
   .nav-stack-page {
     @apply fixed inset-0 z-30;
-    padding-top: max(1rem, calc(1rem + var(--sat)));
     padding-bottom: max(120px, calc(100px + var(--sab)));
     overflow-y: auto;
     background-color: var(--color-ios-bg);

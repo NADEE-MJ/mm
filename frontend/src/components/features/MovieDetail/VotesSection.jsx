@@ -2,7 +2,7 @@ import { ThumbsUp, ThumbsDown, Plus, Calendar, Star, X } from "lucide-react";
 import { formatDate, formatRating } from "../../../utils/helpers";
 import { VOTE_TYPE } from "../../../utils/constants";
 
-export default function VotesSection({ allVotes, watchHistory, onShowAddDownvote, onRemoveVote }) {
+export default function VotesSection({ allVotes, watchHistory, onShowAddUpvote, onShowAddDownvote, onRemoveVote }) {
   const upvotes = allVotes.filter(v => v.vote_type !== VOTE_TYPE.DOWNVOTE);
   const downvotes = allVotes.filter(v => v.vote_type === VOTE_TYPE.DOWNVOTE);
 
@@ -108,10 +108,19 @@ export default function VotesSection({ allVotes, watchHistory, onShowAddDownvote
             </div>
           )}
 
+          {/* Add Upvote Button */}
+          <button
+            onClick={onShowAddUpvote}
+            className="w-full ios-card px-4 py-3 flex items-center justify-center gap-2 text-ios-green active:bg-ios-fill-tertiary transition-colors mb-2"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="font-medium">Add Recommendation</span>
+          </button>
+
           {/* Add Downvote Button */}
           <button
             onClick={onShowAddDownvote}
-            className="w-full ios-card px-4 py-3 flex items-center justify-center gap-2 text-ios-blue active:bg-ios-fill-tertiary transition-colors"
+            className="w-full ios-card px-4 py-3 flex items-center justify-center gap-2 text-ios-red active:bg-ios-fill-tertiary transition-colors"
           >
             <Plus className="w-5 h-5" />
             <span className="font-medium">Add Someone Who Didn't Like It</span>
