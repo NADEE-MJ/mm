@@ -5,22 +5,22 @@ import { router } from 'expo-router';
 import { useAuthStore } from '../../src/stores/authStore';
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const login = useAuthStore((state) => state.login);
 
   const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert('Error', 'Please enter username and password');
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      await login(username, password);
+      await login(email, password);
       // Navigation will be handled by the root layout
       router.replace('/(tabs)');
     } catch (error) {
@@ -44,9 +44,10 @@ export default function LoginScreen() {
         </Text>
 
         <TextInput
-          label="Username"
-          value={username}
-          onChangeText={setUsername}
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
           autoCapitalize="none"
           autoCorrect={false}
           style={styles.input}

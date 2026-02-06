@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { PaperProvider, MD3DarkTheme } from 'react-native-paper';
 import { useAuthStore } from '../src/stores/authStore';
+import { useSyncStore } from '../src/stores/syncStore';
 import { initDatabase } from '../src/services/database/init';
 
 export {
@@ -33,6 +34,7 @@ export default function RootLayout() {
   const verifyAuth = useAuthStore((state) => state.verifyAuth);
   const checkBiometric = useAuthStore((state) => state.checkBiometric);
   const authenticateBiometric = useAuthStore((state) => state.authenticateBiometric);
+  const initSync = useSyncStore((state) => state.initSync);
 
   // Initialize app
   useEffect(() => {
@@ -56,7 +58,12 @@ export default function RootLayout() {
         }
 
         // Verify auth token
-        await verifyAuth();
+        const authenticated = await verifyAuth();
+
+        // Initialize sync if authenticated
+        if (authenticated) {
+          await initSync();
+        }
       } catch (error) {
         console.error('App initialization error:', error);
       } finally {

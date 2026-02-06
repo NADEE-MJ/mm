@@ -1,19 +1,15 @@
-import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { getToken } from '../auth/secure-storage';
-
-// API base URL - should be configured via environment variables
-const API_BASE_URL = __DEV__
-  ? 'http://localhost:3000/api'
-  : 'https://api.moviemanager.com/api';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from "axios";
+import { getToken } from "../auth/secure-storage";
+import { API_CONFIG } from "../../utils/constants";
 
 /**
  * Create and configure axios instance
  */
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 30000,
+  baseURL: API_CONFIG.BASE_URL,
+  timeout: API_CONFIG.TIMEOUT,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -32,7 +28,7 @@ apiClient.interceptors.request.use(
   },
   (error: AxiosError) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 /**
@@ -43,11 +39,11 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
       // Token expired or invalid - will be handled by auth store
-      console.log('Unauthorized - token may be expired');
+      console.log("Unauthorized - token may be expired");
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 /**
@@ -60,11 +56,11 @@ export function handleApiError(error: unknown): string {
       return error.response.data?.message || error.message;
     } else if (error.request) {
       // Request made but no response
-      return 'Network error. Please check your connection.';
+      return "Network error. Please check your connection.";
     }
   }
 
-  return 'An unexpected error occurred.';
+  return "An unexpected error occurred.";
 }
 
 /**

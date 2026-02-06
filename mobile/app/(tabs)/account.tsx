@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, List, Switch, Button, Divider } from 'react-native-paper';
+import { Text, List, Switch, Button, Divider, ActivityIndicator } from 'react-native-paper';
 import { useAuthStore } from '../../src/stores/authStore';
+import { useSyncStore } from '../../src/stores/syncStore';
 import { router } from 'expo-router';
 import { useState, useEffect } from 'react';
+import { formatDistance } from 'date-fns';
 
 export default function AccountScreen() {
   const user = useAuthStore((state) => state.user);
@@ -11,11 +13,18 @@ export default function AccountScreen() {
   const checkBiometric = useAuthStore((state) => state.checkBiometric);
   const enableBiometric = useAuthStore((state) => state.enableBiometric);
 
+  const isSyncing = useSyncStore((state) => state.isSyncing);
+  const lastSync = useSyncStore((state) => state.lastSync);
+  const pendingCount = useSyncStore((state) => state.pendingCount);
+  const triggerSync = useSyncStore((state) => state.triggerSync);
+  const updateSyncStatus = useSyncStore((state) => state.updateSyncStatus);
+
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     loadBiometricStatus();
+    updateSyncStatus();
   }, []);
 
   const loadBiometricStatus = async () => {
@@ -31,6 +40,11 @@ export default function AccountScreen() {
     } catch (error) {
       Alert.alert('Error', 'Failed to update biometric setting');
     }
+  };
+
+  const handleManualSync = async () => {
+    await triggerSync();
+    Alert.alert('Sync Complete', 'All changes have been synced');
   };
 
   const handleLogout = async () => {
@@ -50,6 +64,22 @@ export default function AccountScreen() {
         },
       ]
     );
+  };
+
+  const getSyncDescription = () => {
+    if (isSyncing) {
+      return 'Syncing...';
+    }
+
+    if (pendingCount > 0) {
+      return `${pendingCount} change${pendingCount > 1 ? 's' : ''} pending`;
+    }
+
+    if (lastSync > 0) {
+      return `Last synced ${formatDistance(lastSync, Date.now(), { addSuffix: true })}`;
+    }
+
+    return 'Not synced yet';
   };
 
   return (
@@ -85,11 +115,29 @@ export default function AccountScreen() {
 
         <List.Item
           title="Sync Status"
-          description="All changes synced"
-          left={(props) => <List.Icon {...props} icon="sync" />}
+          description={getSyncDescription()}
+          left={(props) => (
+            <List.Icon
+              {...props}
+              icon={isSyncing ? () => <ActivityIndicator size={24} /> : 'sync'}
+            />
+          )}
+          right={() => (
+            <Button
+              mode="text"
+              onPress={handleManualSync}
+              disabled={isSyncing}
+              compact
+            >
+              Sync Now
+            </Button>
+          )}
           style={styles.listItem}
           titleStyle={styles.listItemTitle}
-          descriptionStyle={styles.listItemDescription}
+          descriptionStyle={[
+            styles.listItemDescription,
+            pendingCount > 0 && styles.pendingText,
+          ]}
         />
       </List.Section>
 
@@ -154,6 +202,9 @@ const styles = StyleSheet.create({
   },
   listItemDescription: {
     color: '#8e8e93',
+  },
+  pendingText: {
+    color: '#ff9500',
   },
   buttonContainer: {
     padding: 20,

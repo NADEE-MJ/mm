@@ -1,13 +1,13 @@
-import { create } from 'zustand';
-import { User } from '../types';
-import * as authApi from '../services/api/auth';
-import * as secureStorage from '../services/auth/secure-storage';
-import { clearDatabase, initDatabase } from '../services/database/init';
+import { create } from "zustand";
+import { User } from "../types";
+import * as authApi from "../services/api/auth";
+import * as secureStorage from "../services/auth/secure-storage";
+import { clearDatabase, initDatabase } from "../services/database/init";
 import {
   isBiometricEnabled,
   setBiometricEnabled,
   authenticateWithBiometrics,
-} from '../services/auth/biometric';
+} from "../services/auth/biometric";
 
 interface AuthState {
   user: User | null;
@@ -16,7 +16,7 @@ interface AuthState {
   error: string | null;
 
   // Actions
-  login: (username: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   register: (email: string, username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   verifyAuth: () => Promise<boolean>;
@@ -32,11 +32,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: false,
   error: null,
 
-  login: async (username: string, password: string) => {
+  login: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
 
     try {
-      const { token, user } = await authApi.login(username, password);
+      const { token, user } = await authApi.login(email, password);
 
       // Store token and user
       await secureStorage.storeToken(token);
@@ -55,7 +55,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Login failed',
+        error: error instanceof Error ? error.message : "Login failed",
         isLoading: false,
       });
       throw error;
@@ -82,7 +82,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Registration failed',
+        error: error instanceof Error ? error.message : "Registration failed",
         isLoading: false,
       });
       throw error;
@@ -104,7 +104,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Logout failed',
+        error: error instanceof Error ? error.message : "Logout failed",
         isLoading: false,
       });
     }
@@ -151,7 +151,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       return await isBiometricEnabled();
     } catch (error) {
-      console.error('Failed to check biometric:', error);
+      console.error("Failed to check biometric:", error);
       return false;
     }
   },
@@ -160,7 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await setBiometricEnabled(enabled);
     } catch (error) {
-      console.error('Failed to enable biometric:', error);
+      console.error("Failed to enable biometric:", error);
       throw error;
     }
   },
@@ -170,7 +170,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const success = await authenticateWithBiometrics();
       return success;
     } catch (error) {
-      console.error('Biometric authentication failed:', error);
+      console.error("Biometric authentication failed:", error);
       return false;
     }
   },

@@ -54,6 +54,12 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
+
+
 def hash_password(password: str, salt: str = None) -> tuple[str, str]:
     """Hash a password with PBKDF2-SHA256."""
     if salt is None:

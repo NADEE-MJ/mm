@@ -1,5 +1,12 @@
-import { apiClient, handleApiError } from './client';
-import { User, AuthResponse, ApiResponse } from '../../types';
+import { apiClient, handleApiError } from "./client";
+import { User, AuthResponse } from "../../types";
+
+/** Shape returned by the backend auth endpoints */
+interface BackendAuthResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
 
 /**
  * Register a new user
@@ -7,16 +14,19 @@ import { User, AuthResponse, ApiResponse } from '../../types';
 export async function register(
   email: string,
   username: string,
-  password: string
+  password: string,
 ): Promise<AuthResponse> {
   try {
-    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/register', {
+    const response = await apiClient.post<BackendAuthResponse>("/auth/register", {
       email,
       username,
       password,
     });
 
-    return response.data.data;
+    return {
+      token: response.data.access_token,
+      user: response.data.user,
+    };
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -25,17 +35,17 @@ export async function register(
 /**
  * Login user
  */
-export async function login(
-  username: string,
-  password: string
-): Promise<AuthResponse> {
+export async function login(email: string, password: string): Promise<AuthResponse> {
   try {
-    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/login', {
-      username,
+    const response = await apiClient.post<BackendAuthResponse>("/auth/login", {
+      email,
       password,
     });
 
-    return response.data.data;
+    return {
+      token: response.data.access_token,
+      user: response.data.user,
+    };
   } catch (error) {
     throw new Error(handleApiError(error));
   }
@@ -46,8 +56,8 @@ export async function login(
  */
 export async function verifyToken(): Promise<User> {
   try {
-    const response = await apiClient.get<ApiResponse<User>>('/auth/me');
-    return response.data.data;
+    const response = await apiClient.get<User>("/auth/me");
+    return response.data;
   } catch (error) {
     throw new Error(handleApiError(error));
   }
