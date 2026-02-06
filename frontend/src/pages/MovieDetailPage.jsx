@@ -1,20 +1,24 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
-import { useMovies } from "../hooks/useMovies";
+import { useMoviesContext } from "../contexts/MoviesContext";
 import { usePeople } from "../hooks/usePeople";
-import { MOVIE_STATUS, RATING_THRESHOLD } from "../utils/constants";
+import { MOVIE_STATUS, RATING_THRESHOLD, VOTE_TYPE } from "../utils/constants";
 import MovieDetail from "../components/MovieDetail";
 import RatingPrompt from "../components/RatingPrompt";
+import UpvoteModal from "../components/features/MovieDetail/UpvoteModal";
+import DownvoteModal from "../components/features/MovieDetail/DownvoteModal";
 import PageTransition from "../components/PageTransition";
 
 export default function MovieDetailPage() {
   const { imdbId } = useParams();
   const navigate = useNavigate();
-  const { movies, loadMovies, markWatched, updateStatus, addRecommendation, removeRecommendation } =
-    useMovies();
+  const { movies, markWatched, updateStatus, addRecommendation, removeRecommendation } =
+    useMoviesContext();
   const { people, getPeopleNames } = usePeople();
   const [ratingPrompt, setRatingPrompt] = useState(null);
+  const [showAddUpvote, setShowAddUpvote] = useState(false);
+  const [showAddDownvote, setShowAddDownvote] = useState(false);
 
   const movie = useMemo(() => movies.find((m) => m.imdbId === imdbId), [movies, imdbId]);
 
@@ -30,8 +34,6 @@ export default function MovieDetailPage() {
         });
       }
     }
-
-    await loadMovies();
   };
 
   const handleRatingPromptAction = async (action) => {
@@ -53,12 +55,28 @@ export default function MovieDetailPage() {
     }
 
     setRatingPrompt(null);
-    await loadMovies();
   };
 
   const handleUpdateStatus = async (imdbId, status) => {
     await updateStatus(imdbId, status);
-    await loadMovies();
+  };
+
+  const handleAddUpvote = async (person) => {
+    try {
+      await addRecommendation(movie.imdbId, person, movie.tmdbData, movie.omdbData, VOTE_TYPE.UPVOTE);
+      setShowAddUpvote(false);
+    } catch (error) {
+      console.error("Error adding upvote:", error);
+    }
+  };
+
+  const handleAddDownvote = async (person) => {
+    try {
+      await addRecommendation(movie.imdbId, person, movie.tmdbData, movie.omdbData, VOTE_TYPE.DOWNVOTE);
+      setShowAddDownvote(false);
+    } catch (error) {
+      console.error("Error adding downvote:", error);
+    }
   };
 
   if (!movie) {
@@ -89,10 +107,13 @@ export default function MovieDetailPage() {
           onUpdateStatus={handleUpdateStatus}
           onAddVote={addRecommendation}
           onRemoveVote={removeRecommendation}
+          onShowAddUpvote={() => setShowAddUpvote(true)}
+          onShowAddDownvote={() => setShowAddDownvote(true)}
           people={people}
           peopleNames={getPeopleNames()}
         />
       </PageTransition>
+
       {ratingPrompt && (
         <RatingPrompt
           movie={ratingPrompt.movie}
@@ -101,6 +122,22 @@ export default function MovieDetailPage() {
           onClose={() => setRatingPrompt(null)}
         />
       )}
+
+      {/* Add Upvote Modal */}
+      <UpvoteModal
+        isOpen={showAddUpvote}
+        onClose={() => setShowAddUpvote(false)}
+        peopleNames={getPeopleNames()}
+        onAdd={handleAddUpvote}
+      />
+
+      {/* Add Downvote Modal */}
+      <DownvoteModal
+        isOpen={showAddDownvote}
+        onClose={() => setShowAddDownvote(false)}
+        peopleNames={getPeopleNames()}
+        onAdd={handleAddDownvote}
+      />
     </>
   );
 }

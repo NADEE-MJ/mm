@@ -9,11 +9,12 @@ import { RefreshCw } from "lucide-react";
 
 import { useAuth } from "./contexts/AuthContext";
 import { ModalProvider } from "./contexts/ModalContext";
-import { useMovies } from "./hooks/useMovies";
-import { startAutoSync, stopAutoSync, fullSync, addSyncListener } from "./services/syncQueue";
+import { MoviesProvider, useMoviesContext } from "./contexts/MoviesContext";
+import { startAutoSync, stopAutoSync, fullSync } from "./services/syncQueue";
 
 import AuthScreen from "./components/AuthScreen";
 import { IOSTabBar } from "./components/ui";
+import OfflineBanner from "./components/OfflineBanner";
 
 // Page components
 import MoviesPage from "./pages/MoviesPage";
@@ -28,10 +29,9 @@ import PersonDetailPage from "./pages/PersonDetailPage";
 
 function AppContent() {
   const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
-  const { movies, loading, loadMovies } = useMovies();
+  const { movies, loading, loadMovies } = useMoviesContext();
   const navigate = useNavigate();
   const location = useLocation();
-  const lastSyncResultRef = useRef(null);
 
   // Detect if we're on a stacked/modal page
   const isStackedPage =
@@ -41,7 +41,7 @@ function AppContent() {
     (location.pathname.startsWith("/people/") && location.pathname !== "/people") ||
     location.pathname === "/lists/deleted";
 
-  // Start auto-sync and listen for changes
+  // Start auto-sync when authenticated
   useEffect(() => {
     if (!isAuthenticated) {
       stopAutoSync();
@@ -50,31 +50,10 @@ function AppContent() {
 
     startAutoSync();
 
-    // Listen for sync completion and reload only if changes occurred
-    const unsubscribe = addSyncListener((status) => {
-      // Only reload if sync just completed and we're now synced
-      if (
-        status.status === "synced" &&
-        !status.isProcessing &&
-        !status.isSyncingFromServer &&
-        lastSyncResultRef.current !== status.lastSync
-      ) {
-        // Update the ref to track this sync
-        lastSyncResultRef.current = status.lastSync;
-
-        // Only reload if it's not the initial mount (lastSync > 0)
-        if (status.lastSync > 0) {
-          console.log("[App] Reloading movies after sync");
-          loadMovies();
-        }
-      }
-    });
-
     return () => {
       stopAutoSync();
-      unsubscribe();
     };
-  }, [isAuthenticated, loadMovies]);
+  }, [isAuthenticated]);
 
   const handleRefresh = useCallback(async () => {
     await fullSync();
@@ -113,6 +92,9 @@ function AppContent() {
 
   return (
     <div className="ios-app">
+      {/* Offline/Sync Banner */}
+      <OfflineBanner />
+
       {/* Main Content - Base Pages */}
       <main className={`ios-main-content ${isStackedPage ? "has-overlay" : ""}`}>
         <Routes>
@@ -163,7 +145,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <ModalProvider>
-        <AppContent />
+        <MoviesProvider>
+          <AppContent />
+        </MoviesProvider>
       </ModalProvider>
     </BrowserRouter>
   );

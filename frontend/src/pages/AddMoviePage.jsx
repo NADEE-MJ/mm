@@ -1,12 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import { useMovies } from "../hooks/useMovies";
+import { useMoviesContext } from "../contexts/MoviesContext";
 import { usePeople } from "../hooks/usePeople";
 import AddMovie from "../components/AddMovie";
 import PageTransition from "../components/PageTransition";
 
 export default function AddMoviePage() {
   const navigate = useNavigate();
-  const { addRecommendation } = useMovies();
+  const { addRecommendation } = useMoviesContext();
   const { people, getPeopleNames } = usePeople();
 
   const handleAdd = async (...args) => {

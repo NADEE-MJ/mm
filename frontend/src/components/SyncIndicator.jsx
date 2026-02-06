@@ -16,12 +16,13 @@ import {
 } from "lucide-react";
 import IOSSheet from "./ui/IOSSheet";
 
-export default function SyncIndicator() {
+export default function SyncIndicator({ iconOnly = false }) {
   const { syncStatus, triggerSync, retryFailed, clearFailed } = useSync();
   const [showDetails, setShowDetails] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const handleSync = async () => {
+  const handleSync = async (e) => {
+    e.stopPropagation();
     setIsSyncing(true);
     try {
       await triggerSync();
@@ -62,6 +63,20 @@ export default function SyncIndicator() {
 
   const hasPendingItems = syncStatus.pendingCount > 0;
   const hasFailedItems = syncStatus.failedCount > 0;
+
+  // Icon-only mode (non-interactive)
+  if (iconOnly) {
+    return (
+      <div className="relative" title={config.label}>
+        <Icon className={`w-5 h-5 ${config.color} ${config.spin ? "animate-spin" : ""}`} />
+        {(hasPendingItems || hasFailedItems) && (
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-ios-red text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+            {syncStatus.pendingCount + syncStatus.failedCount}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -135,11 +150,23 @@ export default function SyncIndicator() {
 
           {hasFailedItems && (
             <>
-              <button onClick={retryFailed} className="w-full btn-ios-secondary py-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  retryFailed();
+                }}
+                className="w-full btn-ios-secondary py-3"
+              >
                 <RotateCcw className="w-5 h-5 mr-2" />
                 Retry Failed ({syncStatus.failedCount})
               </button>
-              <button onClick={clearFailed} className="w-full py-3 text-ios-red font-medium">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearFailed();
+                }}
+                className="w-full py-3 text-ios-red font-medium"
+              >
                 <Trash2 className="w-5 h-5 mr-2 inline" />
                 Clear Failed Items
               </button>

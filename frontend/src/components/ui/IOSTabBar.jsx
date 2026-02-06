@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Film, Users, Folder, UserCog, Plus } from "lucide-react";
+import { Clapperboard, Users, Folder, UserCog, Plus } from "lucide-react";
+import SyncIndicator from "../SyncIndicator";
 
 export default function IOSTabBar({ onAddClick }) {
   const location = useLocation();
@@ -8,7 +9,7 @@ export default function IOSTabBar({ onAddClick }) {
   const tabRefs = useRef([]);
 
   const tabs = [
-    { path: "/", icon: Film, label: "Movies" },
+    { path: "/", icon: Clapperboard, label: "Movies" },
     { path: "/people", icon: Users, label: "Recommenders" },
     { path: "/lists", icon: Folder, label: "Lists" },
     { path: "/account", icon: UserCog, label: "Account" },
@@ -58,10 +59,15 @@ export default function IOSTabBar({ onAddClick }) {
                 key={tab.path}
                 to={tab.path}
                 ref={(el) => (tabRefs.current[index] = el)}
-                className={`ios-tabbar-item ${isActive ? "active" : ""}`}
+                className={`ios-tabbar-item ${isActive ? "active" : ""} ${tab.label === "Account" ? "relative" : ""}`}
               >
                 <Icon className="ios-tabbar-icon" />
                 <span className="ios-tabbar-label">{tab.label}</span>
+                {tab.label === "Account" && (
+                  <div className="absolute top-0 right-1/4 z-10">
+                    <SyncIndicator iconOnly={true} />
+                  </div>
+                )}
               </Link>
             );
           })}

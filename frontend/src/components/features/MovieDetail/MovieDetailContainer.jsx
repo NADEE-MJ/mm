@@ -5,14 +5,11 @@
 
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { VOTE_TYPE } from "../../../utils/constants";
 import MovieHeader from "./MovieHeader";
 import MovieInfo from "./MovieInfo";
 import VotesSection from "./VotesSection";
 import ActionsBar from "./ActionsBar";
 import RatingModal from "./RatingModal";
-import UpvoteModal from "./UpvoteModal";
-import DownvoteModal from "./DownvoteModal";
 
 export default function MovieDetailContainer({
   movie,
@@ -21,12 +18,12 @@ export default function MovieDetailContainer({
   onUpdateStatus,
   onAddVote,
   onRemoveVote,
+  onShowAddUpvote,
+  onShowAddDownvote,
   people = [],
   peopleNames = []
 }) {
   const [showRating, setShowRating] = useState(false);
-  const [showAddUpvote, setShowAddUpvote] = useState(false);
-  const [showAddDownvote, setShowAddDownvote] = useState(false);
 
   if (!movie) return null;
 
@@ -42,24 +39,6 @@ export default function MovieDetailContainer({
 
   const handleStatusChange = async (newStatus) => {
     await onUpdateStatus(movie.imdbId, newStatus);
-  };
-
-  const handleAddUpvote = async (person) => {
-    try {
-      await onAddVote(movie.imdbId, person, movie.tmdbData, movie.omdbData, VOTE_TYPE.UPVOTE);
-      setShowAddUpvote(false);
-    } catch (error) {
-      console.error("Error adding upvote:", error);
-    }
-  };
-
-  const handleAddDownvote = async (person) => {
-    try {
-      await onAddVote(movie.imdbId, person, movie.tmdbData, movie.omdbData, VOTE_TYPE.DOWNVOTE);
-      setShowAddDownvote(false);
-    } catch (error) {
-      console.error("Error adding downvote:", error);
-    }
   };
 
   const handleRemoveVote = async (person) => {
@@ -88,8 +67,8 @@ export default function MovieDetailContainer({
           <VotesSection
             allVotes={allVotes}
             watchHistory={watchHistory}
-            onShowAddUpvote={() => setShowAddUpvote(true)}
-            onShowAddDownvote={() => setShowAddDownvote(true)}
+            onShowAddUpvote={onShowAddUpvote}
+            onShowAddDownvote={onShowAddDownvote}
             onRemoveVote={handleRemoveVote}
           />
         </div>
@@ -109,22 +88,6 @@ export default function MovieDetailContainer({
         onClose={() => setShowRating(false)}
         onSave={handleMarkWatched}
         initialRating={watchHistory?.myRating || 7.0}
-      />
-
-      {/* Add Upvote Modal */}
-      <UpvoteModal
-        isOpen={showAddUpvote}
-        onClose={() => setShowAddUpvote(false)}
-        peopleNames={peopleNames}
-        onAdd={handleAddUpvote}
-      />
-
-      {/* Add Downvote Modal */}
-      <DownvoteModal
-        isOpen={showAddDownvote}
-        onClose={() => setShowAddDownvote(false)}
-        peopleNames={peopleNames}
-        onAdd={handleAddDownvote}
       />
     </>
   );
