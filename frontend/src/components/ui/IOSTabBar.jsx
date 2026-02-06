@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Film, Users, Folder, UserRound, Plus } from "lucide-react";
+import { Film, Users, Folder, UserCog, Plus } from "lucide-react";
 
 export default function IOSTabBar({ onAddClick }) {
   const location = useLocation();
@@ -11,12 +11,17 @@ export default function IOSTabBar({ onAddClick }) {
     { path: "/", icon: Film, label: "Movies" },
     { path: "/people", icon: Users, label: "Recommenders" },
     { path: "/lists", icon: Folder, label: "Lists" },
-    { path: "/account", icon: UserRound, label: "Account" },
+    { path: "/account", icon: UserCog, label: "Account" },
   ];
 
   const activeTabIndex = useMemo(() => {
+    // Don't change active tab when on stacked pages (add, movie detail, etc)
     if (location.pathname.startsWith("/add")) {
-      return -1;
+      // Keep the last main page highlighted (default to Movies)
+      const lastMainTab = tabs.findIndex((tab) =>
+        tab.path === "/" ? location.pathname === "/" : location.pathname.startsWith(tab.path),
+      );
+      return lastMainTab >= 0 ? lastMainTab : 0;
     }
     if (location.pathname.startsWith("/movie")) {
       return 0;
@@ -39,34 +44,33 @@ export default function IOSTabBar({ onAddClick }) {
   }, [activeTabIndex]);
 
   return (
-    <nav className="ios-tabbar">
-      <div className="ios-tabbar-container">
-        {activeTabIndex >= 0 && <div className="ios-tabbar-slider" style={sliderStyle} />}
-        {tabs.map((tab, index) => {
-          const Icon = tab.icon;
-          const isActive =
-            tab.path === "/" ? location.pathname === "/" : location.pathname.startsWith(tab.path);
+    <>
+      <nav className="ios-tabbar">
+        <div className="ios-tabbar-container">
+          {activeTabIndex >= 0 && <div className="ios-tabbar-slider" style={sliderStyle} />}
+          {tabs.map((tab, index) => {
+            const Icon = tab.icon;
+            const isActive =
+              tab.path === "/" ? location.pathname === "/" : location.pathname.startsWith(tab.path);
 
-          return (
-            <Link
-              key={tab.path}
-              to={tab.path}
-              ref={(el) => (tabRefs.current[index] = el)}
-              className={`ios-tabbar-item ${isActive ? "active" : ""}`}
-            >
-              <Icon className="ios-tabbar-icon" />
-              <span className="ios-tabbar-label">{tab.label}</span>
-            </Link>
-          );
-        })}
-        <button
-          onClick={onAddClick}
-          className={`ios-tabbar-add-button ${location.pathname.startsWith("/add") ? "active" : ""}`}
-          aria-label="Add movie"
-        >
-          <Plus className="w-6 h-6 md:w-7 md:h-7" strokeWidth={2.5} />
-        </button>
-      </div>
-    </nav>
+            return (
+              <Link
+                key={tab.path}
+                to={tab.path}
+                ref={(el) => (tabRefs.current[index] = el)}
+                className={`ios-tabbar-item ${isActive ? "active" : ""}`}
+              >
+                <Icon className="ios-tabbar-icon" />
+                <span className="ios-tabbar-label">{tab.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+      {/* Floating Add Button - Separate from tab bar */}
+      <button onClick={onAddClick} className="ios-tabbar-add-button" aria-label="Add movie">
+        <Plus className="w-6 h-6 md:w-7 md:h-7" strokeWidth={2.5} />
+      </button>
+    </>
   );
 }

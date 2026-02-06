@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import AddPersonCard from "../components/features/People/AddPersonCard";
 import { usePeople } from "../hooks/usePeople";
+import PageTransition from "../components/PageTransition";
 
 export default function AddPersonPage() {
   const navigate = useNavigate();
@@ -16,24 +17,21 @@ export default function AddPersonPage() {
   };
 
   return (
-    <>
-      <div className="nav-stack-blur-backdrop fade-in-backdrop" onClick={() => navigate(-1)} />
-      <div className="nav-stack-page slide-in-right">
-        <div className="bg-ios-bg min-h-screen">
-          <header className="nav-stack-header">
-            <button onClick={() => navigate(-1)} className="nav-stack-back-button">
-              <ChevronRight className="w-5 h-5 rotate-180" />
-              <span>Back</span>
-            </button>
-            <h2 className="text-ios-headline font-semibold flex-1 text-center">Add Recommender</h2>
-            <div className="w-20" />
-          </header>
+    <PageTransition onClose={() => navigate(-1)}>
+      <div className="bg-ios-bg min-h-screen">
+        <header className="nav-stack-header">
+          <button onClick={() => navigate(-1)} className="nav-stack-back-button">
+            <ChevronRight className="w-5 h-5 rotate-180" />
+            <span>Back</span>
+          </button>
+          <h2 className="text-ios-headline font-semibold flex-1 text-center">Add Recommender</h2>
+          <div className="w-20" />
+        </header>
 
-          <div className="nav-stack-content">
-            <AddPersonCard onAdd={handleAdd} existingNames={existingNames} />
-          </div>
+        <div className="nav-stack-content">
+          <AddPersonCard onAdd={handleAdd} existingNames={existingNames} />
         </div>
       </div>
-    </>
+    </PageTransition>
   );
 }

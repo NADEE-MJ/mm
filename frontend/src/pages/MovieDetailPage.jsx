@@ -6,11 +6,13 @@ import { usePeople } from "../hooks/usePeople";
 import { MOVIE_STATUS, RATING_THRESHOLD } from "../utils/constants";
 import MovieDetail from "../components/MovieDetail";
 import RatingPrompt from "../components/RatingPrompt";
+import PageTransition from "../components/PageTransition";
 
 export default function MovieDetailPage() {
   const { imdbId } = useParams();
   const navigate = useNavigate();
-  const { movies, loadMovies, markWatched, updateStatus, addRecommendation, removeRecommendation } = useMovies();
+  const { movies, loadMovies, markWatched, updateStatus, addRecommendation, removeRecommendation } =
+    useMovies();
   const { people, getPeopleNames } = usePeople();
   const [ratingPrompt, setRatingPrompt] = useState(null);
 
@@ -61,8 +63,7 @@ export default function MovieDetailPage() {
 
   if (!movie) {
     return (
-      <div className="nav-stack-page slide-in-right">
-        <div className="nav-stack-blur-backdrop fade-in-backdrop" onClick={() => navigate(-1)} />
+      <PageTransition onClose={() => navigate(-1)}>
         <div className="relative z-50 bg-ios-bg min-h-screen">
           <header className="nav-stack-header">
             <button onClick={() => navigate(-1)} className="nav-stack-back-button">
@@ -74,14 +75,13 @@ export default function MovieDetailPage() {
             <p className="text-ios-secondary-label">Movie not found</p>
           </div>
         </div>
-      </div>
+      </PageTransition>
     );
   }
 
   return (
     <>
-      <div className="nav-stack-blur-backdrop fade-in-backdrop" onClick={() => navigate(-1)} />
-      <div className="nav-stack-page slide-in-right">
+      <PageTransition onClose={() => navigate(-1)}>
         <MovieDetail
           movie={movie}
           onClose={() => navigate(-1)}
@@ -92,7 +92,7 @@ export default function MovieDetailPage() {
           people={people}
           peopleNames={getPeopleNames()}
         />
-      </div>
+      </PageTransition>
       {ratingPrompt && (
         <RatingPrompt
           movie={ratingPrompt.movie}

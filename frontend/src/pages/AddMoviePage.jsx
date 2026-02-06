@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { useMovies } from "../hooks/useMovies";
 import { usePeople } from "../hooks/usePeople";
 import AddMovie from "../components/AddMovie";
+import PageTransition from "../components/PageTransition";
 
 export default function AddMoviePage() {
   const navigate = useNavigate();
@@ -10,20 +11,26 @@ export default function AddMoviePage() {
 
   const handleAdd = async (...args) => {
     await addRecommendation(...args);
-    navigate(-1);
+  };
+
+  const handleClose = (imdbId) => {
+    // If imdbId is provided, navigate to movie detail page
+    // Otherwise just go back (e.g., user cancelled)
+    if (imdbId) {
+      navigate(`/movie/${imdbId}`);
+    } else {
+      navigate(-1);
+    }
   };
 
   return (
-    <>
-      <div className="nav-stack-blur-backdrop fade-in-backdrop" onClick={() => navigate(-1)} />
-      <div className="nav-stack-page slide-in-right">
-        <AddMovie
-          onAdd={handleAdd}
-          onClose={() => navigate(-1)}
-          people={people}
-          peopleNames={getPeopleNames()}
-        />
-      </div>
-    </>
+    <PageTransition onClose={() => navigate(-1)}>
+      <AddMovie
+        onAdd={handleAdd}
+        onClose={handleClose}
+        people={people}
+        peopleNames={getPeopleNames()}
+      />
+    </PageTransition>
   );
 }

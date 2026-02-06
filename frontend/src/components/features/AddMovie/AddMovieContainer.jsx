@@ -153,7 +153,7 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
           selectedMovie.imdbId,
           recommenderName,
           selectedMovie.tmdbData,
-          selectedMovie.omdbData
+          selectedMovie.omdbData,
         ).catch((err) => ({
           error: true,
           message: err.message,
@@ -167,13 +167,15 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
       if (failedCount > 0) {
         const successCount = results.length - failedCount;
         if (successCount > 0) {
-          setError(`Added ${successCount} recommender(s), but ${failedCount} failed. Please try again for the failed ones.`);
+          setError(
+            `Added ${successCount} recommender(s), but ${failedCount} failed. Please try again for the failed ones.`,
+          );
         } else {
           setError(`Failed to add recommenders. Please try again.`);
         }
       } else {
         // All recommenders added successfully
-        onClose();
+        onClose(selectedMovie.imdbId);
       }
     } catch (err) {
       setError(`An unexpected error occurred: ${err.message}`);

@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useCallback, useRef } from "react";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
 
 import { useAuth } from "./contexts/AuthContext";
@@ -30,7 +30,16 @@ function AppContent() {
   const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
   const { movies, loading, loadMovies } = useMovies();
   const navigate = useNavigate();
+  const location = useLocation();
   const lastSyncResultRef = useRef(null);
+
+  // Detect if we're on a stacked/modal page
+  const isStackedPage =
+    location.pathname.startsWith("/movie/") ||
+    location.pathname === "/add" ||
+    location.pathname.startsWith("/people/add") ||
+    (location.pathname.startsWith("/people/") && location.pathname !== "/people") ||
+    location.pathname === "/lists/deleted";
 
   // Start auto-sync and listen for changes
   useEffect(() => {
@@ -45,7 +54,7 @@ function AppContent() {
     const unsubscribe = addSyncListener((status) => {
       // Only reload if sync just completed and we're now synced
       if (
-        status.status === 'synced' &&
+        status.status === "synced" &&
         !status.isProcessing &&
         !status.isSyncingFromServer &&
         lastSyncResultRef.current !== status.lastSync
@@ -55,7 +64,7 @@ function AppContent() {
 
         // Only reload if it's not the initial mount (lastSync > 0)
         if (status.lastSync > 0) {
-          console.log('[App] Reloading movies after sync');
+          console.log("[App] Reloading movies after sync");
           loadMovies();
         }
       }
@@ -72,9 +81,12 @@ function AppContent() {
     await loadMovies();
   }, [loadMovies]);
 
-  const handleMovieClick = useCallback((movie) => {
-    navigate(`/movie/${movie.imdbId}`);
-  }, [navigate]);
+  const handleMovieClick = useCallback(
+    (movie) => {
+      navigate(`/movie/${movie.imdbId}`);
+    },
+    [navigate],
+  );
 
   // Loading states
   if (authLoading) {
@@ -101,8 +113,8 @@ function AppContent() {
 
   return (
     <div className="ios-app">
-      {/* Main Content */}
-      <main className="ios-main-content">
+      {/* Main Content - Base Pages */}
+      <main className={`ios-main-content ${isStackedPage ? "has-overlay" : ""}`}>
         <Routes>
           <Route
             path="/"
@@ -115,24 +127,31 @@ function AppContent() {
             }
           />
           <Route path="/people" element={<PeoplePage movies={movies} />} />
-          <Route path="/people/add" element={<AddPersonPage />} />
-          <Route path="/people/:personName" element={<PersonDetailPage movies={movies} />} />
           <Route path="/lists" element={<ListsPage movies={movies} />} />
           <Route
-            path="/lists/deleted"
-            element={
-              <DeletedListPage
-                movies={movies}
-                onMovieClick={handleMovieClick}
-                onRefresh={handleRefresh}
-              />
-            }
+            path="/account"
+            element={<AccountPage movies={movies} user={user} logout={logout} />}
           />
-          <Route path="/account" element={<AccountPage movies={movies} user={user} logout={logout} />} />
-          <Route path="/movie/:imdbId" element={<MovieDetailPage />} />
-          <Route path="/add" element={<AddMoviePage />} />
         </Routes>
       </main>
+
+      {/* Stacked/Modal Pages - Rendered on top */}
+      <Routes>
+        <Route path="/people/add" element={<AddPersonPage />} />
+        <Route path="/people/:personName" element={<PersonDetailPage movies={movies} />} />
+        <Route
+          path="/lists/deleted"
+          element={
+            <DeletedListPage
+              movies={movies}
+              onMovieClick={handleMovieClick}
+              onRefresh={handleRefresh}
+            />
+          }
+        />
+        <Route path="/movie/:imdbId" element={<MovieDetailPage />} />
+        <Route path="/add" element={<AddMoviePage />} />
+      </Routes>
 
       {/* Bottom Tab Bar */}
       <IOSTabBar onAddClick={() => navigate("/add")} />

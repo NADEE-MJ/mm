@@ -453,7 +453,7 @@ input[type="number"] {
 
   .ios-tabbar-container {
     @apply relative flex items-center gap-1 px-3 py-2;
-    background: rgba(28, 28, 30, 0.7);
+    background: rgba(28, 28, 30, 0.95);
     backdrop-filter: saturate(180%) blur(40px);
     -webkit-backdrop-filter: saturate(180%) blur(40px);
     border-radius: 24px;
@@ -463,7 +463,8 @@ input[type="number"] {
       0 2px 8px rgba(0, 0, 0, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
     pointer-events: auto;
-    max-width: 400px;
+    /* Constrain to screen width with padding */
+    max-width: calc(100vw - 32px);
     width: auto;
   }
 
@@ -477,12 +478,13 @@ input[type="number"] {
 
   /* Active tab indicator/slider */
   .ios-tabbar-slider {
-    @apply absolute rounded-full transition-all duration-300 ease-out;
+    @apply absolute transition-all duration-300 ease-out;
     background: linear-gradient(135deg, rgba(219, 165, 6, 0.3) 0%, rgba(219, 165, 6, 0.2) 100%);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     height: calc(100% - 8px);
     top: 4px;
+    border-radius: 14px;
     box-shadow: 0 2px 8px rgba(219, 165, 6, 0.3);
   }
 
@@ -630,8 +632,8 @@ input[type="number"] {
 
   /* iOS Tab bar item */
   .ios-tabbar-item {
-    @apply relative flex flex-col items-center justify-center px-4 py-2;
-    min-width: 70px;
+    @apply relative flex items-center justify-center px-4 py-2;
+    min-width: 60px;
     min-height: 52px;
     color: var(--color-ios-label-tertiary);
     transition: all 0.25s ease;
@@ -649,13 +651,13 @@ input[type="number"] {
   @media (min-width: 768px) {
     .ios-tabbar-item {
       @apply px-5 py-2.5;
-      min-width: 80px;
+      min-width: 70px;
       min-height: 60px;
     }
   }
 
   .ios-tabbar-icon {
-    @apply w-6 h-6 mb-1 transition-transform duration-200;
+    @apply w-6 h-6 transition-transform duration-200;
   }
 
   @media (min-width: 768px) {
@@ -669,31 +671,29 @@ input[type="number"] {
   }
 
   .ios-tabbar-label {
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: -0.2px;
+    display: none;
   }
 
-  @media (min-width: 768px) {
-    .ios-tabbar-label {
-      font-size: 12px;
-    }
-  }
-
-  /* Add button in tab bar */
+  /* Add button - Floating separately to the right of center */
   .ios-tabbar-add-button {
-    @apply relative flex items-center justify-center;
+    @apply fixed flex items-center justify-center;
     width: 52px;
     height: 52px;
     min-width: 52px;
     background: linear-gradient(135deg, var(--color-ios-yellow) 0%, var(--color-ios-yellow-dark) 100%);
-    border-radius: 16px;
+    border-radius: 14px;
     color: black;
     transition: all 0.2s ease;
-    z-index: 2;
+    z-index: 61;
     box-shadow:
       0 4px 12px rgba(219, 165, 6, 0.4),
       0 2px 4px rgba(219, 165, 6, 0.2);
+    pointer-events: auto;
+    /* Position aligned with tab bar center, offset right */
+    left: 50%;
+    transform: translateX(100px);
+    /* Align with center of tab bar items (bottom + py-2 padding + half item height) */
+    bottom: calc(var(--app-tabbar-bottom) + 8px + 26px - 26px);
   }
 
   @media (min-width: 768px) {
@@ -701,18 +701,26 @@ input[type="number"] {
       width: 60px;
       height: 60px;
       min-width: 60px;
-      border-radius: 18px;
+      border-radius: 16px;
+      transform: translateX(120px);
+      bottom: calc(var(--app-tabbar-bottom) + 12px + 30px - 30px);
     }
   }
 
   .ios-tabbar-add-button:active {
-    transform: scale(0.92);
+    transform: translateX(100px) scale(0.92);
+  }
+
+  @media (min-width: 768px) {
+    .ios-tabbar-add-button:active {
+      transform: translateX(120px) scale(0.92);
+    }
   }
 
   .ios-tabbar-add-button:hover {
     box-shadow:
-      0 6px 16px rgba(10, 132, 255, 0.5),
-      0 2px 6px rgba(10, 132, 255, 0.3);
+      0 6px 16px rgba(219, 165, 6, 0.5),
+      0 2px 6px rgba(219, 165, 6, 0.3);
   }
 
   .ios-tabbar-add-button.active {
@@ -910,16 +918,29 @@ input[type="number"] {
 
   /* Navigation Stack System - Navigation pages */
   .nav-stack-page {
-    @apply fixed inset-0 bg-ios-bg z-30;
+    @apply fixed inset-0 z-30;
     padding-bottom: max(120px, calc(100px + var(--sab)));
     overflow-y: auto;
+    background-color: var(--color-ios-bg);
+  }
+
+  /* iOS-style depth effect for underlying content */
+  .ios-main-content {
+    transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.35s ease;
+  }
+
+  /* When a modal/stack is open, scale and darken the content below */
+  .ios-main-content.has-overlay {
+    transform: scale(0.95);
+    filter: brightness(0.7);
+    pointer-events: none;
   }
 
   .nav-stack-blur-backdrop {
     @apply fixed inset-0 z-20;
-    backdrop-filter: blur(20px) brightness(0.6);
-    -webkit-backdrop-filter: blur(20px) brightness(0.6);
-    background: rgba(0, 0, 0, 0.3);
+    /* More transparent to show content below, but still blocks interaction */
+    background: transparent;
+    pointer-events: all;
   }
 
   /* Slide animations for navigation stack */
