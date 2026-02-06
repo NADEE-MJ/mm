@@ -77,12 +77,7 @@ function AddPersonCard({ onAdd, existingNames }) {
   };
 
   return (
-    <div className="ios-card p-4 space-y-4">
-      <div className="flex items-center gap-2">
-        <Plus className="w-5 h-5 text-ios-blue" />
-        <h3 className="text-ios-headline font-semibold text-ios-label">Add Person</h3>
-      </div>
-
+    <div className="space-y-4">
       <form className="space-y-4" onSubmit={handleSubmit}>
         <input
           type="text"
@@ -167,7 +162,7 @@ function AddPersonCard({ onAdd, existingNames }) {
           disabled={submitting || !name.trim()}
           className="btn-ios-primary w-full disabled:opacity-50"
         >
-          {submitting ? "Adding..." : "Save Person"}
+          {submitting ? "Adding..." : "Add Person"}
         </button>
       </form>
     </div>
@@ -406,8 +401,9 @@ function PersonDetailSheet({ person, onClose, onToggleTrust, onUpdatePerson, col
 
 export default function PeopleManager({ movies }) {
   const { people, addPerson, updatePerson, updateTrust } = usePeople();
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("people");
   const [selectedPerson, setSelectedPerson] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   const existingNames = useMemo(() => people.map((person) => person.name), [people]);
 
@@ -460,8 +456,8 @@ export default function PeopleManager({ movies }) {
 
   const filteredPeople = peopleWithStats.filter((person) => {
     if (filter === "trusted") return person.is_trusted;
-    if (filter === "untrusted") return !person.is_trusted;
     if (filter === "quick") return person.isDefault;
+    if (filter === "people") return !person.isDefault;
     return true;
   });
 
@@ -475,6 +471,7 @@ export default function PeopleManager({ movies }) {
 
   const handleAddPerson = async (payload) => {
     await addPerson(payload);
+    setShowAddModal(false);
   };
 
   const handleUpdatePerson = async (name, updates) => {
@@ -498,17 +495,21 @@ export default function PeopleManager({ movies }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-ios-title1">People</h2>
+          <h2 className="text-ios-title1">Recommenders</h2>
           <span className="ios-badge">{filteredPeople.length}</span>
         </div>
+        <button onClick={() => setShowAddModal(true)} className="btn-ios-primary">
+          <Plus className="w-5 h-5" />
+          <span className="ml-1">Add</span>
+        </button>
       </div>
 
       {/* Filter Segments */}
       <div className="ios-segmented-control">
         {[
-          { value: "all", label: "All" },
-          { value: "trusted", label: "⭐ Trusted" },
-          { value: "quick", label: "Quick" },
+          { value: "people", label: "People" },
+          { value: "trusted", label: "Trusted" },
+          { value: "quick", label: "Quick Recommends" },
         ].map((opt) => (
           <button
             key={opt.value}
@@ -519,29 +520,6 @@ export default function PeopleManager({ movies }) {
           </button>
         ))}
       </div>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="ios-card p-4 text-center">
-          <p className="text-ios-title2 font-bold text-ios-label">{people.length}</p>
-          <p className="text-ios-caption2 text-ios-secondary-label">Total</p>
-        </div>
-        <div className="ios-card p-4 text-center">
-          <p className="text-ios-title2 font-bold text-ios-yellow">
-            {people.filter((p) => p.is_trusted).length}
-          </p>
-          <p className="text-ios-caption2 text-ios-secondary-label">Trusted</p>
-        </div>
-        <div className="ios-card p-4 text-center">
-          <p className="text-ios-title2 font-bold text-ios-blue">
-            {movies.reduce((acc, m) => acc + (m.recommendations?.length || 0), 0)}
-          </p>
-          <p className="text-ios-caption2 text-ios-secondary-label">Recs</p>
-        </div>
-      </div>
-
-      {/* Add person */}
-      <AddPersonCard onAdd={handleAddPerson} existingNames={existingNames} />
 
       {/* People List */}
       {filteredPeople.length === 0 ? (
@@ -630,6 +608,25 @@ export default function PeopleManager({ movies }) {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Add Person Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50">
+          <div className="ios-sheet-backdrop" onClick={() => setShowAddModal(false)} />
+          <div className="ios-sheet ios-slide-up">
+            <div className="ios-sheet-handle" />
+            <div className="ios-sheet-header">
+              <h3 className="ios-sheet-title">Add Person</h3>
+              <button onClick={() => setShowAddModal(false)} className="ios-sheet-close">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="ios-sheet-content">
+              <AddPersonCard onAdd={handleAddPerson} existingNames={existingNames} />
+            </div>
+          </div>
         </div>
       )}
 

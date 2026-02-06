@@ -209,12 +209,12 @@ export function ensureWebSocketConnection() {
  */
 export async function processQueue() {
   if (isProcessing) {
-    console.log("Sync already in progress, skipping...");
+    console.log("[Queue] Sync already in progress, skipping...");
     return { processed: 0, failed: 0 };
   }
 
   if (!navigator.onLine) {
-    console.log("Offline, skipping sync");
+    console.log("[Queue] Offline, skipping sync");
     notifySyncListeners();
     return { processed: 0, failed: 0, offline: true };
   }
@@ -232,11 +232,11 @@ export async function processQueue() {
       .filter((item) => item.status === "pending" || item.status === "failed")
       .sort((a, b) => a.timestamp - b.timestamp);
 
-    console.log(`Processing ${pendingItems.length} sync items...`);
+    console.log(`[Queue] Processing ${pendingItems.length} sync items...`);
 
     for (const item of pendingItems) {
       if (item.retries >= MAX_RETRIES) {
-        console.error(`Max retries reached for item ${item.id}`, item);
+        console.error(`[Queue] Max retries reached for item ${item.id}`, item);
         await updateSyncQueueItem(item.id, {
           status: "failed",
           error: "Max retries exceeded",
@@ -246,6 +246,8 @@ export async function processQueue() {
       }
 
       try {
+        console.log(`[Queue] Processing ${item.action} for ${item.data.imdb_id || item.data.name || 'item'}`);
+
         // Mark as processing
         await updateSyncQueueItem(item.id, { status: "processing" });
         notifySyncListeners();
@@ -257,15 +259,18 @@ export async function processQueue() {
           // Remove from queue on success
           await removeSyncQueueItem(item.id);
           processed++;
-          console.log(`✓ Sync successful for action ${item.action}`, result);
+          console.log(`[Queue] ✓ Sync successful for ${item.action}`, {
+            lastModified: result.last_modified,
+          });
 
           // Update local movie's lastModified if returned
           if (result.last_modified && item.data.imdb_id) {
             await updateLocalMovieTimestamp(item.data.imdb_id, result.last_modified);
+            console.log(`[Queue] Updated local timestamp for ${item.data.imdb_id} to ${result.last_modified}`);
           }
         } else if (result.conflict && result.server_state) {
           console.warn(
-            `Conflict while syncing ${item.action} for ${item.data.imdb_id}, server state applied.`,
+            `[Queue] Conflict while syncing ${item.action} for ${item.data.imdb_id}, applying server state`,
           );
           await removeSyncQueueItem(item.id);
           await upsertMovieFromServer(result.server_state);
@@ -277,10 +282,10 @@ export async function processQueue() {
             error: result.error || "Unknown error",
           });
           failed++;
-          console.error(`✗ Sync failed for action ${item.action}:`, result.error);
+          console.error(`[Queue] ✗ Sync failed for ${item.action}:`, result.error);
         }
       } catch (error) {
-        console.error(`Error processing sync item ${item.id}:`, error);
+        console.error(`[Queue] Error processing sync item ${item.id}:`, error);
         await updateSyncQueueItem(item.id, {
           status: "failed",
           retries: item.retries + 1,
@@ -289,8 +294,10 @@ export async function processQueue() {
         failed++;
       }
     }
+
+    console.log(`[Queue] Finished processing: ${processed} succeeded, ${failed} failed`);
   } catch (error) {
-    console.error("Error processing sync queue:", error);
+    console.error("[Queue] Error processing sync queue:", error);
   } finally {
     isProcessing = false;
     notifySyncListeners();
@@ -305,12 +312,12 @@ export async function processQueue() {
  */
 export async function syncFromServer() {
   if (!navigator.onLine) {
-    console.log("Offline, skipping server sync");
+    console.log("[Sync] Offline, skipping server sync");
     return { synced: 0, offline: true };
   }
 
   if (isSyncingFromServer) {
-    console.log("Already syncing from server, skipping...");
+    console.log("[Sync] Already syncing from server, skipping...");
     return { synced: 0, skipped: true };
   }
 
@@ -321,16 +328,28 @@ export async function syncFromServer() {
     const lastSync = await getLastSync();
     const lastSyncSeconds = lastSync ? lastSync / 1000 : 0;
 
-    console.log("Syncing from server since:", new Date(lastSync || 0).toISOString());
+    console.log("[Sync] Syncing from server since:", new Date(lastSync || 0).toISOString(), `(${lastSyncSeconds}s)`);
 
     const response = await api.syncGetChanges(lastSyncSeconds);
 
-    if (response?.people) {
+    if (!response) {
+      console.warn("[Sync] No response from server");
+      return { synced: 0, error: "No response from server" };
+    }
+
+    console.log("[Sync] Server response:", {
+      movieCount: response.movies?.length || 0,
+      peopleCount: response.people?.length || 0,
+      timestamp: response.timestamp,
+    });
+
+    if (response.people) {
+      console.log(`[Sync] Merging ${response.people.length} people from server`);
       await mergePeopleFromServer(response.people);
     }
 
-    if (response && response.movies && response.movies.length > 0) {
-      console.log(`Received ${response.movies.length} movies from server`);
+    if (response.movies && response.movies.length > 0) {
+      console.log(`[Sync] Received ${response.movies.length} movies from server`);
 
       // Get current local movies for merge comparison
       const localMovies = await getAllMovies();
@@ -348,29 +367,27 @@ export async function syncFromServer() {
         if (shouldUpdate) {
           const movieData = transformServerMovie(serverMovie);
           await saveMovie(movieData, { preserveTimestamp: true });
-          console.log(`✓ Updated movie: ${imdbId}`);
+          console.log(`[Sync] ✓ Updated movie: ${imdbId}`);
         } else {
-          console.log(`→ Skipped movie ${imdbId} (local is newer)`);
+          console.log(`[Sync] → Skipped movie ${imdbId} (local is newer)`);
         }
       }
-
-      // Update last sync timestamp
-      if (response.timestamp) {
-        await setLastSync(response.timestamp * 1000);
-      }
-
-      console.log(`Sync complete: ${response.movies.length} movies processed`);
-      return { synced: response.movies.length };
     }
 
-    // Update last sync even if no movies
-    if (response && response.timestamp) {
+    // Always update last sync timestamp
+    if (response.timestamp) {
       await setLastSync(response.timestamp * 1000);
+      console.log(`[Sync] Updated lastSync to:`, new Date(response.timestamp * 1000).toISOString());
+    } else {
+      console.warn("[Sync] No timestamp in response, lastSync not updated");
     }
 
-    return { synced: 0 };
+    const syncedCount = response.movies?.length || 0;
+    console.log(`[Sync] Complete: ${syncedCount} movies synced`);
+    return { synced: syncedCount };
   } catch (error) {
-    console.error("Error syncing from server:", error);
+    console.error("[Sync] Error syncing from server:", error);
+    // Don't update lastSync on error - we'll retry from the same point
     return { synced: 0, error: error.message };
   } finally {
     isSyncingFromServer = false;
@@ -397,14 +414,19 @@ export async function fullSync() {
  */
 export function startAutoSync() {
   if (syncInterval) {
-    console.log("Auto-sync already running");
+    console.log("[AutoSync] Already running");
     return;
   }
 
-  console.log("Starting auto-sync...");
+  console.log("[AutoSync] Starting...");
 
-  // Run immediately
-  fullSync();
+  // Run immediately (but don't await to avoid blocking)
+  fullSync().then(() => {
+    console.log("[AutoSync] Initial sync completed");
+  }).catch((error) => {
+    console.error("[AutoSync] Initial sync failed:", error);
+  });
+
   ensureWebSocketConnection();
 
   // Run on interval
@@ -451,7 +473,7 @@ export function stopAutoSync() {
   if (syncInterval) {
     clearInterval(syncInterval);
     syncInterval = null;
-    console.log("Auto-sync stopped");
+    console.log("[AutoSync] Stopped");
   }
   if (startAutoSync._cleanup) {
     startAutoSync._cleanup();

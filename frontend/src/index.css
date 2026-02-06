@@ -409,15 +409,46 @@ input[type="number"] {
     -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
 
-  /* iOS-style tab bar */
+  /* iOS-style tab bar - Floating liquid glass design */
   .ios-tabbar {
-    @apply fixed bottom-0 left-0 right-0 flex justify-around z-50;
-    background-color: rgba(28, 28, 30, 0.94);
-    backdrop-filter: saturate(180%) blur(20px);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    border-top: 0.5px solid var(--ios-separator);
-    padding-bottom: max(8px, var(--sab));
-    padding-top: 8px;
+    @apply fixed left-0 right-0 flex justify-center z-50;
+    bottom: max(20px, calc(20px + var(--sab)));
+    pointer-events: none;
+  }
+
+  .ios-tabbar-container {
+    @apply relative flex items-center gap-1 px-3 py-2;
+    background: rgba(28, 28, 30, 0.7);
+    backdrop-filter: saturate(180%) blur(40px);
+    -webkit-backdrop-filter: saturate(180%) blur(40px);
+    border-radius: 24px;
+    border: 0.5px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.4),
+      0 2px 8px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    pointer-events: auto;
+    max-width: 400px;
+    width: auto;
+  }
+
+  @media (min-width: 768px) {
+    .ios-tabbar-container {
+      @apply px-4 py-3 gap-2;
+      border-radius: 28px;
+      max-width: 480px;
+    }
+  }
+
+  /* Active tab indicator/slider */
+  .ios-tabbar-slider {
+    @apply absolute rounded-full transition-all duration-300 ease-out;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    height: calc(100% - 8px);
+    top: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 
   .ios-tab {
@@ -563,24 +594,89 @@ input[type="number"] {
 
   /* iOS Tab bar item */
   .ios-tabbar-item {
-    @apply flex flex-col items-center justify-center px-3 py-1;
-    min-width: 64px;
-    min-height: 44px;
-    color: var(--ios-gray);
-    transition: color 0.15s ease;
+    @apply relative flex flex-col items-center justify-center px-4 py-2;
+    min-width: 70px;
+    min-height: 52px;
+    color: var(--ios-label-tertiary);
+    transition: all 0.25s ease;
+    z-index: 2;
   }
 
   .ios-tabbar-item.active {
-    color: var(--ios-blue);
+    color: var(--ios-label);
+  }
+
+  .ios-tabbar-item:active {
+    transform: scale(0.92);
+  }
+
+  @media (min-width: 768px) {
+    .ios-tabbar-item {
+      @apply px-5 py-2.5;
+      min-width: 80px;
+      min-height: 60px;
+    }
   }
 
   .ios-tabbar-icon {
-    @apply w-6 h-6 mb-0.5;
+    @apply w-6 h-6 mb-1 transition-transform duration-200;
+  }
+
+  @media (min-width: 768px) {
+    .ios-tabbar-icon {
+      @apply w-7 h-7;
+    }
+  }
+
+  .ios-tabbar-item.active .ios-tabbar-icon {
+    transform: translateY(-1px);
   }
 
   .ios-tabbar-label {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
+    letter-spacing: -0.2px;
+  }
+
+  @media (min-width: 768px) {
+    .ios-tabbar-label {
+      font-size: 12px;
+    }
+  }
+
+  /* Add button in tab bar */
+  .ios-tabbar-add-button {
+    @apply relative flex items-center justify-center;
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    background: linear-gradient(135deg, var(--ios-blue) 0%, #0066cc 100%);
+    border-radius: 16px;
+    color: white;
+    transition: all 0.2s ease;
+    z-index: 2;
+    box-shadow:
+      0 4px 12px rgba(10, 132, 255, 0.4),
+      0 2px 4px rgba(10, 132, 255, 0.2);
+  }
+
+  @media (min-width: 768px) {
+    .ios-tabbar-add-button {
+      width: 60px;
+      height: 60px;
+      min-width: 60px;
+      border-radius: 18px;
+    }
+  }
+
+  .ios-tabbar-add-button:active {
+    transform: scale(0.92);
+  }
+
+  .ios-tabbar-add-button:hover {
+    box-shadow:
+      0 6px 16px rgba(10, 132, 255, 0.5),
+      0 2px 6px rgba(10, 132, 255, 0.3);
   }
 
   /* iOS badge styles */
@@ -746,7 +842,8 @@ input[type="number"] {
 
   /* iOS main content area */
   .ios-main-content {
-    @apply max-w-screen-xl mx-auto px-4 py-4 pb-24;
+    @apply max-w-screen-xl mx-auto px-4 py-4;
+    padding-bottom: max(120px, calc(100px + var(--sab)));
   }
 
   /* iOS app container */

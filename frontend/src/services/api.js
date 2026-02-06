@@ -151,6 +151,23 @@ class APIClient {
   async healthCheck() {
     return this.request("/api/health");
   }
+
+  // External API proxy endpoints (TMDB, OMDB)
+  async searchTMDB(query) {
+    return this.request(`/api/external/tmdb/search?q=${encodeURIComponent(query)}`);
+  }
+
+  async getTMDBMovieDetails(tmdbId) {
+    return this.request(`/api/external/tmdb/movie/${tmdbId}`);
+  }
+
+  async getOMDBMovie(imdbId) {
+    return this.request(`/api/external/omdb/movie/${imdbId}`);
+  }
+
+  async getExternalCacheInfo() {
+    return this.request("/api/external/cache/info");
+  }
 }
 
 export const api = new APIClient();

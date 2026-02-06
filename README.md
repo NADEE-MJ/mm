@@ -1,4 +1,4 @@
-# Movie Recommendation Tracker PWA
+# Movie Manager
 
 A full-stack Progressive Web App for tracking movie recommendations with offline-first architecture. Built with React, FastAPI, and SQLite.
 
@@ -32,8 +32,9 @@ A full-stack Progressive Web App for tracking movie recommendations with offline
 - **Lucide React**: Icon library
 
 ### APIs
-- **TMDB API**: Movie search and metadata (40 req/s)
-- **OMDb API**: IMDb and Rotten Tomatoes ratings (1000 req/day)
+- **TMDB API**: Movie search and metadata (proxied through backend with caching)
+- **OMDb API**: IMDb and Rotten Tomatoes ratings (proxied through backend with caching)
+- **In-Memory Cache**: TTL-based caching (1 hour, 500 items) to reduce external API calls
 
 ## Project Structure
 
@@ -88,10 +89,17 @@ mm/
    uv sync
    ```
 
-3. Create `.env` file (optional, for API key proxying):
+3. Create `.env` file and add your API keys:
    ```bash
    cp .env.example .env
-   # Edit .env and add your API keys if needed
+   ```
+
+   Edit `.env` and add your TMDB and OMDb API keys:
+   ```env
+   TMDB_API_KEY=your_tmdb_api_key_here
+   OMDB_API_KEY=your_omdb_api_key_here
+   DATABASE_URL=sqlite:///./app.db
+   CORS_ORIGINS=http://localhost:5173,http://localhost:3000
    ```
 
 4. Run migrations (database is auto-created):
@@ -124,12 +132,13 @@ mm/
    cp .env.example .env
    ```
 
-4. Edit `.env` and add your API keys:
+4. Edit `.env` and configure the backend URL:
    ```env
    VITE_API_URL=http://localhost:8000
-   VITE_TMDB_API_KEY=your_tmdb_api_key_here
-   VITE_OMDB_API_KEY=your_omdb_api_key_here
    ```
+
+   **Note**: API keys for TMDB and OMDb are now configured in the backend for security.
+   The frontend proxies all external API requests through the backend.
 
 5. Start the development server:
    ```bash

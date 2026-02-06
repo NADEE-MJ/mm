@@ -1,6 +1,6 @@
 {
-  "name": "Movie Tracker",
-  "short_name": "Movies",
+  "name": "Movie Manager",
+  "short_name": "Movie Manager",
   "description": "Track movie recommendations from friends and manage your watchlist",
   "start_url": "/",
   "scope": "/",

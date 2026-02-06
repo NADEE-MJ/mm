@@ -2,13 +2,14 @@
 
 from fastapi import FastAPI
 
-from app.api.routers import auth, health, lists, movies, people, sync
+from app.api.routers import auth, external, health, lists, movies, people, sync
 
 
 def register_routers(app: FastAPI) -> None:
     """Attach all API and websocket routers."""
     http_routers = (
         auth.router,
+        external.router,
         health.router,
         lists.router,
         movies.router,

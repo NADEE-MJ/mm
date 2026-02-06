@@ -35,7 +35,7 @@ async def sync_get_changes(
     """Return all movie & people changes after a timestamp."""
     movies = (
         db.query(Movie)
-        .filter(Movie.user_id == user.id, Movie.last_modified > since)
+        .filter(Movie.user_id == user.id, Movie.last_modified >= since)
         .all()
     )
     movie_payload = [serialize_movie(movie) for movie in movies]
