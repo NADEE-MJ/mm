@@ -95,6 +95,7 @@ export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateSta
   const quickRatings = [5.0, 6.0, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0];
 
   return (
+    <>
     <div className="bg-ios-bg min-h-screen">
       {/* Header with back button */}
       <header className="nav-stack-header">
@@ -482,6 +483,6 @@ export default function MovieDetail({ movie, onClose, onMarkWatched, onUpdateSta
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

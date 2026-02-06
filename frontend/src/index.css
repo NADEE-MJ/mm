@@ -1,5 +1,47 @@
 @import "tailwindcss";
 
+@theme {
+  /* iOS color palette as Tailwind colors */
+  --color-ios-bg: #000000;
+  --color-ios-bg-secondary: #1c1c1e;
+  --color-ios-bg-tertiary: #2c2c2e;
+  --color-ios-bg-elevated: #1c1c1e;
+  --color-ios-bg-grouped: #000000;
+  --color-ios-bg-grouped-secondary: #1c1c1e;
+
+  --color-ios-label: #ffffff;
+  --color-ios-label-secondary: rgba(235, 235, 245, 0.6);
+  --color-ios-label-tertiary: rgba(235, 235, 245, 0.3);
+  --color-ios-label-quaternary: rgba(235, 235, 245, 0.18);
+
+  --color-ios-separator: rgba(84, 84, 88, 0.65);
+  --color-ios-separator-opaque: #38383a;
+
+  --color-ios-fill: rgba(120, 120, 128, 0.36);
+  --color-ios-fill-secondary: rgba(120, 120, 128, 0.32);
+  --color-ios-fill-tertiary: rgba(118, 118, 128, 0.24);
+  --color-ios-fill-quaternary: rgba(116, 118, 128, 0.18);
+
+  --color-ios-secondary-fill: rgba(120, 120, 128, 0.32);
+
+  /* iOS Accent Colors */
+  --color-ios-blue: #0a84ff;
+  --color-ios-green: #30d158;
+  --color-ios-indigo: #5e5ce6;
+  --color-ios-orange: #ff9f0a;
+  --color-ios-pink: #ff375f;
+  --color-ios-purple: #bf5af2;
+  --color-ios-red: #ff453a;
+  --color-ios-teal: #64d2ff;
+  --color-ios-yellow: #ffd60a;
+  --color-ios-gray: #8e8e93;
+
+  --color-ios-secondary-label: rgba(235, 235, 245, 0.6);
+  --color-ios-tertiary-label: rgba(235, 235, 245, 0.3);
+  --color-ios-caption1: inherit;
+  --color-ios-caption2: inherit;
+}
+
 :root {
   /* Apple SF Pro-like font stack */
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
@@ -13,39 +55,6 @@
   --sab: env(safe-area-inset-bottom);
   --sal: env(safe-area-inset-left);
   --sar: env(safe-area-inset-right);
-
-  /* iOS-style color palette */
-  --ios-bg: #000000;
-  --ios-bg-secondary: #1c1c1e;
-  --ios-bg-tertiary: #2c2c2e;
-  --ios-bg-elevated: #1c1c1e;
-  --ios-bg-grouped: #000000;
-  --ios-bg-grouped-secondary: #1c1c1e;
-
-  --ios-label: #ffffff;
-  --ios-label-secondary: rgba(235, 235, 245, 0.6);
-  --ios-label-tertiary: rgba(235, 235, 245, 0.3);
-  --ios-label-quaternary: rgba(235, 235, 245, 0.18);
-
-  --ios-separator: rgba(84, 84, 88, 0.65);
-  --ios-separator-opaque: #38383a;
-
-  --ios-fill: rgba(120, 120, 128, 0.36);
-  --ios-fill-secondary: rgba(120, 120, 128, 0.32);
-  --ios-fill-tertiary: rgba(118, 118, 128, 0.24);
-  --ios-fill-quaternary: rgba(116, 118, 128, 0.18);
-
-  /* iOS Accent Colors */
-  --ios-blue: #0a84ff;
-  --ios-green: #30d158;
-  --ios-indigo: #5e5ce6;
-  --ios-orange: #ff9f0a;
-  --ios-pink: #ff375f;
-  --ios-purple: #bf5af2;
-  --ios-red: #ff453a;
-  --ios-teal: #64d2ff;
-  --ios-yellow: #ffd60a;
-  --ios-gray: #8e8e93;
 }
 
 html {
