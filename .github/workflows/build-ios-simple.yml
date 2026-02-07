@@ -173,21 +173,57 @@ jobs:
           echo "============================================"
 
           WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          if [ -z "$WORKSPACE" ]; then
+            echo "❌ No .xcworkspace found in mobile/ios"
+            ls -la
+            exit 1
+          fi
+
           echo "Using workspace: $WORKSPACE"
 
-          # Auto-detect scheme (filter out Pods schemes)
-          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null | \
-                   sed -n '/Schemes:/,/^$/p' | \
-                   grep -v 'Schemes:' | \
-                   grep -v '^$' | \
-                   grep -v 'Pods-' | \
-                   head -1 | \
-                   xargs)
+          echo ""
+          echo "Available schemes:"
+          xcodebuild -workspace "$WORKSPACE" -list
+
+          if [ -n "${APP_SCHEME:-}" ]; then
+            SCHEME="$APP_SCHEME"
+            echo ""
+            echo "Using manually specified scheme: $SCHEME"
+          else
+            WORKSPACE_NAME=$(basename "$WORKSPACE" .xcworkspace)
+            echo ""
+            echo "Auto-detecting scheme for workspace: $WORKSPACE_NAME"
+
+            ALL_SCHEMES=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null | \
+                         sed -n '/Schemes:/,/^$/p' | \
+                         grep -v 'Schemes:' | \
+                         grep -v '^$' | \
+                         sed 's/^[[:space:]]*//')
+
+            echo ""
+            echo "All schemes found:"
+            echo "$ALL_SCHEMES"
+
+            # Prefer scheme that matches workspace name exactly (case-insensitive)
+            SCHEME=$(echo "$ALL_SCHEMES" | grep -i "^${WORKSPACE_NAME}$" | head -1)
+
+            # Fallback: filter out known dependency/library schemes
+            if [ -z "$SCHEME" ]; then
+              SCHEME=$(echo "$ALL_SCHEMES" | \
+                       grep -v -i '^Pods-' | \
+                       grep -v -i '^EX' | \
+                       grep -v -i '^RCT' | \
+                       grep -v -i '^React' | \
+                       grep -v -i 'Tests$' | \
+                       head -1)
+            fi
+          fi
 
           echo "Using scheme: $SCHEME"
 
           if [ -z "$SCHEME" ]; then
             echo "❌ No scheme found!"
+            echo "Set APP_SCHEME to your app target if auto-detection fails."
             exit 1
           fi
 
@@ -213,7 +249,21 @@ jobs:
           echo "============================================"
           echo "Looking for .app bundle"
           echo "============================================"
-          find build -name "*.app" -type d
+
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -name "*.app" -type d 2>/dev/null | grep -v "Pods" | head -1)
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH=$(find build -name "*.app" -type d 2>/dev/null | grep -v "Pods" | grep -v ".xcarchive" | head -1)
+          fi
+
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ Build completed but no .app bundle was found."
+            echo "Build products:"
+            find build -type d -maxdepth 4
+            exit 1
+          fi
+
+          echo "✅ Found .app bundle: $APP_PATH"
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
 
       - name: Package IPA
         working-directory: mobile/ios
@@ -222,19 +272,16 @@ jobs:
           echo "Packaging .ipa"
           echo "============================================"
 
-          APP_PATH=$(find build -name "*.app" -type d | grep -v Pods | head -1)
-
-          if [ -z "$APP_PATH" ]; then
-            echo "❌ No .app bundle found!"
-            echo "Build products:"
-            find build -type d -maxdepth 4
+          if [ -z "${{ env.APP_PATH }}" ]; then
+            echo "❌ APP_PATH is empty. Build step did not export an .app path."
             exit 1
           fi
 
-          echo "Found: $APP_PATH"
+          echo "Found: ${{ env.APP_PATH }}"
 
+          rm -rf Payload
           mkdir -p Payload
-          cp -R "$APP_PATH" Payload/
+          cp -R "${{ env.APP_PATH }}" Payload/
 
           echo ""
           echo "Creating .ipa..."
