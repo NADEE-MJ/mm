@@ -16,6 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.moviemanager.mobile",
+      "deploymentTarget": "26.0",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to unlock the app",
         "NSCameraUsageDescription": "We need camera access for scanning QR codes",
