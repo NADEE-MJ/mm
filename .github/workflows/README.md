@@ -4,6 +4,10 @@ This workflow builds an unsigned iOS IPA file for the React Native (Expo) mobile
 
 ## How to Trigger the Build
 
+The workflow can be triggered in two ways:
+
+### Option 1: Comment on a Pull Request
+
 **Security Note**: Only repository maintainers or trusted contributors should trigger this action, as it checks out and builds code from the PR branch.
 
 1. Go to any Pull Request in this repository
@@ -12,14 +16,19 @@ This workflow builds an unsigned iOS IPA file for the React Native (Expo) mobile
 4. Wait for the build to complete (typically 10-15 minutes)
 5. Once complete, the workflow will comment with a link to download the IPA
 
+### Option 2: Push to Main Branch
+
+The workflow automatically runs whenever code is pushed to the `main` branch. The built IPA will be available in the workflow artifacts.
+
 ## Downloading the IPA
 
 After the build completes successfully:
 
-1. Click the workflow link in the comment
-2. Scroll down to the **Artifacts** section at the bottom of the workflow run page
-3. Download the `ios-app-unsigned` artifact (zip file)
-4. Extract the zip file to get the `app.ipa` file
+1. Go to the Actions tab in the repository
+2. Click on the workflow run (or use the link from the PR comment if triggered via comment)
+3. Scroll down to the **Artifacts** section at the bottom of the workflow run page
+4. Download the `ios-app-unsigned` artifact (zip file)
+5. Extract the zip file to get the `app.ipa` file
 
 ## Signing the IPA
 

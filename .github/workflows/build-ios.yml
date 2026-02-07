@@ -1,14 +1,19 @@
 name: Build iOS App
 
-# Trigger on PR comments containing "build ios"
+# Trigger on PR comments containing "build ios" or commits to main branch
 on:
   issue_comment:
     types: [created]
+  push:
+    branches:
+      - main
 
 jobs:
   build-ios:
-    # Only run on PR comments (not issues) that contain "build ios"
-    if: github.event.issue.pull_request && contains(github.event.comment.body, 'build ios')
+    # Run on PR comments containing "build ios" OR pushes to main branch
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, 'build ios'))
     runs-on: macos-latest
     
     # Set minimal permissions for security
@@ -19,6 +24,7 @@ jobs:
 
     steps:
       - name: Add reaction to comment
+        if: github.event_name == 'issue_comment'
         uses: actions/github-script@v7
         with:
           script: |
@@ -30,6 +36,7 @@ jobs:
             })
 
       - name: Get PR branch
+        if: github.event_name == 'issue_comment'
         id: pr-branch
         uses: actions/github-script@v7
         with:
@@ -47,10 +54,10 @@ jobs:
       # Only maintainers or trusted contributors should trigger this action.
       # Consider adding a check for author association if needed:
       # if: github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'MEMBER'
-      - name: Checkout PR branch
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.pr-branch.outputs.ref }}
+          ref: ${{ github.event_name == 'issue_comment' && steps.pr-branch.outputs.ref || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -134,7 +141,7 @@ jobs:
           retention-days: 30
 
       - name: Comment build result
-        if: success()
+        if: success() && github.event_name == 'issue_comment'
         uses: actions/github-script@v7
         with:
           script: |
@@ -147,7 +154,7 @@ jobs:
             })
 
       - name: Comment build failure
-        if: failure()
+        if: failure() && github.event_name == 'issue_comment'
         uses: actions/github-script@v7
         with:
           script: |
