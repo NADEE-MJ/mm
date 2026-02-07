@@ -94,7 +94,7 @@ jobs:
         working-directory: mobile
         run: |
           echo "============================================"
-          echo "Creating self-signed credentials"
+          echo "Creating self-signed credentials (ad-hoc)"
           echo "============================================"
 
           # Create a self-signed certificate
@@ -106,39 +106,35 @@ jobs:
             -inkey key.pem -in cert.pem \
             -passout pass:buildpass
 
-          # Create a minimal provisioning profile
+          # Create a minimal ad-hoc provisioning profile
           cat > profile.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
               <key>AppIDName</key>
-              <string>MovieManager</string>
+              <string>Placeholder</string>
               <key>ApplicationIdentifierPrefix</key>
               <array><string>XXXXXXXXXX</string></array>
-              <key>CreationDate</key>
-              <date>2026-02-07T00:00:00Z</date>
               <key>Platform</key>
               <array><string>iOS</string></array>
+              <key>Entitlements</key>
+              <dict>
+                  <key>application-identifier</key>
+                  <string>XXXXXXXXXX.*</string>
+                  <key>get-task-allow</key>
+                  <true/>
+              </dict>
+              <key>ProvisionsAllDevices</key>
+              <true/>
               <key>TeamIdentifier</key>
               <array><string>XXXXXXXXXX</string></array>
               <key>TeamName</key>
-              <string>CI Build Team</string>
+              <string>CI Build</string>
               <key>UUID</key>
               <string>00000000-0000-0000-0000-000000000000</string>
               <key>Version</key>
               <integer>1</integer>
-              <key>DeveloperCertificates</key>
-              <array>
-                <data>$(base64 -w 0 cert.pem)</data>
-              </array>
-              <key>Entitlements</key>
-              <dict>
-                <key>application-identifier</key>
-                <string>XXXXXXXXXX.com.moviemanager.mobile</string>
-                <key>get-task-allow</key>
-                <true/>
-              </dict>
           </dict>
           </plist>
           EOF
@@ -161,7 +157,7 @@ jobs:
           }
           EOF
 
-          echo "✅ Self-signed credentials created"
+          echo "✅ Self-signed ad-hoc credentials created"
           echo "Note: These are placeholder credentials - SideStore will re-sign with your Apple ID"
 
       # ─────────────────────────────────────────────
