@@ -136,17 +136,16 @@ jobs:
 
           ARCHIVE_PATH="$RUNNER_TEMP/MovieManager.xcarchive"
 
-          # Debug: show archive contents to find the correct .app name
-          echo "Archive contents:"
-          ls -la "$ARCHIVE_PATH/Products/Applications/" || true
+          # Debug: show full archive structure
+          echo "Full archive structure:"
+          find "$ARCHIVE_PATH" -type d
+          echo "---"
 
-          # Dynamically find the .app bundle inside the archive
-          APP_PATH=$(find "$ARCHIVE_PATH/Products/Applications" -name "*.app" -maxdepth 1 -print -quit)
+          # Search the entire archive for the .app bundle
+          APP_PATH=$(find "$ARCHIVE_PATH" -name "*.app" -type d -print -quit)
 
           if [ -z "$APP_PATH" ]; then
-            echo "Error: No .app bundle found in archive!"
-            echo "Full archive structure:"
-            find "$ARCHIVE_PATH" -type d
+            echo "Error: No .app bundle found anywhere in archive!"
             exit 1
           fi
 
