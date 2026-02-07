@@ -15,7 +15,7 @@ jobs:
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, 'build ios'))
     runs-on: macos-latest
-    
+
     # Set minimal permissions for security
     permissions:
       contents: read        # Read repository contents
@@ -88,7 +88,7 @@ jobs:
           echo "Running expo prebuild to generate native iOS project..."
           echo "Note: Using --clean flag to ensure a fresh build. This removes any existing ios directory."
           npx expo prebuild --platform ios --clean
-          
+
       - name: Install iOS dependencies
         working-directory: mobile/ios
         run: |
@@ -99,7 +99,7 @@ jobs:
         working-directory: mobile/ios
         run: |
           echo "Building iOS app with xcodebuild..."
-          
+
           # Build the app without code signing
           xcodebuild clean archive \
             -workspace moviemanager.xcworkspace \
@@ -110,26 +110,44 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             | tee build.log
-          
+
           echo "Build completed. Archive created at: $RUNNER_TEMP/MovieManager.xcarchive"
 
       - name: Create IPA from archive
         run: |
           echo "Creating IPA from archive..."
-          
+
+          ARCHIVE_PATH="$RUNNER_TEMP/MovieManager.xcarchive"
+
+          # Debug: show archive contents to find the correct .app name
+          echo "Archive contents:"
+          ls -la "$ARCHIVE_PATH/Products/Applications/" || true
+
+          # Dynamically find the .app bundle inside the archive
+          APP_PATH=$(find "$ARCHIVE_PATH/Products/Applications" -name "*.app" -maxdepth 1 -print -quit)
+
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: No .app bundle found in archive!"
+            echo "Full archive structure:"
+            find "$ARCHIVE_PATH" -type d
+            exit 1
+          fi
+
+          echo "Found app bundle: $APP_PATH"
+
           # Create Payload directory
           mkdir -p "$RUNNER_TEMP/Payload"
-          
+
           # Copy the app bundle to Payload
-          cp -r "$RUNNER_TEMP/MovieManager.xcarchive/Products/Applications/moviemanager.app" "$RUNNER_TEMP/Payload/"
-          
+          cp -r "$APP_PATH" "$RUNNER_TEMP/Payload/"
+
           # Create IPA (which is just a zip file)
           cd "$RUNNER_TEMP"
           zip -r MovieManager.ipa Payload
-          
+
           # Move IPA to mobile directory for artifact upload
           mv MovieManager.ipa "$GITHUB_WORKSPACE/mobile/app.ipa"
-          
+
           echo "IPA created successfully at: $GITHUB_WORKSPACE/mobile/app.ipa"
           ls -lh "$GITHUB_WORKSPACE/mobile/app.ipa"
 
