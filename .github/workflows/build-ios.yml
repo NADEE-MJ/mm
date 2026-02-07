@@ -169,14 +169,13 @@ jobs:
           echo "============================================"
 
       # ─────────────────────────────────────────────
-      # 6. Patch Xcode project to disable code signing
+      # 6. Patch Xcode project (fix build cycle + disable signing)
       # ─────────────────────────────────────────────
-      - name: Disable code signing in Xcode project
+      - name: Patch Xcode project
         working-directory: ${{ env.EXPO_PROJECT_DIR }}/ios
         run: |
-          # Create a temporary Ruby script to modify the Xcode project
-          # This ensures code signing is disabled at the project level too
-          cat > disable_signing.rb << 'RUBY_SCRIPT'
+          # Create a Ruby script to fix the build cycle and disable code signing
+          cat > fix_project.rb << 'RUBY_SCRIPT'
           require 'xcodeproj'
 
           project_path = Dir.glob("*.xcodeproj").first
@@ -187,6 +186,26 @@ jobs:
 
           project = Xcodeproj::Project.open(project_path)
 
+          # Fix 1: Reorder build phases to fix circular dependency
+          # Move "[Expo] Configure project" phase to run FIRST
+          project.targets.each do |target|
+            next unless target.name == 'MovieManager' || target.name == 'moviemanager'
+
+            # Find the Expo Configure project phase
+            expo_phase = target.shell_script_build_phases.find do |phase|
+              phase.name == '[Expo] Configure project'
+            end
+
+            if expo_phase
+              # Remove it from current position
+              target.build_phases.delete(expo_phase)
+              # Insert it at the beginning (index 0)
+              target.build_phases.insert(0, expo_phase)
+              puts "✅ Moved '[Expo] Configure project' phase to beginning"
+            end
+          end
+
+          # Fix 2: Disable code signing for all targets
           project.targets.each do |target|
             target.build_configurations.each do |config|
               config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
@@ -195,18 +214,18 @@ jobs:
               config.build_settings['CODE_SIGN_ENTITLEMENTS'] = ''
               config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
               config.build_settings['DEVELOPMENT_TEAM'] = ''
-              # Ensure it still produces a valid .app bundle
               config.build_settings['ENABLE_BITCODE'] = 'NO'
             end
           end
 
           project.save
           puts "✅ Code signing disabled for all targets"
+          puts "✅ Build cycle fixed"
           RUBY_SCRIPT
 
           # Install xcodeproj gem if needed and run the script
           gem install xcodeproj --no-document 2>/dev/null || true
-          ruby disable_signing.rb
+          ruby fix_project.rb
 
       # ─────────────────────────────────────────────
       # 7. Install CocoaPods
