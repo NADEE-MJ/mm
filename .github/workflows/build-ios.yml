@@ -122,40 +122,34 @@ jobs:
             export FASTLANE_DONT_STORE_PASSWORD=1
 
             # Create a Ruby script to fetch team info using Spaceship
-            cat > /tmp/get_teams.rb << 'RUBY_SCRIPT'
-require 'spaceship'
-
-begin
-  Spaceship::Portal.login(ENV['FASTLANE_USER'], ENV['FASTLANE_PASSWORD'])
-
-  teams = Spaceship::Portal.client.teams
-
-  puts ""
-  puts "=" * 60
-  puts "FOUND YOUR TEAM(S):"
-  puts "=" * 60
-
-  teams.each do |team|
-    puts "Team Name: #{team['name']}"
-    puts "Team ID:   #{team['teamId']}"
-    puts "Type:      #{team['type']}"
-    puts "-" * 60
-  end
-
-  puts ""
-  puts "ADD THIS SECRET TO GITHUB:"
-  puts "  Name:  APPLE_TEAM_ID"
-  puts "  Value: #{teams.first['teamId']}"
-  puts ""
-  puts "=" * 60
-
-rescue => e
-  puts "Error fetching teams: #{e.message}"
-  puts ""
-  puts "You can also find your Team ID at:"
-  puts "https://developer.apple.com/account → Membership Details"
-end
-RUBY_SCRIPT
+            cat > /tmp/get_teams.rb << 'EOF'
+            require 'spaceship'
+            begin
+              Spaceship::Portal.login(ENV['FASTLANE_USER'], ENV['FASTLANE_PASSWORD'])
+              teams = Spaceship::Portal.client.teams
+              puts ""
+              puts "=" * 60
+              puts "FOUND YOUR TEAM(S):"
+              puts "=" * 60
+              teams.each do |team|
+                puts "Team Name: #{team['name']}"
+                puts "Team ID:   #{team['teamId']}"
+                puts "Type:      #{team['type']}"
+                puts "-" * 60
+              end
+              puts ""
+              puts "ADD THIS SECRET TO GITHUB:"
+              puts "  Name:  APPLE_TEAM_ID"
+              puts "  Value: #{teams.first['teamId']}"
+              puts ""
+              puts "=" * 60
+            rescue => e
+              puts "Error fetching teams: #{e.message}"
+              puts ""
+              puts "You can also find your Team ID at:"
+              puts "https://developer.apple.com/account"
+            end
+            EOF
 
             # Run the script
             ruby /tmp/get_teams.rb || echo "Could not fetch teams automatically"
