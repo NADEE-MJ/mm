@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badge: {
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     height: 24,
   },
   badgeText: {

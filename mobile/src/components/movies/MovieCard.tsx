@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   posterPlaceholder: {
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   voteChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,

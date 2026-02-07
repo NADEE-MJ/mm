@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   posterPlaceholder: {
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: '#1c1c1e',
-    borderColor: '#38383a',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
   },
   chipActive: {

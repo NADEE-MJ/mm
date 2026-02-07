@@ -464,13 +464,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   genreChip: {
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   genreText: {
     color: '#fff',
   },
   divider: {
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     marginVertical: 16,
   },
   watchedSection: {

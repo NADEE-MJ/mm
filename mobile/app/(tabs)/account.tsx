@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     color: '#8e8e93',
   },
   divider: {
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   subheader: {
     color: '#8e8e93',
