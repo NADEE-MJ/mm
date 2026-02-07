@@ -113,7 +113,7 @@ The IPA is unsigned. You must sign it with your own certificate before installin
 
 ### Change the trigger phrase
 
-Edit `.github/workflows/build-ios.yml` and change line 9:
+Edit `.github/workflows/build-ios.yml` and change line 11:
 
 ```yaml
 if: github.event.issue.pull_request && contains(github.event.comment.body, 'build ios')

@@ -92,6 +92,9 @@ jobs:
           
           # Build the app
           eas build --platform ios --profile unsigned --non-interactive --no-wait
+          
+          # Wait a moment for the build to be registered
+          sleep 5
 
       - name: Wait for build and download
         working-directory: mobile
