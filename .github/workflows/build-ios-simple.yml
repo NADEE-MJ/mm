@@ -1,0 +1,285 @@
+name: Build iOS (Unsigned for Sideloading)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Unsigned iOS
+    # Run on PR comments containing "build ios" OR pushes to main branch
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, 'build ios'))
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      # ─────────────────────────────────────────────
+      # Handle PR comment triggers
+      # ─────────────────────────────────────────────
+      - name: Add reaction to comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            })
+
+      - name: Get PR branch
+        if: github.event_name == 'issue_comment'
+        id: pr-branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('ref', pr.data.head.ref);
+
+      # ─────────────────────────────────────────────
+      # Setup
+      # ─────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && steps.pr-branch.outputs.ref || github.ref }}
+
+      - name: Select Xcode & check SDK
+        run: |
+          echo "============================================"
+          echo "Xcode Setup"
+          echo "============================================"
+
+          # Find highest available Xcode
+          XCODE_PATH=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          echo "Using: $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+
+          echo ""
+          xcodebuild -version
+
+          echo ""
+          echo "============================================"
+          echo "Available SDKs"
+          echo "============================================"
+          xcodebuild -showsdks
+
+          echo ""
+          echo "Verifying iphoneos SDK..."
+          if xcodebuild -showsdks | grep -q iphoneos; then
+            echo "✅ iphoneos SDK found"
+          else
+            echo "❌ iphoneos SDK not found!"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Install missing peer deps
+        working-directory: mobile
+        run: |
+          echo "Installing react-native-svg peer dependency..."
+          npx expo install react-native-svg
+
+      - name: Expo prebuild
+        working-directory: mobile
+        run: |
+          echo "============================================"
+          echo "Generating native iOS project"
+          echo "============================================"
+          npx expo prebuild --platform ios --clean
+          echo "✅ Native project generated"
+
+      - name: Disable code signing in Podfile
+        working-directory: mobile/ios
+        run: |
+          echo "============================================"
+          echo "Adding post_install hook to disable signing"
+          echo "============================================"
+
+          # Add post_install hook to Podfile
+          cat >> Podfile << 'HOOK'
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+      config.build_settings['CODE_SIGN_IDENTITY'] = ''
+      config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+    end
+  end
+end
+HOOK
+
+          echo "✅ Podfile updated"
+
+      - name: Install CocoaPods
+        working-directory: mobile/ios
+        run: |
+          echo "============================================"
+          echo "Installing CocoaPods dependencies"
+          echo "============================================"
+          pod install
+          echo "✅ Pods installed"
+
+      - name: Build with xcodebuild
+        working-directory: mobile/ios
+        run: |
+          echo "============================================"
+          echo "Building iOS app"
+          echo "============================================"
+
+          WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          echo "Using workspace: $WORKSPACE"
+
+          echo ""
+          echo "Starting build..."
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme moviemanager \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build 2>&1 | tee build.log
+
+          echo ""
+          echo "============================================"
+          echo "Looking for .app bundle"
+          echo "============================================"
+          find build -name "*.app" -type d
+
+      - name: Package IPA
+        working-directory: mobile/ios
+        run: |
+          echo "============================================"
+          echo "Packaging .ipa"
+          echo "============================================"
+
+          APP_PATH=$(find build -name "*.app" -type d | grep -v Pods | head -1)
+
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ No .app bundle found!"
+            echo "Build products:"
+            find build -type d -maxdepth 4
+            exit 1
+          fi
+
+          echo "Found: $APP_PATH"
+
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+
+          echo ""
+          echo "Creating .ipa..."
+          zip -r -9 MovieManager-unsigned.ipa Payload/
+
+          echo ""
+          echo "============================================"
+          echo "✅ IPA created"
+          echo "Size: $(du -h MovieManager-unsigned.ipa | cut -f1)"
+          echo "============================================"
+
+          # Move to root for upload
+          mv MovieManager-unsigned.ipa ../../
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-ipa
+          path: mobile/MovieManager-unsigned.ipa
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: mobile/ios/build.log
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Build summary
+        if: success()
+        run: |
+          IPA_SIZE=$(du -h mobile/MovieManager-unsigned.ipa | cut -f1)
+
+          echo "## ✅ iOS Build Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **IPA File** | MovieManager-unsigned.ipa |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Size** | $IPA_SIZE |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Signing** | Unsigned (for sideloading) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 Installation" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the \`ios-unsigned-ipa\` artifact" >> $GITHUB_STEP_SUMMARY
+          echo "2. Install with **SideStore** or **AltStore**" >> $GITHUB_STEP_SUMMARY
+          echo "3. The app will be re-signed with your free Apple ID" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment build result
+        if: success() && github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `✅ iOS build completed!\n\n📦 Download \`ios-unsigned-ipa\` from [workflow artifacts](${runUrl}).\n\n📱 Install with **SideStore** or **AltStore**.`
+            })
+
+      - name: Comment build failure
+        if: failure() && github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ Build failed. Check [workflow logs](${runUrl}).`
+            })
