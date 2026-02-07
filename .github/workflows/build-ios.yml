@@ -73,12 +73,13 @@ jobs:
           bundler-cache: false
 
       - name: Install CocoaPods
-        run: sudo gem install cocoapods
+        run: sudo gem install cocoapods -v 1.15.2
 
       - name: Generate native iOS project
         working-directory: mobile
         run: |
           echo "Running expo prebuild to generate native iOS project..."
+          echo "Note: Using --clean flag to ensure a fresh build. This removes any existing ios directory."
           npx expo prebuild --platform ios --clean
           
       - name: Install iOS dependencies
@@ -142,7 +143,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `✅ iOS build completed successfully!\n\n📦 Download the unsigned IPA from the [workflow artifacts](${runUrl}).\n\n**Note**: This IPA is built locally without EAS Build, so no EXPO_TOKEN is required. The app is unsigned and ready for you to sign with your own certificate.`
+              body: `✅ iOS build completed successfully!\n\n📦 Download the unsigned IPA from the [workflow artifacts](${runUrl}).\n\n**Note**: This IPA is built locally on GitHub runners without requiring external services or tokens. The app is unsigned and ready for you to sign with your own certificate.`
             })
 
       - name: Comment build failure
