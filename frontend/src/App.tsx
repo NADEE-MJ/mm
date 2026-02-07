@@ -3,14 +3,13 @@
  * Simplified routing and layout
  */
 
-import { useEffect, useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
 
 import { useAuth } from "./contexts/AuthContext";
 import { ModalProvider } from "./contexts/ModalContext";
 import { MoviesProvider, useMoviesContext } from "./contexts/MoviesContext";
-import { startAutoSync, stopAutoSync, fullSync } from "./services/syncQueue";
 
 import AuthScreen from "./components/AuthScreen";
 import { IOSTabBar } from "./components/ui";
@@ -41,22 +40,7 @@ function AppContent() {
     (location.pathname.startsWith("/people/") && location.pathname !== "/people") ||
     location.pathname === "/lists/deleted";
 
-  // Start auto-sync when authenticated
-  useEffect(() => {
-    if (!isAuthenticated) {
-      stopAutoSync();
-      return undefined;
-    }
-
-    startAutoSync();
-
-    return () => {
-      stopAutoSync();
-    };
-  }, [isAuthenticated]);
-
   const handleRefresh = useCallback(async () => {
-    await fullSync();
     await loadMovies();
   }, [loadMovies]);
 

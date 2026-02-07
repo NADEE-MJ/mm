@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
-import App from "./App.jsx";
+import App from "./App";
 import { AuthProvider } from "./contexts/AuthContext";
 import { registerSW } from "virtual:pwa-register";
 
@@ -14,16 +14,8 @@ const updateSW = registerSW({
   onOfflineReady() {
     console.log("[PWA] App ready to work offline");
   },
-  onRegistered(registration) {
+  onRegistered() {
     console.log("[PWA] Service Worker registered");
-
-    // Listen for messages from service worker
-    navigator.serviceWorker.addEventListener("message", (event) => {
-      if (event.data && event.data.type === "SYNC_REQUESTED") {
-        // Dispatch custom event for the app to handle
-        window.dispatchEvent(new CustomEvent("sw-sync-requested"));
-      }
-    });
   },
   onRegisterError(error) {
     console.error("[PWA] Service Worker registration error", error);

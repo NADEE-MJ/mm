@@ -1,55 +1,47 @@
 import NetInfo from '@react-native-community/netinfo';
+import { sendQueueBatch } from '../api/batch';
+import { fetchServerChanges } from '../api/sync';
+import { getMetadata, setMetadata } from '../database/init';
+import { SYNC_CONFIG } from '../../utils/constants';
+import { applySyncData } from './resolver';
 import {
   getPendingQueue,
-  updateQueueStatus,
   incrementRetries,
   removeFromQueue,
   resetProcessingItems,
+  updateQueueStatus,
 } from './queue';
-import { sendSyncAction, fetchServerChanges } from '../api/sync';
-import { getMetadata, setMetadata } from '../database/init';
-import { SYNC_CONFIG } from '../../utils/constants';
-import { isNetworkError } from '../api/client';
-import { applySyncData } from './resolver';
+import { startSyncWebSocket } from './websocket_listener';
+
+const BATCH_SIZE = 20;
 
 let isProcessing = false;
-let syncInterval: NodeJS.Timeout | null = null;
+let syncInterval: ReturnType<typeof setInterval> | null = null;
 
-/**
- * Initialize sync processor
- */
 export async function initSyncProcessor(): Promise<void> {
-  // Reset any items stuck in processing state
   await resetProcessingItems();
 
-  // Listen for network changes
   NetInfo.addEventListener((state) => {
     if (state.isConnected && state.isInternetReachable) {
-      console.log('Network available - starting sync');
-      processQueue();
+      processQueue().catch((error) => console.warn('Sync queue processing failed', error));
     }
   });
 
-  // Start periodic sync (every 30 seconds when app is active)
   startPeriodicSync();
+  await startSyncWebSocket(async () => {
+    await pullFromServer();
+  });
 }
 
-/**
- * Start periodic sync
- */
 function startPeriodicSync(): void {
   if (syncInterval) {
     clearInterval(syncInterval);
   }
-
   syncInterval = setInterval(() => {
-    processQueue();
-  }, SYNC_CONFIG.BACKGROUND_INTERVAL / 60); // 30 seconds
+    processQueue().catch((error) => console.warn('Background sync failed', error));
+  }, SYNC_CONFIG.BACKGROUND_INTERVAL);
 }
 
-/**
- * Stop periodic sync
- */
 export function stopPeriodicSync(): void {
   if (syncInterval) {
     clearInterval(syncInterval);
@@ -57,108 +49,27 @@ export function stopPeriodicSync(): void {
   }
 }
 
-/**
- * Process sync queue
- */
 export async function processQueue(): Promise<void> {
-  // Prevent concurrent processing
   if (isProcessing) {
-    console.log('Sync already in progress');
     return;
   }
 
-  // Check network connectivity
   const networkState = await NetInfo.fetch();
   if (!networkState.isConnected || !networkState.isInternetReachable) {
-    console.log('No network connection - skipping sync');
     return;
   }
 
   isProcessing = true;
-
   try {
-    console.log('Starting sync queue processing');
-
-    // Get pending items
     const pendingItems = await getPendingQueue();
-
-    if (pendingItems.length === 0) {
-      console.log('No pending items to sync');
-      // Still pull from server
-      await pullFromServer();
-      return;
-    }
-
-    console.log(`Processing ${pendingItems.length} pending items`);
-
-    // Process each item sequentially (chronological order)
-    for (const item of pendingItems) {
-      try {
-        // Mark as processing
-        await updateQueueStatus(item.id, 'processing');
-
-        // Send to server
-        const response = await sendSyncAction(
-          item.action,
-          item.data,
-          item.timestamp
-        );
-
-        if (response.success) {
-          // Success - remove from queue
-          console.log(`Sync success: ${item.action} for ${item.data.imdb_id || 'unknown'}`);
-          await removeFromQueue(item.id);
-        } else if (response.conflict) {
-          // Conflict - server has newer data
-          console.log(`Conflict detected for ${item.action} - applying server state`);
-
-          // Apply server state if provided
-          if (response.current_state) {
-            await applySyncData({
-              movies: response.current_state.movies || [],
-              recommendations: response.current_state.recommendations || [],
-              watch_history: response.current_state.watch_history || [],
-              movie_status: response.current_state.movie_status || [],
-              people: response.current_state.people || [],
-              custom_lists: response.current_state.custom_lists || [],
-              server_timestamp: Date.now(),
-            });
-          }
-
-          // Remove from queue (conflict resolved)
-          await removeFromQueue(item.id);
-        } else {
-          // Unknown failure
-          throw new Error('Sync failed without conflict');
-        }
-      } catch (error) {
-        console.error(`Failed to sync item ${item.id}:`, error);
-
-        // Increment retries
-        const newRetries = await incrementRetries(item.id);
-
-        if (newRetries >= SYNC_CONFIG.MAX_RETRIES) {
-          // Max retries reached - mark as failed
-          await updateQueueStatus(
-            item.id,
-            'failed',
-            error instanceof Error ? error.message : 'Unknown error'
-          );
-        } else {
-          // Mark as pending for retry
-          await updateQueueStatus(item.id, 'pending');
-
-          // Wait before next retry (exponential backoff)
-          const delay = SYNC_CONFIG.RETRY_DELAYS[newRetries - 1] || 15000;
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        }
+    if (pendingItems.length > 0) {
+      for (let index = 0; index < pendingItems.length; index += BATCH_SIZE) {
+        const batch = pendingItems.slice(index, index + BATCH_SIZE);
+        await processBatch(batch);
       }
     }
 
-    // Pull changes from server
     await pullFromServer();
-
-    console.log('Sync queue processing completed');
   } catch (error) {
     console.error('Sync processor error:', error);
   } finally {
@@ -166,71 +77,104 @@ export async function processQueue(): Promise<void> {
   }
 }
 
-/**
- * Pull changes from server since last sync
- */
-async function pullFromServer(): Promise<void> {
+async function processBatch(batch: Awaited<ReturnType<typeof getPendingQueue>>): Promise<void> {
+  for (const item of batch) {
+    await updateQueueStatus(item.id, 'processing');
+  }
+
   try {
-    const lastSync = await getMetadata('last_sync');
-    const since = lastSync ? parseInt(lastSync, 10) : 0;
+    const response = await sendQueueBatch(batch);
+    for (let index = 0; index < batch.length; index += 1) {
+      const item = batch[index];
+      const result = response.results[index];
+      if (!result) {
+        await updateQueueStatus(item.id, 'pending');
+        continue;
+      }
 
-    console.log(`Pulling server changes since ${since}`);
+      if (result.success) {
+        await removeFromQueue(item.id);
+        continue;
+      }
 
-    const serverData = await fetchServerChanges(since);
+      if (result.conflict && result.server_state) {
+        await applySyncData({
+          movies: [result.server_state],
+          people: [],
+          lists: [],
+          deleted_movie_ids: [],
+          has_more: false,
+          next_offset: null,
+          server_timestamp: response.server_timestamp,
+        });
+        await removeFromQueue(item.id);
+        continue;
+      }
 
-    // Debug: Log the entire server response
-    console.log('Server response:', JSON.stringify(serverData, null, 2));
-
-    // Validate server response
-    if (!serverData) {
-      console.warn('Server returned null/undefined, skipping sync');
-      return;
+      const retries = await incrementRetries(item.id);
+      if (retries >= SYNC_CONFIG.MAX_RETRIES) {
+        await updateQueueStatus(item.id, 'failed', result.error || 'Sync failed');
+      } else {
+        await updateQueueStatus(item.id, 'pending', result.error);
+      }
     }
-
-    // Backend uses "timestamp", not "server_timestamp"
-    const timestamp = serverData.timestamp || serverData.server_timestamp || Date.now();
-    console.log('Using timestamp:', timestamp);
-
-    // Note: Backend only returns movies and people, not recommendations, watch_history, etc.
-    // Those are embedded in the movie data
-    console.log('Movies count:', serverData.movies?.length || 0);
-    console.log('People count:', serverData.people?.length || 0);
-
-    // Skip applying sync data for now since backend format doesn't match
-    // We'll need to handle this differently or update the backend
-    console.log('Skipping sync data application - backend format needs conversion');
-
-    // Update last sync timestamp anyway
-    await setMetadata('last_sync', timestamp.toString());
-
-    console.log('Server changes received (not applied yet)');
   } catch (error) {
-    console.error('Failed to pull from server:', error);
-    console.error('Error details:', error);
-    // Don't throw - we don't want to break the sync process
+    for (const item of batch) {
+      const retries = await incrementRetries(item.id);
+      if (retries >= SYNC_CONFIG.MAX_RETRIES) {
+        await updateQueueStatus(
+          item.id,
+          'failed',
+          error instanceof Error ? error.message : 'Batch sync error'
+        );
+      } else {
+        await updateQueueStatus(item.id, 'pending');
+      }
+    }
   }
 }
 
-/**
- * Force sync now (manual trigger)
- */
+export async function pullFromServer(): Promise<void> {
+  try {
+    const lastSyncRaw = await getMetadata('last_sync');
+    const since = lastSyncRaw ? parseFloat(lastSyncRaw) : 0;
+
+    let offset = 0;
+    let hasMore = true;
+    let maxServerTimestamp = since;
+
+    while (hasMore) {
+      const response = await fetchServerChanges(since, 100, offset);
+      await applySyncData(response);
+
+      maxServerTimestamp = Math.max(
+        maxServerTimestamp,
+        response.server_timestamp || response.timestamp || maxServerTimestamp
+      );
+
+      hasMore = Boolean(response.has_more);
+      offset = response.next_offset || 0;
+      if (!hasMore) {
+        break;
+      }
+    }
+
+    await setMetadata('last_sync', String(maxServerTimestamp));
+  } catch (error) {
+    console.error('Failed to pull from server:', error);
+  }
+}
+
 export async function forceSyncNow(): Promise<void> {
-  console.log('Force sync triggered');
   await processQueue();
 }
 
-/**
- * Get sync status
- */
-export async function getSyncStatus(): Promise<{
-  lastSync: number;
-  pendingCount: number;
-}> {
+export async function getSyncStatus(): Promise<{ lastSync: number; pendingCount: number }> {
   const lastSync = await getMetadata('last_sync');
   const pendingItems = await getPendingQueue();
 
   return {
-    lastSync: lastSync ? parseInt(lastSync, 10) : 0,
+    lastSync: lastSync ? parseFloat(lastSync) : 0,
     pendingCount: pendingItems.length,
   };
 }

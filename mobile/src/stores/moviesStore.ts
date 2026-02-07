@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { MovieWithDetails, TMDBData, OMDBData } from '../types';
 import * as movieStorage from '../services/storage/movies';
-import * as movieApi from '../services/api/movies';
+import * as enrichmentService from '../services/enrichment';
 import { addToQueue } from '../services/sync/queue';
 
 interface MoviesState {
@@ -13,9 +13,9 @@ interface MoviesState {
   loadMovies: () => Promise<void>;
   getMovie: (imdbId: string) => Promise<MovieWithDetails | null>;
   addMovie: (
-    imdbId: string,
+    imdbId: string | null,
     userId: string,
-    tmdbData: TMDBData,
+    tmdbData?: TMDBData,
     omdbData?: OMDBData,
     person?: string,
     voteType?: 'upvote' | 'downvote'
@@ -41,6 +41,9 @@ interface MoviesState {
     status: 'toWatch' | 'watched' | 'deleted' | 'custom',
     customListId?: string
   ) => Promise<void>;
+  getUnenrichedMovies: () => Promise<MovieWithDetails[]>;
+  enrichMovie: (imdbId: string) => Promise<void>;
+  bulkEnrich: () => Promise<void>;
   searchMovies: (query: string) => Promise<MovieWithDetails[]>;
   clearError: () => void;
 }
@@ -74,20 +77,22 @@ export const useMoviesStore = create<MoviesState>((set, get) => ({
   },
 
   addMovie: async (
-    imdbId: string,
+    imdbId: string | null,
     userId: string,
-    tmdbData: TMDBData,
+    tmdbData?: TMDBData,
     omdbData?: OMDBData,
     person?: string,
     voteType: 'upvote' | 'downvote' = 'upvote'
   ) => {
     try {
+      const targetImdbId = imdbId || `temp_${Date.now()}`;
+
       // Optimistic update - save to SQLite immediately
-      await movieStorage.saveMovie(imdbId, userId, tmdbData, omdbData);
+      await movieStorage.saveMovie(targetImdbId, userId, tmdbData, omdbData);
 
       // If person provided, add recommendation
       if (person) {
-        await movieStorage.addRecommendation(imdbId, userId, person, voteType);
+        await movieStorage.addRecommendation(targetImdbId, userId, person, voteType);
       }
 
       // Reload movies to update UI
@@ -95,7 +100,7 @@ export const useMoviesStore = create<MoviesState>((set, get) => ({
 
       // Queue sync action
       await addToQueue('addRecommendation', {
-        imdb_id: imdbId,
+        imdb_id: targetImdbId,
         tmdb_data: tmdbData,
         omdb_data: omdbData,
         person,
@@ -217,7 +222,8 @@ export const useMoviesStore = create<MoviesState>((set, get) => ({
       // Queue sync action
       await addToQueue('markWatched', {
         imdb_id: imdbId,
-        rating,
+        my_rating: rating,
+        date_watched: Date.now() / 1000,
       });
     } catch (error) {
       set({
@@ -281,6 +287,44 @@ export const useMoviesStore = create<MoviesState>((set, get) => ({
     } catch (error) {
       console.error('Failed to search movies:', error);
       return [];
+    }
+  },
+
+  getUnenrichedMovies: async () => {
+    try {
+      return await movieStorage.getUnenrichedMovies();
+    } catch (error) {
+      console.error('Failed to get unenriched movies:', error);
+      return [];
+    }
+  },
+
+  enrichMovie: async (imdbId: string) => {
+    try {
+      const movie = await movieStorage.getMovie(imdbId);
+      if (!movie) {
+        throw new Error('Movie not found for enrichment');
+      }
+      await enrichmentService.enrichMovie(movie);
+      await get().loadMovies();
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to enrich movie',
+      });
+      throw error;
+    }
+  },
+
+  bulkEnrich: async () => {
+    try {
+      const movies = await movieStorage.getUnenrichedMovies();
+      await enrichmentService.bulkEnrich(movies);
+      await get().loadMovies();
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to bulk enrich movies',
+      });
+      throw error;
     }
   },
 

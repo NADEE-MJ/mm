@@ -21,10 +21,12 @@ class PersonCreate(BaseModel):
 
 class PersonResponse(BaseModel):
     name: str
+    user_id: Optional[str] = None
     is_trusted: bool
     is_default: bool = False
     color: Optional[str] = None
     emoji: Optional[str] = None
+    last_modified: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -184,3 +184,36 @@ export async function resetProcessingItems(): Promise<void> {
     throw error;
   }
 }
+
+/**
+ * Replace a temporary imdb_id in pending queue items.
+ */
+export async function remapQueueImdbId(oldImdbId: string, newImdbId: string): Promise<void> {
+  try {
+    const db = getDatabase();
+    const rows = await db.getAllAsync<any>(
+      `SELECT id, data FROM sync_queue
+       WHERE status IN ('pending', 'processing', 'failed')`
+    );
+
+    for (const row of rows) {
+      let parsed: any;
+      try {
+        parsed = JSON.parse(row.data);
+      } catch {
+        continue;
+      }
+      if (parsed?.imdb_id !== oldImdbId) {
+        continue;
+      }
+      parsed.imdb_id = newImdbId;
+      await db.runAsync('UPDATE sync_queue SET data = ? WHERE id = ?', [
+        JSON.stringify(parsed),
+        row.id,
+      ]);
+    }
+  } catch (error) {
+    console.error('Failed to remap queue imdb_id:', error);
+    throw error;
+  }
+}

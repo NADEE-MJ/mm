@@ -72,12 +72,22 @@ class APIClient {
   }
 
   // Recommendation endpoints
-  async addRecommendation(imdbId, person, dateRecommended = null) {
+  async addRecommendation(
+    imdbId,
+    person,
+    dateRecommended = null,
+    voteType = "upvote",
+    tmdbData = null,
+    omdbData = null,
+  ) {
     return this.request(`/api/movies/${imdbId}/recommendations`, {
       method: "POST",
       body: JSON.stringify({
         person,
         date_recommended: dateRecommended || Date.now() / 1000,
+        vote_type: voteType,
+        tmdb_data: tmdbData,
+        omdb_data: omdbData,
       }),
     });
   }
@@ -107,6 +117,12 @@ class APIClient {
     });
   }
 
+  async refreshMovie(imdbId) {
+    return this.request(`/api/movies/${imdbId}/refresh`, {
+      method: "POST",
+    });
+  }
+
   // Sync endpoints
   async syncGetChanges(since) {
     return this.request(`/api/sync?since=${since}`);
@@ -128,12 +144,16 @@ class APIClient {
     return this.request("/api/people");
   }
 
-  async addPerson(name, { isTrusted = false, color = "#0a84ff", emoji = null } = {}) {
+  async addPerson(
+    name,
+    { isTrusted = false, color = "#0a84ff", emoji = null, isDefault = false } = {},
+  ) {
     return this.request("/api/people", {
       method: "POST",
       body: JSON.stringify({
         name,
         is_trusted: isTrusted,
+        is_default: isDefault,
         color,
         emoji,
       }),

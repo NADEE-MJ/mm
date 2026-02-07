@@ -11,6 +11,8 @@ class RecommendationCreate(BaseModel):
     person: str
     date_recommended: Optional[float] = None
     vote_type: str = "upvote"  # 'upvote' or 'downvote'
+    tmdb_data: Optional[dict] = None
+    omdb_data: Optional[dict] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -18,6 +20,7 @@ class RecommendationCreate(BaseModel):
 class RecommendationResponse(BaseModel):
     id: int
     imdb_id: str
+    user_id: str
     person: str
     date_recommended: float
     vote_type: str = "upvote"
@@ -34,6 +37,7 @@ class WatchHistoryCreate(BaseModel):
 
 class WatchHistoryResponse(BaseModel):
     imdb_id: str
+    user_id: str
     date_watched: float
     my_rating: float
 
@@ -49,6 +53,7 @@ class MovieStatusUpdate(BaseModel):
 
 class MovieResponse(BaseModel):
     imdb_id: str
+    user_id: Optional[str] = None
     tmdb_data: Optional[dict] = None
     omdb_data: Optional[dict] = None
     last_modified: float

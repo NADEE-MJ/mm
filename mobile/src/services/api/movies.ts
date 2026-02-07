@@ -1,5 +1,5 @@
 import { apiClient, handleApiError } from "./client";
-import { TMDBData, OMDBData, ApiResponse } from "../../types";
+import { TMDBData, OMDBData } from "../../types";
 
 export interface TMDBSearchResult {
   id: number;
@@ -12,14 +12,11 @@ export interface TMDBSearchResult {
   voteCount: number;
 }
 
-/**
- * Search TMDB for movies
- */
-export async function searchTMDB(query: string): Promise<TMDBSearchResult[]> {
+export async function searchTMDB(query: string, year?: number): Promise<TMDBSearchResult[]> {
   try {
     // Backend returns array directly, not wrapped in ApiResponse
     const response = await apiClient.get<TMDBSearchResult[]>("/external/tmdb/search", {
-      params: { q: query },
+      params: { q: query, year },
     });
 
     return response.data;
@@ -36,6 +33,18 @@ export async function getTMDBMovie(tmdbId: number): Promise<any> {
     // Backend returns movie data directly, not wrapped in ApiResponse
     const response = await apiClient.get<any>(`/external/tmdb/movie/${tmdbId}`);
 
+    return response.data;
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+}
+
+/**
+ * Get OMDB movie details by IMDb ID.
+ */
+export async function getOMDBMovie(imdbId: string): Promise<any> {
+  try {
+    const response = await apiClient.get<any>(`/external/omdb/movie/${imdbId}`);
     return response.data;
   } catch (error) {
     throw new Error(handleApiError(error));

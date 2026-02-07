@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import List
 
 from auth import get_required_user
@@ -85,11 +86,32 @@ async def update_person(
         person.color = person_update.color
     if person_update.emoji is not None:
         person.emoji = person_update.emoji
+    person.last_modified = time.time()
     db.commit()
     db.refresh(person)
 
     await notify_people_change(user.id)
     return person
+
+
+@router.delete("/{name}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_person(
+    name: str,
+    user: User = Depends(get_required_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a person/recommender."""
+    person = (
+        db.query(Person).filter(Person.name == name, Person.user_id == user.id).first()
+    )
+    if not person:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Person not found"
+        )
+    db.delete(person)
+    db.commit()
+    await notify_people_change(user.id)
+    return None
 
 
 @router.get("/{name}/stats", response_model=PersonStatsResponse)

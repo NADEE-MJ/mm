@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import json
 from typing import List
 
 from auth import get_required_user
@@ -14,8 +15,18 @@ from app.schemas.movies import (
     WatchHistoryCreate,
     WatchHistoryResponse,
 )
-from app.services.movies import get_or_create_movie, serialize_movie, serialize_movies
-from app.services.notifications import notify_movie_change, notify_people_change
+from app.services.external_apis import get_omdb_movie, get_tmdb_movie_details
+from app.services.movies import (
+    get_or_create_movie,
+    get_or_create_movie_with_state,
+    serialize_movie,
+    serialize_movies,
+)
+from app.services.notifications import (
+    notify_movie_added,
+    notify_movie_change,
+    notify_people_change,
+)
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException, status
 from models import Movie, MovieStatus, Person, Recommendation, User, WatchHistory
@@ -36,7 +47,9 @@ async def add_recommendation(
     db: Session = Depends(get_db),
 ):
     """Add a recommendation for a movie."""
-    movie = get_or_create_movie(db, user.id, imdb_id)
+    movie, created = get_or_create_movie_with_state(
+        db, user.id, imdb_id, recommendation.tmdb_data, recommendation.omdb_data
+    )
 
     existing = (
         db.query(Recommendation)
@@ -79,7 +92,10 @@ async def add_recommendation(
     db.commit()
     db.refresh(db_recommendation)
 
-    await notify_movie_change(user.id, imdb_id)
+    if created:
+        await notify_movie_added(user.id, imdb_id)
+    else:
+        await notify_movie_change(user.id, imdb_id)
     if created_person:
         await notify_people_change(user.id)
 
@@ -246,3 +262,47 @@ async def get_all_movies(
     """Get all movies for the current user."""
     movies = db.query(Movie).filter(Movie.user_id == user.id).all()
     return serialize_movies(movies)
+
+
+@router.post("/{imdb_id}/refresh", response_model=dict)
+async def refresh_movie_metadata(
+    imdb_id: str,
+    user: User = Depends(get_required_user),
+    db: Session = Depends(get_db),
+):
+    """Refresh TMDB + OMDB data for an existing movie."""
+    movie = (
+        db.query(Movie)
+        .filter(Movie.imdb_id == imdb_id, Movie.user_id == user.id)
+        .first()
+    )
+    if not movie:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Movie not found",
+        )
+
+    updated_tmdb = False
+    updated_omdb = False
+
+    tmdb_payload = json.loads(movie.tmdb_data) if movie.tmdb_data else {}
+    tmdb_id = tmdb_payload.get("tmdbId") or tmdb_payload.get("id")
+    if tmdb_id:
+        tmdb_data = await get_tmdb_movie_details(int(tmdb_id))
+        movie.tmdb_data = json.dumps(tmdb_data)
+        updated_tmdb = True
+
+    omdb_data = await get_omdb_movie(imdb_id)
+    movie.omdb_data = json.dumps(omdb_data)
+    updated_omdb = True
+
+    movie.last_modified = time.time()
+    db.commit()
+
+    await notify_movie_change(user.id, imdb_id)
+
+    return {
+        "success": True,
+        "updated": {"tmdb": updated_tmdb, "omdb": updated_omdb},
+        "last_modified": movie.last_modified,
+    }

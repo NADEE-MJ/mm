@@ -58,3 +58,39 @@ async def notify_people_change(user_id: str) -> None:
             "timestamp": time.time(),
         },
     )
+
+
+async def notify_movie_added(user_id: str, imdb_id: str) -> None:
+    """Broadcast when a movie was created."""
+    await sync_notifier.broadcast(
+        user_id,
+        {
+            "type": "movieAdded",
+            "imdb_id": imdb_id,
+            "timestamp": time.time(),
+        },
+    )
+
+
+async def notify_movie_deleted(user_id: str, imdb_id: str) -> None:
+    """Broadcast when a movie is deleted/archived."""
+    await sync_notifier.broadcast(
+        user_id,
+        {
+            "type": "movieDeleted",
+            "imdb_id": imdb_id,
+            "timestamp": time.time(),
+        },
+    )
+
+
+async def notify_list_updated(user_id: str, list_id: str) -> None:
+    """Broadcast when a custom list is created/updated/deleted."""
+    await sync_notifier.broadcast(
+        user_id,
+        {
+            "type": "listUpdated",
+            "list_id": list_id,
+            "timestamp": time.time(),
+        },
+    )

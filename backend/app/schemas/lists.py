@@ -27,10 +27,12 @@ class CustomListUpdate(BaseModel):
 
 class CustomListResponse(BaseModel):
     id: str
+    user_id: Optional[str] = None
     name: str
     color: str
     icon: str
     position: int
     created_at: float
+    last_modified: Optional[float] = None
 
     model_config = ConfigDict(from_attributes=True)

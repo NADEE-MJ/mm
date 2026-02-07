@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 from typing import List
 
@@ -13,6 +14,7 @@ from app.schemas.lists import (
 )
 from app.schemas.movies import MovieResponse
 from app.services.movies import serialize_movies
+from app.services.notifications import notify_list_updated
 from database import get_db
 from fastapi import APIRouter, Depends, HTTPException, status
 from models import CustomList, Movie, MovieStatus, User
@@ -53,6 +55,7 @@ async def create_custom_list(
     db.add(db_list)
     db.commit()
     db.refresh(db_list)
+    await notify_list_updated(user.id, db_list.id)
     return db_list
 
 
@@ -101,9 +104,11 @@ async def update_custom_list(
         db_list.icon = list_update.icon
     if list_update.position is not None:
         db_list.position = list_update.position
+    db_list.last_modified = time.time()
 
     db.commit()
     db.refresh(db_list)
+    await notify_list_updated(user.id, db_list.id)
     return db_list
 
 
@@ -130,6 +135,7 @@ async def delete_custom_list(
 
     db.delete(db_list)
     db.commit()
+    await notify_list_updated(user.id, list_id)
     return None
 
 

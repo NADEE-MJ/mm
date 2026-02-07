@@ -4,7 +4,6 @@
  */
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { clearAllData } from "../services/storage";
 
 const AUTH_TOKEN_KEY = "auth_token";
 const AUTH_USER_KEY = "auth_user";
@@ -87,10 +86,6 @@ export function AuthProvider({ children }) {
 
       const userData = await userResponse.json();
 
-      // Clear IndexedDB before setting auth state
-      // This ensures a fresh sync when the user logs in
-      await clearAllData();
-
       // Save to state and localStorage
       setToken(accessToken);
       setUser(userData);
@@ -143,8 +138,6 @@ export function AuthProvider({ children }) {
     setError(null);
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
-    // Clear IndexedDB to prevent data leakage between accounts
-    await clearAllData();
   }, []);
 
   const value = {

@@ -13,6 +13,17 @@ import { useMoviesStore } from '../../src/stores/moviesStore';
 import { useAuthStore } from '../../src/stores/authStore';
 import { MovieWithDetails } from '../../src/types';
 import { Star, ThumbsUp, ThumbsDown, Trash2 } from 'lucide-react-native';
+import {
+  getBackdropUrl,
+  getMovieGenres,
+  getMovieOverview,
+  getMovieRuntime,
+  getMovieTagline,
+  getMovieTitle,
+  getMovieVoteAverage,
+  getMovieYear,
+  getPosterUrl,
+} from '../../src/utils/movieData';
 
 export default function MovieDetailScreen() {
   const { imdbId } = useLocalSearchParams<{ imdbId: string }>();
@@ -49,7 +60,7 @@ export default function MovieDetailScreen() {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Submit',
-          onPress: async (rating) => {
+          onPress: async (rating?: string) => {
             if (!rating) return;
             const numRating = parseFloat(rating);
 
@@ -86,7 +97,7 @@ export default function MovieDetailScreen() {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Update',
-          onPress: async (rating) => {
+          onPress: async (rating?: string) => {
             if (!rating) return;
             const numRating = parseFloat(rating);
 
@@ -191,14 +202,16 @@ export default function MovieDetailScreen() {
     );
   }
 
-  const { tmdb_data, recommendations, watch_history } = movie;
-  const posterUrl = tmdb_data?.poster_path
-    ? `https://image.tmdb.org/t/p/w500${tmdb_data.poster_path}`
-    : null;
-
-  const backdropUrl = tmdb_data?.backdrop_path
-    ? `https://image.tmdb.org/t/p/original${tmdb_data.backdrop_path}`
-    : null;
+  const { recommendations, watch_history } = movie;
+  const title = getMovieTitle(movie);
+  const year = getMovieYear(movie);
+  const voteAverage = getMovieVoteAverage(movie);
+  const runtime = getMovieRuntime(movie);
+  const tagline = getMovieTagline(movie);
+  const overview = getMovieOverview(movie);
+  const genres = getMovieGenres(movie);
+  const posterUrl = getPosterUrl(movie);
+  const backdropUrl = getBackdropUrl(movie);
 
   const upvotes = recommendations.filter((r) => r.vote_type === 'upvote');
   const downvotes = recommendations.filter((r) => r.vote_type === 'downvote');
@@ -207,7 +220,7 @@ export default function MovieDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: tmdb_data?.title || 'Movie Details',
+          title: title || 'Movie Details',
           headerShown: true,
           headerStyle: { backgroundColor: '#1c1c1e' },
           headerTintColor: '#fff',
@@ -233,56 +246,56 @@ export default function MovieDetailScreen() {
 
             <View style={styles.headerText}>
               <Text variant="headlineSmall" style={styles.title}>
-                {tmdb_data?.title}
+                {title}
               </Text>
 
               <Text variant="bodyMedium" style={styles.year}>
-                {tmdb_data?.release_date?.substring(0, 4)}
+                {year}
               </Text>
 
-              {tmdb_data?.vote_average && (
+              {voteAverage ? (
                 <View style={styles.rating}>
                   <Star size={16} color="#ffd700" fill="#ffd700" />
                   <Text variant="bodyMedium" style={styles.ratingText}>
-                    {tmdb_data.vote_average.toFixed(1)} / 10
+                    {voteAverage.toFixed(1)} / 10
                   </Text>
                 </View>
-              )}
+              ) : null}
 
-              {tmdb_data?.runtime && (
+              {runtime ? (
                 <Text variant="bodySmall" style={styles.runtime}>
-                  {tmdb_data.runtime} min
+                  {runtime}
                 </Text>
-              )}
+              ) : null}
             </View>
           </View>
 
-          {tmdb_data?.tagline && (
+          {tagline ? (
             <Text variant="bodyMedium" style={styles.tagline}>
-              "{tmdb_data.tagline}"
+              "{tagline}"
             </Text>
-          )}
+          ) : null}
 
-          {tmdb_data?.overview && (
+          {overview ? (
             <>
               <Text variant="titleMedium" style={styles.sectionTitle}>
                 Overview
               </Text>
               <Text variant="bodyMedium" style={styles.overview}>
-                {tmdb_data.overview}
+                {overview}
               </Text>
             </>
-          )}
+          ) : null}
 
-          {tmdb_data?.genres && tmdb_data.genres.length > 0 && (
+          {genres.length > 0 && (
             <>
               <Text variant="titleMedium" style={styles.sectionTitle}>
                 Genres
               </Text>
               <View style={styles.genres}>
-                {tmdb_data.genres.map((genre) => (
-                  <Chip key={genre.id} style={styles.genreChip} textStyle={styles.genreText}>
-                    {genre.name}
+                {genres.map((genre) => (
+                  <Chip key={genre} style={styles.genreChip} textStyle={styles.genreText}>
+                    {genre}
                   </Chip>
                 ))}
               </View>

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import { Text, FAB, Searchbar, SegmentedButtons } from 'react-native-paper';
+import NetInfo from '@react-native-community/netinfo';
 import { useMoviesStore } from '../../src/stores/moviesStore';
 import { useAuthStore } from '../../src/stores/authStore';
 import MovieCard from '../../src/components/movies/MovieCard';
-import { router } from 'expo-router';
+import { Href, router } from 'expo-router';
+import EnrichmentPrompt from '../../src/components/EnrichmentPrompt';
 
 export default function MoviesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,11 +16,31 @@ export default function MoviesScreen() {
   const movies = useMoviesStore((state) => state.movies);
   const loadMovies = useMoviesStore((state) => state.loadMovies);
   const searchMovies = useMoviesStore((state) => state.searchMovies);
+  const getUnenrichedMovies = useMoviesStore((state) => state.getUnenrichedMovies);
   const user = useAuthStore((state) => state.user);
+  const [showEnrichmentPrompt, setShowEnrichmentPrompt] = useState(false);
+  const [unenrichedCount, setUnenrichedCount] = useState(0);
 
   useEffect(() => {
     loadMovies();
   }, []);
+
+  useEffect(() => {
+    const checkEnrichment = async () => {
+      const net = await NetInfo.fetch();
+      if (!net.isConnected || !net.isInternetReachable) {
+        return;
+      }
+
+      const unenriched = await getUnenrichedMovies();
+      if (unenriched.length > 0) {
+        setUnenrichedCount(unenriched.length);
+        setShowEnrichmentPrompt(true);
+      }
+    };
+
+    checkEnrichment();
+  }, [getUnenrichedMovies]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -29,7 +51,11 @@ export default function MoviesScreen() {
   const filteredMovies = movies.filter((movie) => {
     // Filter by search query
     if (searchQuery) {
-      const title = movie.tmdb_data?.title?.toLowerCase() || '';
+      const title =
+        movie.tmdb_data?.title?.toLowerCase() ||
+        (movie.omdb_data as any)?.title?.toLowerCase() ||
+        (movie.omdb_data as any)?.Title?.toLowerCase() ||
+        '';
       if (!title.includes(searchQuery.toLowerCase())) {
         return false;
       }
@@ -98,6 +124,16 @@ export default function MoviesScreen() {
         style={styles.fab}
         onPress={() => {
           router.push('/movie/add');
+        }}
+      />
+
+      <EnrichmentPrompt
+        visible={showEnrichmentPrompt}
+        count={unenrichedCount}
+        onDismiss={() => setShowEnrichmentPrompt(false)}
+        onEnrich={() => {
+          setShowEnrichmentPrompt(false);
+          router.push('/enrich' as Href);
         }}
       />
     </View>

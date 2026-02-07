@@ -322,7 +322,11 @@ export async function searchMovies(query: string): Promise<MovieWithDetails[]> {
     const lowerQuery = query.toLowerCase();
 
     return allMovies.filter((movie) => {
-      const title = movie.tmdb_data?.title?.toLowerCase() || '';
+      const title =
+        movie.tmdb_data?.title?.toLowerCase() ||
+        (movie.omdb_data as any)?.title?.toLowerCase() ||
+        (movie.omdb_data as any)?.Title?.toLowerCase() ||
+        '';
       return title.includes(lowerQuery);
     });
   } catch (error) {
@@ -372,6 +376,32 @@ export async function getMoviesByStatus(
     return moviesWithDetails;
   } catch (error) {
     console.error('Failed to get movies by status:', error);
+    return [];
+  }
+}
+
+/**
+ * Movies missing TMDB and/or OMDB enrichment payloads.
+ */
+export async function getUnenrichedMovies(): Promise<MovieWithDetails[]> {
+  try {
+    const db = getDatabase();
+    const rows = await db.getAllAsync<any>(
+      `SELECT imdb_id FROM movies
+       WHERE tmdb_data IS NULL OR omdb_data IS NULL
+       ORDER BY last_modified DESC`
+    );
+
+    const movies: MovieWithDetails[] = [];
+    for (const row of rows) {
+      const movie = await getMovie(row.imdb_id);
+      if (movie) {
+        movies.push(movie);
+      }
+    }
+    return movies;
+  } catch (error) {
+    console.error('Failed to get unenriched movies:', error);
     return [];
   }
 }

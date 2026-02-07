@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.11"
 dependencies = [
+    "apscheduler>=3.11.1",
     "aiosqlite>=0.22.1",
     "alembic>=1.18.3",
     "cachetools>=5.5.0",

@@ -24,6 +24,7 @@ router = APIRouter(prefix="/external", tags=["external"])
 @router.get("/tmdb/search")
 async def tmdb_search(
     q: str = Query(..., min_length=1, description="Search query"),
+    year: int | None = Query(None, ge=1800, le=2100, description="Optional release year"),
     _user: User = Depends(get_required_user),
 ) -> list[dict[str, Any]]:
     """Search for movies on TMDB.
@@ -35,7 +36,10 @@ async def tmdb_search(
     Returns:
         List of movie search results
     """
-    return await search_tmdb_movies(q)
+    results = await search_tmdb_movies(q)
+    if year is None:
+        return results
+    return [item for item in results if str(item.get("year")) == str(year)]
 
 
 @router.get("/tmdb/movie/{tmdb_id}")

@@ -4,17 +4,23 @@ import { Text, Card, Chip } from 'react-native-paper';
 import { MovieWithDetails } from '../../types';
 import { Star, ThumbsUp, ThumbsDown } from 'lucide-react-native';
 import { router } from 'expo-router';
+import {
+  getMovieTitle,
+  getMovieVoteAverage,
+  getMovieYear,
+  getPosterUrl,
+} from '../../utils/movieData';
 
 interface MovieCardProps {
   movie: MovieWithDetails;
 }
 
 export default function MovieCard({ movie }: MovieCardProps) {
-  const { tmdb_data, recommendations, watch_history, status } = movie;
-
-  const posterUrl = tmdb_data?.poster_path
-    ? `https://image.tmdb.org/t/p/w500${tmdb_data.poster_path}`
-    : null;
+  const { recommendations, watch_history } = movie;
+  const posterUrl = getPosterUrl(movie);
+  const title = getMovieTitle(movie);
+  const year = getMovieYear(movie);
+  const voteAverage = getMovieVoteAverage(movie);
 
   const upvotes = recommendations.filter((r) => r.vote_type === 'upvote').length;
   const downvotes = recommendations.filter((r) => r.vote_type === 'downvote').length;
@@ -39,21 +45,21 @@ export default function MovieCard({ movie }: MovieCardProps) {
 
           <View style={styles.content}>
             <Text variant="titleMedium" style={styles.title} numberOfLines={2}>
-              {tmdb_data?.title || 'Unknown Title'}
+              {title}
             </Text>
 
             <Text variant="bodySmall" style={styles.year}>
-              {tmdb_data?.release_date?.substring(0, 4) || 'N/A'}
+              {year}
             </Text>
 
-            {tmdb_data?.vote_average && (
+            {voteAverage ? (
               <View style={styles.rating}>
                 <Star size={14} color="#ffd700" fill="#ffd700" />
                 <Text variant="bodySmall" style={styles.ratingText}>
-                  {tmdb_data.vote_average.toFixed(1)}
+                  {voteAverage.toFixed(1)}
                 </Text>
               </View>
-            )}
+            ) : null}
 
             <View style={styles.votes}>
               {upvotes > 0 && (

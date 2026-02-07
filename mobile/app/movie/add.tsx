@@ -50,6 +50,56 @@ export default function AddMovieScreen() {
     }
   };
 
+  const parseTitleAndYear = (raw: string): { title: string; year?: number } => {
+    const trimmed = raw.trim();
+    const match = trimmed.match(/^(.*?)(?:\s+(\d{4}))?$/);
+    const title = (match?.[1] || trimmed).trim();
+    const year = match?.[2] ? parseInt(match[2], 10) : undefined;
+    return { title, year };
+  };
+
+  const handleQuickAddOffline = async () => {
+    if (!user) return;
+    const parsed = parseTitleAndYear(searchQuery);
+    if (!parsed.title) {
+      Alert.alert('Error', 'Please enter a movie title');
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      await addMovie(
+        null,
+        user.id,
+        {
+          id: 0,
+          title: parsed.title,
+          overview: '',
+          poster_path: null,
+          backdrop_path: null,
+          release_date: parsed.year ? `${parsed.year}-01-01` : '',
+          vote_average: 0,
+          vote_count: 0,
+          genres: [],
+          runtime: null,
+          tagline: null,
+          year: parsed.year,
+        } as any
+      );
+
+      Alert.alert('Added Offline', 'Movie saved locally. Enrich it when you are back online.', [
+        {
+          text: 'OK',
+          onPress: () => router.back(),
+        },
+      ]);
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to add movie');
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   const handleSelectMovie = (movie: TMDBSearchResult) => {
     setSelectedMovie(movie);
   };
@@ -145,6 +195,19 @@ export default function AddMovieScreen() {
             onSubmitEditing={handleSearch}
             style={styles.searchbar}
           />
+
+          {!selectedMovie && searchQuery.trim().length > 0 && (
+            <View style={styles.quickAddContainer}>
+              <Button
+                mode="contained-tonal"
+                onPress={handleQuickAddOffline}
+                loading={isAdding}
+                disabled={isAdding}
+              >
+                Add "{searchQuery.trim()}" offline
+              </Button>
+            </View>
+          )}
 
           {!selectedMovie && (
             <>
@@ -270,6 +333,10 @@ const styles = StyleSheet.create({
   searchbar: {
     margin: 16,
     backgroundColor: '#1c1c1e',
+  },
+  quickAddContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   loadingContainer: {
     flex: 1,

@@ -16,44 +16,74 @@ export interface Movie {
 }
 
 export interface TMDBData {
-  id: number;
-  title: string;
-  overview: string;
-  poster_path: string | null;
-  backdrop_path: string | null;
-  release_date: string;
-  vote_average: number;
-  vote_count: number;
-  genres: { id: number; name: string }[];
-  runtime: number | null;
-  tagline: string | null;
+  id?: number;
+  tmdbId?: number;
+  imdbId?: string | null;
+  title?: string;
+  overview?: string;
+  plot?: string;
+  poster?: string | null;
+  posterSmall?: string | null;
+  poster_path?: string | null;
+  backdrop?: string | null;
+  backdrop_path?: string | null;
+  release_date?: string;
+  year?: string | number | null;
+  vote_average?: number;
+  voteAverage?: number;
+  vote_count?: number;
+  voteCount?: number;
+  genres?: Array<{ id?: number; name?: string } | string>;
+  cast?: string[];
+  runtime?: number | null;
+  tagline?: string | null;
 }
 
 export interface OMDBData {
-  Title: string;
-  Year: string;
-  Rated: string;
-  Released: string;
-  Runtime: string;
-  Genre: string;
-  Director: string;
-  Writer: string;
-  Actors: string;
-  Plot: string;
-  Language: string;
-  Country: string;
-  Awards: string;
-  Poster: string;
-  Ratings: { Source: string; Value: string }[];
-  Metascore: string;
-  imdbRating: string;
-  imdbVotes: string;
-  imdbID: string;
-  Type: string;
-  DVD: string;
-  BoxOffice: string;
-  Production: string;
-  Website: string;
+  title?: string;
+  year?: number | string | null;
+  rated?: string;
+  released?: string;
+  runtime?: string;
+  genres?: string[];
+  director?: string;
+  writer?: string;
+  actors?: string[];
+  plot?: string;
+  language?: string;
+  country?: string;
+  awards?: string;
+  poster?: string | null;
+  imdbRating?: number | string | null;
+  imdbVotes?: string;
+  imdbId?: string;
+  rtRating?: number | null;
+  metascore?: number | string | null;
+  boxOffice?: string;
+  production?: string;
+  website?: string;
+  Title?: string;
+  Year?: string;
+  Rated?: string;
+  Released?: string;
+  Runtime?: string;
+  Genre?: string;
+  Director?: string;
+  Writer?: string;
+  Actors?: string;
+  Plot?: string;
+  Language?: string;
+  Country?: string;
+  Awards?: string;
+  Poster?: string;
+  Ratings?: { Source: string; Value: string }[];
+  Metascore?: string;
+  imdbID?: string;
+  Type?: string;
+  DVD?: string;
+  BoxOffice?: string;
+  Production?: string;
+  Website?: string;
 }
 
 // Recommendation types
@@ -161,17 +191,32 @@ export interface AuthResponse {
 export interface SyncResponse {
   success: boolean;
   last_modified?: number;
-  current_state?: any;
+  error?: string;
+  server_state?: any;
   conflict?: boolean;
 }
 
 export interface ServerSyncData {
-  movies?: any[];  // Backend returns serialized movies, not full Movie objects
-  recommendations?: Recommendation[];
-  watch_history?: WatchHistory[];
-  movie_status?: MovieStatus[];
-  people?: any[];  // Backend returns simplified people objects
-  custom_lists?: CustomList[];
-  timestamp?: number;  // Backend uses "timestamp", not "server_timestamp"
-  server_timestamp?: number;  // Keep for future compatibility
+  movies: any[];
+  people: any[];
+  lists: CustomList[];
+  deleted_movie_ids: string[];
+  has_more: boolean;
+  next_offset?: number | null;
+  timestamp?: number; // legacy /api/sync
+  server_timestamp: number;
+}
+
+export interface BatchSyncRequest {
+  actions: Array<{
+    action: string;
+    data: any;
+    timestamp: number;
+  }>;
+  client_timestamp: number;
+}
+
+export interface BatchSyncResponse {
+  results: SyncResponse[];
+  server_timestamp: number;
 }

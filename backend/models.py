@@ -144,6 +144,9 @@ class Person(Base):
     is_default = Column(Boolean, default=False)  # For system default recommenders
     color = Column(String, default="#0a84ff")
     emoji = Column(String, nullable=True)
+    last_modified = Column(
+        Float, default=lambda: time.time(), onupdate=lambda: time.time()
+    )
 
     # Relationships
     user = relationship("User", back_populates="people")
@@ -161,6 +164,9 @@ class CustomList(Base):
     icon = Column(String, default="list")
     position = Column(Integer, default=0)
     created_at = Column(Float, default=lambda: time.time())
+    last_modified = Column(
+        Float, default=lambda: time.time(), onupdate=lambda: time.time()
+    )
 
     # Relationships
     user = relationship("User", back_populates="custom_lists")
