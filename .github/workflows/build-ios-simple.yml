@@ -122,60 +122,6 @@ jobs:
           npx expo prebuild --platform ios --clean
           echo "✅ Native project generated"
 
-      - name: Modify existing post_install hook
-        working-directory: mobile/ios
-        run: |
-          echo "============================================"
-          echo "Modifying post_install hook to disable signing"
-          echo "============================================"
-
-          # Use a proper Ruby script to insert code signing disable logic
-          ruby << 'RUBY_SCRIPT'
-            podfile_path = 'Podfile'
-            content = File.read(podfile_path)
-
-            # Find the post_install block and insert our code before its closing 'end'
-            # We'll look for 'post_install do |installer|' and find the matching end
-            lines = content.lines
-            modified_lines = []
-            in_post_install = false
-            post_install_indent = 0
-            inserted = false
-
-            lines.each_with_index do |line, index|
-              if line =~ /^\s*post_install\s+do\s*\|.*\|/
-                in_post_install = true
-                post_install_indent = line[/^\s*/].length
-                modified_lines << line
-              elsif in_post_install && !inserted && line =~ /^end\s*$/
-                # Found an 'end' at the root level - this closes post_install
-                # Insert our code before this end
-                modified_lines << "  # Disable code signing for all targets\n"
-                modified_lines << "  installer.pods_project.targets.each do |target|\n"
-                modified_lines << "    target.build_configurations.each do |config|\n"
-                modified_lines << "      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'\n"
-                modified_lines << "      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'\n"
-                modified_lines << "      config.build_settings['CODE_SIGN_IDENTITY'] = ''\n"
-                modified_lines << "      config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''\n"
-                modified_lines << "    end\n"
-                modified_lines << "  end\n"
-                modified_lines << "\n"
-                modified_lines << line
-                in_post_install = false
-                inserted = true
-              else
-                modified_lines << line
-              end
-            end
-
-            File.write(podfile_path, modified_lines.join)
-            puts "✅ Podfile modified successfully"
-          RUBY_SCRIPT
-
-          echo ""
-          echo "Modified post_install hook:"
-          sed -n '/post_install/,/^end$/p' Podfile
-
       - name: Install CocoaPods
         working-directory: mobile/ios
         run: |
@@ -184,6 +130,40 @@ jobs:
           echo "============================================"
           pod install
           echo "✅ Pods installed"
+
+      - name: Disable code signing for all targets
+        working-directory: mobile/ios
+        run: |
+          echo "============================================"
+          echo "Disabling code signing for all Pod targets"
+          echo "============================================"
+
+          # Install xcodeproj gem for project manipulation
+          gem install xcodeproj
+
+          # Use Ruby with xcodeproj to modify all targets
+          ruby << 'RUBY_SCRIPT'
+            require 'xcodeproj'
+
+            # Open the Pods project
+            project_path = 'Pods/Pods.xcodeproj'
+            project = Xcodeproj::Project.open(project_path)
+
+            # Disable code signing for all targets
+            project.targets.each do |target|
+              target.build_configurations.each do |config|
+                config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+                config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+                config.build_settings['CODE_SIGN_IDENTITY'] = ''
+                config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
+              end
+            end
+
+            # Save the project
+            project.save
+
+            puts "✅ Code signing disabled for #{project.targets.count} targets"
+          RUBY_SCRIPT
 
       - name: Build with xcodebuild
         working-directory: mobile/ios
