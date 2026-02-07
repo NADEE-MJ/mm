@@ -118,34 +118,45 @@ jobs:
           fi
 
           # Build the app without code signing
-          xcodebuild clean archive \
+          # Note: Using 'build' instead of 'archive' because unsigned archives
+          # don't produce a .app bundle in Products/Applications/
+          xcodebuild clean build \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Release \
-            -archivePath "$RUNNER_TEMP/MovieManager.xcarchive" \
+            -sdk iphoneos \
+            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             | tee build.log
 
-          echo "Build completed. Archive created at: $RUNNER_TEMP/MovieManager.xcarchive"
+          echo "Build completed. Output at: $RUNNER_TEMP/DerivedData"
 
-      - name: Create IPA from archive
+      - name: Create IPA from build
         run: |
-          echo "Creating IPA from archive..."
+          echo "Creating IPA from build output..."
 
-          ARCHIVE_PATH="$RUNNER_TEMP/MovieManager.xcarchive"
+          BUILD_DIR="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos"
 
-          # Debug: show full archive structure
-          echo "Full archive structure:"
-          find "$ARCHIVE_PATH" -type d
+          # Debug: show build products
+          echo "Build products directory:"
+          ls -la "$BUILD_DIR/" || true
           echo "---"
 
-          # Search the entire archive for the .app bundle
-          APP_PATH=$(find "$ARCHIVE_PATH" -name "*.app" -type d -print -quit)
+          # Find the .app bundle in build products
+          APP_PATH=$(find "$BUILD_DIR" -name "*.app" -maxdepth 1 -type d -print -quit)
+
+          # Fallback: search all of DerivedData if not in expected location
+          if [ -z "$APP_PATH" ]; then
+            echo "Not found in expected path, searching all DerivedData..."
+            APP_PATH=$(find "$RUNNER_TEMP/DerivedData" -name "*.app" -type d -print -quit)
+          fi
 
           if [ -z "$APP_PATH" ]; then
-            echo "Error: No .app bundle found anywhere in archive!"
+            echo "Error: No .app bundle found in build output!"
+            echo "Full DerivedData structure:"
+            find "$RUNNER_TEMP/DerivedData" -type d
             exit 1
           fi
 
