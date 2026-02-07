@@ -10,6 +10,12 @@ jobs:
     # Only run on PR comments (not issues) that contain "build ios"
     if: github.event.issue.pull_request && contains(github.event.comment.body, 'build ios')
     runs-on: macos-latest
+    
+    # Set minimal permissions for security
+    permissions:
+      contents: read        # Read repository contents
+      pull-requests: write  # Comment on PRs
+      issues: write         # Add reactions to comments
 
     steps:
       - name: Add reaction to comment
@@ -36,6 +42,11 @@ jobs:
             core.setOutput('ref', pr.data.head.ref);
             core.setOutput('sha', pr.data.head.sha);
 
+      # Security Note: We checkout the PR branch to build the React Native app.
+      # The build itself happens on EAS Build's infrastructure, not directly on this runner.
+      # Only maintainers or trusted contributors should trigger this action.
+      # Consider adding a check for author association if needed:
+      # if: github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'MEMBER'
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:

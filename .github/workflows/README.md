@@ -4,6 +4,8 @@ This workflow builds an unsigned iOS IPA file for the React Native (Expo) mobile
 
 ## How to Trigger the Build
 
+**Security Note**: Only repository maintainers or trusted contributors should trigger this action, as it checks out and builds code from the PR branch.
+
 1. Go to any Pull Request in this repository
 2. Add a comment with the text: **`build ios`**
 3. The workflow will automatically start and add a 🚀 reaction to your comment
@@ -110,6 +112,18 @@ The IPA is unsigned. You must sign it with your own certificate before installin
 - **Build Timeout**: 30 minutes
 
 ## Customization
+
+### Restrict to maintainers only (Recommended)
+
+For additional security, you can restrict the workflow to only run when triggered by repository owners or members. 
+
+Edit `.github/workflows/build-ios.yml` and change line 11:
+
+```yaml
+if: github.event.issue.pull_request && contains(github.event.comment.body, 'build ios') && (github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER')
+```
+
+This ensures only repository owners and members can trigger builds.
 
 ### Change the trigger phrase
 
