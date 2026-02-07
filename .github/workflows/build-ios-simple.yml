@@ -293,14 +293,17 @@ jobs:
           echo "Size: $(du -h MovieManager-unsigned.ipa | cut -f1)"
           echo "============================================"
 
-          # Move to root for upload
-          mv MovieManager-unsigned.ipa ../../
+          # Move to mobile/ for upload step path (mobile/MovieManager-unsigned.ipa)
+          mv MovieManager-unsigned.ipa ../
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ios-unsigned-ipa
-          path: mobile/MovieManager-unsigned.ipa
+          path: |
+            mobile/MovieManager-unsigned.ipa
+            mobile/ios/MovieManager-unsigned.ipa
+            MovieManager-unsigned.ipa
           retention-days: 30
           if-no-files-found: error
 
@@ -316,13 +319,26 @@ jobs:
       - name: Build summary
         if: success()
         run: |
-          IPA_SIZE=$(du -h mobile/MovieManager-unsigned.ipa | cut -f1)
+          IPA_FILE=""
+          for p in mobile/MovieManager-unsigned.ipa mobile/ios/MovieManager-unsigned.ipa MovieManager-unsigned.ipa; do
+            if [ -f "$p" ]; then
+              IPA_FILE="$p"
+              break
+            fi
+          done
+
+          if [ -z "$IPA_FILE" ]; then
+            echo "❌ No IPA file found for summary"
+            exit 1
+          fi
+
+          IPA_SIZE=$(du -h "$IPA_FILE" | cut -f1)
 
           echo "## ✅ iOS Build Successful" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **IPA File** | MovieManager-unsigned.ipa |" >> $GITHUB_STEP_SUMMARY
+          echo "| **IPA File** | $IPA_FILE |" >> $GITHUB_STEP_SUMMARY
           echo "| **Size** | $IPA_SIZE |" >> $GITHUB_STEP_SUMMARY
           echo "| **Signing** | Unsigned (for sideloading) |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
