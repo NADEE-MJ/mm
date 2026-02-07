@@ -129,25 +129,49 @@ jobs:
           echo "Modifying post_install hook to disable signing"
           echo "============================================"
 
-          # Insert code signing disable logic into existing post_install hook
-          # Find the post_install block and add our code at the end (before final 'end')
-          ruby -i -pe '
-            if /^end$/ && !$done && $in_post_install
-              print "  # Disable code signing for all targets\n"
-              print "  installer.pods_project.targets.each do |target|\n"
-              print "    target.build_configurations.each do |config|\n"
-              print "      config.build_settings[\"CODE_SIGNING_ALLOWED\"] = \"NO\"\n"
-              print "      config.build_settings[\"CODE_SIGNING_REQUIRED\"] = \"NO\"\n"
-              print "      config.build_settings[\"CODE_SIGN_IDENTITY\"] = \"\"\n"
-              print "      config.build_settings[\"EXPANDED_CODE_SIGN_IDENTITY\"] = \"\"\n"
-              print "    end\n"
-              print "  end\n\n"
-              $done = true
-            end
-            $in_post_install = true if /post_install do/
-          ' Podfile
+          # Use a proper Ruby script to insert code signing disable logic
+          ruby << 'RUBY_SCRIPT'
+            podfile_path = 'Podfile'
+            content = File.read(podfile_path)
 
-          echo "✅ Podfile modified"
+            # Find the post_install block and insert our code before its closing 'end'
+            # We'll look for 'post_install do |installer|' and find the matching end
+            lines = content.lines
+            modified_lines = []
+            in_post_install = false
+            post_install_indent = 0
+            inserted = false
+
+            lines.each_with_index do |line, index|
+              if line =~ /^\s*post_install\s+do\s*\|.*\|/
+                in_post_install = true
+                post_install_indent = line[/^\s*/].length
+                modified_lines << line
+              elsif in_post_install && !inserted && line =~ /^end\s*$/
+                # Found an 'end' at the root level - this closes post_install
+                # Insert our code before this end
+                modified_lines << "  # Disable code signing for all targets\n"
+                modified_lines << "  installer.pods_project.targets.each do |target|\n"
+                modified_lines << "    target.build_configurations.each do |config|\n"
+                modified_lines << "      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'\n"
+                modified_lines << "      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'\n"
+                modified_lines << "      config.build_settings['CODE_SIGN_IDENTITY'] = ''\n"
+                modified_lines << "      config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''\n"
+                modified_lines << "    end\n"
+                modified_lines << "  end\n"
+                modified_lines << "\n"
+                modified_lines << line
+                in_post_install = false
+                inserted = true
+              else
+                modified_lines << line
+              end
+            end
+
+            File.write(podfile_path, modified_lines.join)
+            puts "✅ Podfile modified successfully"
+          RUBY_SCRIPT
+
           echo ""
           echo "Modified post_install hook:"
           sed -n '/post_install/,/^end$/p' Podfile
