@@ -1,0 +1,167 @@
+name: Build iOS App
+
+# Trigger on PR comments containing "build ios" or commits to main branch
+on:
+  issue_comment:
+    types: [created]
+  push:
+    branches:
+      - main
+
+jobs:
+  build-ios:
+    # Run on PR comments containing "build ios" OR pushes to main branch
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, 'build ios'))
+    runs-on: macos-latest
+    
+    # Set minimal permissions for security
+    permissions:
+      contents: read        # Read repository contents
+      pull-requests: write  # Comment on PRs
+      issues: write         # Add reactions to comments
+
+    steps:
+      - name: Add reaction to comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            })
+
+      - name: Get PR branch
+        if: github.event_name == 'issue_comment'
+        id: pr-branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('ref', pr.data.head.ref);
+            core.setOutput('sha', pr.data.head.sha);
+
+      # Security Note: We checkout the PR branch to build the React Native app.
+      # The build happens locally on this runner using Expo prebuild + Xcode.
+      # Only maintainers or trusted contributors should trigger this action.
+      # Consider adding a check for author association if needed:
+      # if: github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'MEMBER'
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && steps.pr-branch.outputs.ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Install Expo CLI
+        run: npm install -g expo-cli@latest
+
+      - name: Setup Ruby (for CocoaPods)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods -v 1.15.2
+
+      - name: Generate native iOS project
+        working-directory: mobile
+        run: |
+          echo "Running expo prebuild to generate native iOS project..."
+          echo "Note: Using --clean flag to ensure a fresh build. This removes any existing ios directory."
+          npx expo prebuild --platform ios --clean
+          
+      - name: Install iOS dependencies
+        working-directory: mobile/ios
+        run: |
+          echo "Installing CocoaPods dependencies..."
+          pod install
+
+      - name: Build iOS app (unsigned)
+        working-directory: mobile/ios
+        run: |
+          echo "Building iOS app with xcodebuild..."
+          
+          # Build the app without code signing
+          xcodebuild clean archive \
+            -workspace moviemanager.xcworkspace \
+            -scheme moviemanager \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/MovieManager.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build.log
+          
+          echo "Build completed. Archive created at: $RUNNER_TEMP/MovieManager.xcarchive"
+
+      - name: Create IPA from archive
+        run: |
+          echo "Creating IPA from archive..."
+          
+          # Create Payload directory
+          mkdir -p "$RUNNER_TEMP/Payload"
+          
+          # Copy the app bundle to Payload
+          cp -r "$RUNNER_TEMP/MovieManager.xcarchive/Products/Applications/moviemanager.app" "$RUNNER_TEMP/Payload/"
+          
+          # Create IPA (which is just a zip file)
+          cd "$RUNNER_TEMP"
+          zip -r MovieManager.ipa Payload
+          
+          # Move IPA to mobile directory for artifact upload
+          mv MovieManager.ipa "$GITHUB_WORKSPACE/mobile/app.ipa"
+          
+          echo "IPA created successfully at: $GITHUB_WORKSPACE/mobile/app.ipa"
+          ls -lh "$GITHUB_WORKSPACE/mobile/app.ipa"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app-unsigned
+          path: mobile/app.ipa
+          retention-days: 30
+
+      - name: Comment build result
+        if: success() && github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `✅ iOS build completed successfully!\n\n📦 Download the unsigned IPA from the [workflow artifacts](${runUrl}).\n\n**Note**: This IPA is built locally on GitHub runners without requiring external services or tokens. The app is unsigned and ready for you to sign with your own certificate.`
+            })
+
+      - name: Comment build failure
+        if: failure() && github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ iOS build failed. Check the [workflow logs](${runUrl}) for details.`
+            })
