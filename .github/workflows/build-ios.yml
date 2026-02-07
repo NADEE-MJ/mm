@@ -1,20 +1,49 @@
-name: Build iOS App
+# =============================================================================
+# GitHub Actions: Build Unsigned iOS .ipa (No Paid Apple Developer Account)
+# =============================================================================
+# This workflow builds Movie Manager for iOS without code signing,
+# then packages it into an .ipa suitable for re-signing with SideStore/AltStore.
+#
+# APPROACH: Build with CODE_SIGNING_ALLOWED=NO → package .app → create .ipa
+# =============================================================================
 
-# Trigger on PR comments containing "build ios" or commits to main branch
+name: Build iOS (Unsigned for Sideloading)
+
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
   issue_comment:
     types: [created]
-  push:
-    branches:
-      - main
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # ─── Customize these for your project ───
+  APP_CONFIGURATION: "Release"       # Build configuration
+  EXPO_PROJECT_DIR: "mobile"         # Mobile app directory
+  # ─── Xcode version ───
+  # GitHub Actions macOS runners come with multiple Xcode versions.
+  # As of early 2026, macos-15 runners include Xcode 26.x.
+  # Check: https://github.com/actions/runner-images
+  XCODE_VERSION: "26.0"
 
 jobs:
-  build-ios:
+  build-unsigned-ipa:
+    name: Build Unsigned .ipa
     # Run on PR comments containing "build ios" OR pushes to main branch
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'workflow_dispatch') ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, 'build ios'))
-    runs-on: macos-latest
+    runs-on: macos-15  # Use macos-15 for Xcode 26 support
+    timeout-minutes: 60
 
     # Set minimal permissions for security
     permissions:
@@ -23,6 +52,9 @@ jobs:
       issues: write         # Add reactions to comments
 
     steps:
+      # ─────────────────────────────────────────────
+      # 0. Add reaction to comment (if triggered by comment)
+      # ─────────────────────────────────────────────
       - name: Add reaction to comment
         if: github.event_name == 'issue_comment'
         uses: actions/github-script@v7
@@ -49,133 +81,120 @@ jobs:
             core.setOutput('ref', pr.data.head.ref);
             core.setOutput('sha', pr.data.head.sha);
 
-      # Security Note: We checkout the PR branch to build the React Native app.
-      # The build happens locally on this runner using Expo prebuild + Xcode.
-      # Only maintainers or trusted contributors should trigger this action.
-      # Consider adding a check for author association if needed:
-      # if: github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'MEMBER'
-      - name: Checkout code
+      # ─────────────────────────────────────────────
+      # 1. Checkout
+      # ─────────────────────────────────────────────
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'issue_comment' && steps.pr-branch.outputs.ref || github.ref }}
 
-      - name: Setup Node.js
+      # ─────────────────────────────────────────────
+      # 2. Select Xcode version
+      # ─────────────────────────────────────────────
+      - name: Select Xcode ${{ env.XCODE_VERSION }}
+        run: |
+          # List available Xcode versions for debugging
+          echo "Available Xcode versions:"
+          ls /Applications/ | grep Xcode || true
+
+          # Select the desired Xcode version
+          sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
+
+          # Verify
+          xcodebuild -version
+          echo "Selected Xcode: $(xcode-select -p)"
+
+      # ─────────────────────────────────────────────
+      # 3. Set up Node.js
+      # ─────────────────────────────────────────────
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: "npm"
           cache-dependency-path: mobile/package-lock.json
 
+      # ─────────────────────────────────────────────
+      # 4. Install JS dependencies
+      # ─────────────────────────────────────────────
       - name: Install dependencies
-        working-directory: mobile
+        working-directory: ${{ env.EXPO_PROJECT_DIR }}
         run: npm ci
 
-      - name: Install Expo CLI
-        run: npm install -g expo-cli@latest
-
-      - name: Setup Ruby (for CocoaPods)
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: false
-
-      - name: Install CocoaPods
-        run: sudo gem install cocoapods -v 1.15.2
-
-      - name: Generate native iOS project
-        working-directory: mobile
+      # ─────────────────────────────────────────────
+      # 5. Generate native iOS project (Expo prebuild)
+      # ─────────────────────────────────────────────
+      - name: Expo prebuild (generate native project)
+        working-directory: ${{ env.EXPO_PROJECT_DIR }}
         run: |
           echo "Running expo prebuild to generate native iOS project..."
-          echo "Note: Using --clean flag to ensure a fresh build. This removes any existing ios directory."
           npx expo prebuild --platform ios --clean
+          echo "✅ Native iOS project generated"
+          ls -la ios/
 
-      - name: Install iOS dependencies
-        working-directory: mobile/ios
+      # ─────────────────────────────────────────────
+      # 6. Patch Xcode project to disable code signing
+      # ─────────────────────────────────────────────
+      - name: Disable code signing in Xcode project
+        working-directory: ${{ env.EXPO_PROJECT_DIR }}/ios
         run: |
-          echo "Installing CocoaPods dependencies..."
-          pod install
+          # Create a temporary Ruby script to modify the Xcode project
+          # This ensures code signing is disabled at the project level too
+          cat > disable_signing.rb << 'RUBY_SCRIPT'
+          require 'xcodeproj'
 
-      - name: Install Fastlane
-        run: |
-          sudo gem install fastlane
-
-      - name: Setup signing and find Team ID
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          # Create a temporary keychain for this build
-          security create-keychain -p actions temp.keychain
-          security default-keychain -s temp.keychain
-          security unlock-keychain -p actions temp.keychain
-          security set-keychain-settings -t 3600 -u temp.keychain
-
-          # If Team ID is not set, try to find it
-          if [ -z "$APPLE_TEAM_ID" ]; then
-            echo "🔍 APPLE_TEAM_ID not set. Attempting to find your Team ID..."
-            echo ""
-
-            # Set fastlane environment
-            export FASTLANE_USER="$APPLE_ID"
-            export FASTLANE_PASSWORD="$APPLE_APP_PASSWORD"
-            export FASTLANE_DONT_STORE_PASSWORD=1
-
-            # Use a simple one-liner to get team info
-            ruby -r spaceship -e "
-              Spaceship::Portal.login(ENV['FASTLANE_USER'], ENV['FASTLANE_PASSWORD'])
-              teams = Spaceship::Portal.client.teams
-              puts ''
-              puts '=' * 60
-              puts 'FOUND YOUR TEAM(S):'
-              puts '=' * 60
-              teams.each do |team|
-                puts 'Team Name: ' + team['name']
-                puts 'Team ID:   ' + team['teamId']
-                puts 'Type:      ' + team['type']
-                puts '-' * 60
-              end
-              puts ''
-              puts 'ADD THIS SECRET TO GITHUB:'
-              puts '  Name:  APPLE_TEAM_ID'
-              puts '  Value: ' + teams.first['teamId']
-              puts ''
-              puts '=' * 60
-            " 2>&1 || echo "Could not fetch teams automatically. Visit https://developer.apple.com/account"
-
-            echo ""
-            echo "Once you have your Team ID:"
-            echo "1. Go to Settings → Secrets → Actions in GitHub"
-            echo "2. Click 'New repository secret'"
-            echo "3. Name: APPLE_TEAM_ID"
-            echo "4. Value: Your 10-character Team ID"
-            echo "5. Re-run this workflow"
+          project_path = Dir.glob("*.xcodeproj").first
+          unless project_path
+            puts "❌ No .xcodeproj found"
             exit 1
-          fi
+          end
 
-          echo "✅ Using Team ID: $APPLE_TEAM_ID"
-          echo "✅ Using Apple ID: $APPLE_ID"
-          echo "✅ Keychain configured"
+          project = Xcodeproj::Project.open(project_path)
 
-      - name: Build iOS app (signed for device)
-        working-directory: mobile/ios
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          project.targets.each do |target|
+            target.build_configurations.each do |config|
+              config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+              config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
+              config.build_settings['CODE_SIGN_IDENTITY'] = ''
+              config.build_settings['CODE_SIGN_ENTITLEMENTS'] = ''
+              config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = ''
+              config.build_settings['DEVELOPMENT_TEAM'] = ''
+              # Ensure it still produces a valid .app bundle
+              config.build_settings['ENABLE_BITCODE'] = 'NO'
+            end
+          end
+
+          project.save
+          puts "✅ Code signing disabled for all targets"
+          RUBY_SCRIPT
+
+          # Install xcodeproj gem if needed and run the script
+          gem install xcodeproj --no-document 2>/dev/null || true
+          ruby disable_signing.rb
+
+      # ─────────────────────────────────────────────
+      # 7. Install CocoaPods
+      # ─────────────────────────────────────────────
+      - name: Install CocoaPods dependencies
+        working-directory: ${{ env.EXPO_PROJECT_DIR }}/ios
         run: |
-          echo "Building iOS app for device with automatic signing..."
+          echo "Installing CocoaPods..."
+          pod install --repo-update
+        env:
+          COCOAPODS_DISABLE_STATS: "true"
 
-          # Set authentication for xcodebuild
-          export FASTLANE_USER="$APPLE_ID"
-          export FASTLANE_PASSWORD="$APPLE_APP_PASSWORD"
-          export FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD="$APPLE_APP_PASSWORD"
-
-          # Dynamically find the workspace and scheme generated by Expo prebuild
+      # ─────────────────────────────────────────────
+      # 8. Build the .app (unsigned)
+      # ─────────────────────────────────────────────
+      - name: Build unsigned .app
+        working-directory: ${{ env.EXPO_PROJECT_DIR }}/ios
+        run: |
+          # Determine workspace and scheme names
           WORKSPACE=$(ls -d *.xcworkspace | head -1)
-          echo "Found workspace: $WORKSPACE"
+          echo "Using workspace: $WORKSPACE"
 
-          # List available schemes so we can pick the right one
+          # List available schemes
           echo "Available schemes:"
           xcodebuild -workspace "$WORKSPACE" -list
 
@@ -184,93 +203,120 @@ jobs:
           echo "Using scheme: $SCHEME"
 
           if [ -z "$SCHEME" ]; then
-            echo "Error: No scheme found in workspace!"
+            echo "❌ Error: No scheme found in workspace!"
             exit 1
           fi
 
-          # Ensure xcodebuild failures aren't masked by the tee pipe
-          set -o pipefail
-
-          # Build for iOS device with automatic signing
-          # -authenticationKeyIssuerID, -authenticationKeyID, and -authenticationKeyPath can be used
-          # but we're using -allowProvisioningUpdates which will prompt for credentials
-          xcodebuild clean archive \
+          # Build for generic iOS device (arm64) without signing
+          xcodebuild \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
-            -configuration Release \
-            -archivePath "$RUNNER_TEMP/MovieManager.xcarchive" \
-            -destination 'generic/platform=iOS' \
-            -allowProvisioningUpdates \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            -configuration "${{ env.APP_CONFIGURATION }}" \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath build \
+            -allowProvisioningUpdates=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            build \
             | tee build.log
 
-          echo "✅ Build completed. Archive at: $RUNNER_TEMP/MovieManager.xcarchive"
-
-      - name: Export IPA from archive
-        env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          echo "Exporting IPA from archive..."
-
-          # Create export options plist for development distribution
-          cat > /tmp/ExportOptions.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>method</key>
-              <string>development</string>
-              <key>teamID</key>
-              <string>$APPLE_TEAM_ID</string>
-              <key>signingStyle</key>
-              <string>automatic</string>
-              <key>stripSwiftSymbols</key>
-              <true/>
-              <key>uploadSymbols</key>
-              <false/>
-              <key>compileBitcode</key>
-              <false/>
-          </dict>
-          </plist>
-          EOF
-
-          # Export the archive to IPA
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/MovieManager.xcarchive" \
-            -exportPath "$RUNNER_TEMP/export" \
-            -exportOptionsPlist /tmp/ExportOptions.plist \
-            -allowProvisioningUpdates
-
-          # Find and move the IPA
-          IPA_PATH=$(find "$RUNNER_TEMP/export" -name "*.ipa" -print -quit)
-
-          if [ -z "$IPA_PATH" ]; then
-            echo "❌ Error: No IPA found in export!"
-            ls -R "$RUNNER_TEMP/export"
+          # Verify .app was produced
+          APP_PATH=$(find build -name "*.app" -type d | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ Build failed: no .app found"
+            echo "Last 50 lines of build log:"
+            tail -50 build.log
             exit 1
           fi
 
-          mv "$IPA_PATH" "$GITHUB_WORKSPACE/mobile/app.ipa"
+          echo "✅ Built: $APP_PATH"
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
 
-          echo "✅ IPA created successfully at: $GITHUB_WORKSPACE/mobile/app.ipa"
-          ls -lh "$GITHUB_WORKSPACE/mobile/app.ipa"
+      # ─────────────────────────────────────────────
+      # 9. Package .app into .ipa
+      # ─────────────────────────────────────────────
+      - name: Package .app into .ipa
+        working-directory: ${{ env.EXPO_PROJECT_DIR }}/ios
+        run: |
+          # Create the Payload directory structure that .ipa requires
+          mkdir -p Payload
+          cp -R "${{ env.APP_PATH }}" Payload/
 
-          echo ""
-          echo "📱 This IPA is signed for DEVELOPMENT and will run on physical iOS devices."
-          echo "⏰ Note: Apps signed with a free Apple ID expire after 7 days and need to be rebuilt."
+          # Show what we're packaging
+          echo "📦 Payload contents:"
+          ls -la Payload/
 
-      - name: Upload IPA artifact
+          # Get the app name for the .ipa filename
+          APP_NAME=$(basename "${{ env.APP_PATH }}" .app)
+          IPA_NAME="${APP_NAME}-unsigned.ipa"
+
+          # Create the .ipa (it's just a zip with Payload/ inside)
+          zip -r -9 "$IPA_NAME" Payload/
+
+          # Verify
+          echo "✅ Created: $IPA_NAME ($(du -h "$IPA_NAME" | cut -f1))"
+
+          # Move to a consistent location for upload
+          mv "$IPA_NAME" "$GITHUB_WORKSPACE/$IPA_NAME"
+          echo "IPA_PATH=$GITHUB_WORKSPACE/$IPA_NAME" >> $GITHUB_ENV
+          echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
+
+      # ─────────────────────────────────────────────
+      # 10. Upload .ipa as artifact
+      # ─────────────────────────────────────────────
+      - name: Upload unsigned .ipa artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-app-development
-          path: mobile/app.ipa
+          name: ios-unsigned-ipa
+          path: ${{ env.IPA_PATH }}
+          retention-days: 30
+          if-no-files-found: error
+
+      # ─────────────────────────────────────────────
+      # 11. Upload build logs (for debugging failures)
+      # ─────────────────────────────────────────────
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: ${{ env.EXPO_PROJECT_DIR }}/ios/build.log
           retention-days: 7
 
-      - name: Cleanup keychain
-        if: always()
+      # ─────────────────────────────────────────────
+      # 12. Build summary
+      # ─────────────────────────────────────────────
+      - name: Build summary
+        if: success()
         run: |
-          security delete-keychain temp.keychain || true
+          echo "## ✅ iOS Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **IPA File** | \`${{ env.IPA_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Signing** | Unsigned (for sideloading) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Configuration** | ${{ env.APP_CONFIGURATION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Xcode** | ${{ env.XCODE_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Bundle ID** | com.moviemanager.mobile |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 Next Steps to Install on Your Device" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the \`ios-unsigned-ipa\` artifact from this workflow run" >> $GITHUB_STEP_SUMMARY
+          echo "2. Transfer the .ipa file to your iOS device" >> $GITHUB_STEP_SUMMARY
+          echo "3. Install using **SideStore** or **AltStore**:" >> $GITHUB_STEP_SUMMARY
+          echo "   - These tools will re-sign the app with your free Apple ID" >> $GITHUB_STEP_SUMMARY
+          echo "   - No paid developer account needed!" >> $GITHUB_STEP_SUMMARY
+          echo "4. The app will be installed and ready to use" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "⏰ **Note**: Apps installed via free Apple ID expire after 7 days and need to be re-signed." >> $GITHUB_STEP_SUMMARY
 
+      # ─────────────────────────────────────────────
+      # 13. Comment build result on PR
+      # ─────────────────────────────────────────────
       - name: Comment build result
         if: success() && github.event_name == 'issue_comment'
         uses: actions/github-script@v7
@@ -281,7 +327,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `✅ iOS development build completed successfully!\n\n📦 Download the IPA from the [workflow artifacts](${runUrl}).\n\n📱 **This IPA is signed for development** and will run on physical iOS devices registered to your Apple Developer account.\n\n⏰ **Important**: Apps signed with a free Apple ID expire after 7 days. You'll need to rebuild and reinstall after that period.\n\n**To install**: Use Apple Configurator, Xcode, or a tool like AltStore to install the IPA on your device.`
+              body: `✅ iOS unsigned build completed successfully!\n\n📦 Download the \`ios-unsigned-ipa\` artifact from the [workflow run](${runUrl}).\n\n📱 **This IPA is unsigned** and ready to be re-signed with **SideStore** or **AltStore**.\n\n### Installation Steps:\n1. Download the .ipa file\n2. Transfer to your iOS device\n3. Open in SideStore/AltStore\n4. The app will be re-signed with your free Apple ID and installed\n\n⏰ **No paid Apple Developer account needed!** Apps expire after 7 days and need to be re-signed.`
             })
 
       - name: Comment build failure
