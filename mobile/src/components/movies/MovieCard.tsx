@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   watchedChip: {
-    backgroundColor: '#0a84ff',
+    backgroundColor: '#DBA506',
     alignSelf: 'flex-start',
   },
   chipText: {

@@ -144,50 +144,16 @@ def register_lifecycle_handlers(app: FastAPI) -> None:
 app = create_app()
 
 
-@app.get("/manifest.json")
-async def serve_manifest() -> FileResponse:
-    """Serve PWA manifest."""
-    manifest_file = STATIC_PATH / "manifest.json"
-    if manifest_file.exists():
-        return FileResponse(str(manifest_file), media_type="application/json")
-    raise HTTPException(status_code=404, detail="Manifest not found")
-
-
-@app.get("/sw.js")
-async def serve_service_worker() -> FileResponse:
-    """Serve service worker."""
-    sw_file = STATIC_PATH / "sw.js"
-    if sw_file.exists():
-        return FileResponse(str(sw_file), media_type="application/javascript")
-    raise HTTPException(status_code=404, detail="Service worker not found")
-
-
-@app.get("/icon-{size}.png")
-async def serve_icon(size: str) -> FileResponse:
-    """Serve PWA icons."""
-    icon_file = STATIC_PATH / f"icon-{size}.png"
-    if icon_file.exists():
-        return FileResponse(str(icon_file), media_type="image/png")
-    favicon_file = STATIC_PATH / "vite.svg"
-    if favicon_file.exists():
-        return FileResponse(str(favicon_file), media_type="image/svg+xml")
-    raise HTTPException(status_code=404, detail="Icon not found")
-
-
-@app.get("/vite.svg")
-async def serve_vite_svg() -> FileResponse:
-    """Serve favicon."""
-    favicon_file = STATIC_PATH / "vite.svg"
-    if favicon_file.exists():
-        return FileResponse(str(favicon_file), media_type="image/svg+xml")
-    raise HTTPException(status_code=404, detail="Favicon not found")
-
-
 @app.get("/{full_path:path}")
 async def serve_frontend(full_path: str) -> FileResponse:
     """Serve the built SPA for non-API routes."""
     if full_path.startswith(("api/", "docs", "redoc", "openapi.json")):
         raise HTTPException(status_code=404, detail="Endpoint not found")
+
+    # Serve static files directly if they exist (e.g., favicon, images)
+    static_file = STATIC_PATH / full_path
+    if full_path and static_file.exists() and static_file.is_file():
+        return FileResponse(str(static_file))
 
     index_file = STATIC_PATH / "index.html"
     if index_file.exists():

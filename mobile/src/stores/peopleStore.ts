@@ -66,7 +66,7 @@ export const usePeopleStore = create<PeopleState>((set, get) => ({
     userId: string,
     isTrusted: boolean = false,
     isDefault: boolean = false,
-    color: string = '#0a84ff',
+    color: string = '#DBA506',
     emoji?: string
   ) => {
     try {

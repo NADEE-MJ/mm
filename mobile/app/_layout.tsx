@@ -18,10 +18,13 @@ const darkTheme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
-    primary: '#0a84ff',
+    primary: '#DBA506',
     background: '#000000',
     surface: '#1c1c1e',
-    error: '#ff3b30',
+    error: '#ff453a',
+    onPrimary: '#000000',
+    primaryContainer: 'rgba(219, 165, 6, 0.15)',
+    onPrimaryContainer: '#DBA506',
   },
 };
 

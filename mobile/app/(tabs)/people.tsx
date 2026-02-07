@@ -100,7 +100,7 @@ export default function PeopleScreen() {
                 <View
                   style={[
                     styles.avatar,
-                    { backgroundColor: item.color || '#0a84ff' },
+                    { backgroundColor: item.color || '#DBA506' },
                   ]}
                 >
                   <Text style={styles.avatarText}>
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: '#0a84ff',
+    color: '#DBA506',
     fontWeight: 'bold',
   },
   statLabel: {
@@ -331,8 +331,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     margin: 16,
     right: 0,
-    bottom: 0,
-    backgroundColor: '#0a84ff',
+    bottom: 80,
+    backgroundColor: '#DBA506',
   },
   input: {
     marginBottom: 8,

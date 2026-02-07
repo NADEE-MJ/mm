@@ -97,7 +97,7 @@ export default function ListsScreen() {
               <View
                 style={[
                   styles.iconContainer,
-                  { backgroundColor: item.color || '#0a84ff' },
+                  { backgroundColor: item.color || '#DBA506' },
                 ]}
               >
                 <ListIcon size={24} color="#fff" />
@@ -243,8 +243,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     margin: 16,
     right: 0,
-    bottom: 0,
-    backgroundColor: '#0a84ff',
+    bottom: 80,
+    backgroundColor: '#DBA506',
   },
   input: {
     marginBottom: 8,
