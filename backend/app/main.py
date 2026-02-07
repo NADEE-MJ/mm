@@ -151,9 +151,11 @@ async def serve_frontend(full_path: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="Endpoint not found")
 
     # Serve static files directly if they exist (e.g., favicon, images)
-    static_file = STATIC_PATH / full_path
-    if full_path and static_file.exists() and static_file.is_file():
-        return FileResponse(str(static_file))
+    if full_path:
+        static_file = (STATIC_PATH / full_path).resolve()
+        # Prevent path traversal: ensure resolved path stays inside STATIC_PATH
+        if static_file.is_relative_to(STATIC_PATH.resolve()) and static_file.is_file():
+            return FileResponse(str(static_file))
 
     index_file = STATIC_PATH / "index.html"
     if index_file.exists():
