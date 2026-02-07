@@ -32,7 +32,10 @@ env:
   # As of early 2026, macos-15 runners include Xcode 26.x.
   # Check: https://github.com/actions/runner-images
   XCODE_VERSION: "26.0"
-  # Note: APP_SCHEME is auto-detected in the build step
+  # ─── Scheme name (optional override) ───
+  # Leave empty for auto-detection, or set to your app's scheme name
+  # Example: APP_SCHEME: "MovieManager"
+  APP_SCHEME: ""  # Auto-detect by default
 
 jobs:
   build-unsigned-ipa:
@@ -93,18 +96,67 @@ jobs:
       # ─────────────────────────────────────────────
       # 2. Select Xcode version
       # ─────────────────────────────────────────────
-      - name: Select Xcode ${{ env.XCODE_VERSION }}
+      - name: Select Xcode
         run: |
-          # List available Xcode versions for debugging
+          echo "============================================"
           echo "Available Xcode versions:"
-          ls /Applications/ | grep Xcode || true
+          echo "============================================"
+          ls -la /Applications/ | grep Xcode || true
 
-          # Select the desired Xcode version
-          sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
+          # Try to select the specified version, or fall back to latest stable
+          if [ -d "/Applications/Xcode_${{ env.XCODE_VERSION }}.app" ]; then
+            echo ""
+            echo "Selecting Xcode ${{ env.XCODE_VERSION }}..."
+            sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
+          else
+            echo ""
+            echo "⚠️  Xcode ${{ env.XCODE_VERSION }} not found, using latest stable version"
+            # Find the latest non-beta Xcode (highest version number without _beta)
+            LATEST_XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | \
+                          grep -v beta | \
+                          sort -V | \
+                          tail -1)
+            if [ -n "$LATEST_XCODE" ]; then
+              echo "Found: $LATEST_XCODE"
+              sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
+            else
+              echo "Using default Xcode"
+              sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+            fi
+          fi
 
           # Verify
+          echo ""
+          echo "============================================"
+          echo "Selected Xcode:"
+          echo "============================================"
           xcodebuild -version
-          echo "Selected Xcode: $(xcode-select -p)"
+          echo ""
+          echo "Path: $(xcode-select -p)"
+
+      # ─────────────────────────────────────────────
+      # 2a. Verify iOS SDK availability
+      # ─────────────────────────────────────────────
+      - name: Verify iOS SDK
+        run: |
+          echo "============================================"
+          echo "Available SDKs"
+          echo "============================================"
+          xcodebuild -showsdks
+
+          echo ""
+          echo "============================================"
+          echo "iOS Platforms"
+          echo "============================================"
+          ls /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer/Platforms/ || true
+
+          echo ""
+          echo "Checking for iOS SDK..."
+          if xcodebuild -showsdks | grep -q iphoneos; then
+            echo "✅ iOS SDK is available"
+          else
+            echo "⚠️  iOS SDK not found in showsdks output, but may still be available"
+          fi
 
       # ─────────────────────────────────────────────
       # 3. Set up Node.js
@@ -226,38 +278,93 @@ jobs:
           echo "Available schemes:"
           xcodebuild -workspace "$WORKSPACE" -list
 
-          # Get the first scheme name (Expo typically generates one matching the project)
-          # Filter out Pods schemes which start with "Pods-"
-          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null | \
-                   sed -n '/Schemes:/,/^$/p' | \
-                   grep -v 'Schemes:' | \
-                   grep -v '^$' | \
-                   grep -v 'Pods-' | \
-                   head -1 | \
-                   xargs)
+          # Check if APP_SCHEME is manually set
+          if [ -n "${{ env.APP_SCHEME }}" ]; then
+            SCHEME="${{ env.APP_SCHEME }}"
+            echo ""
+            echo "Using manually specified scheme: $SCHEME"
+          else
+            # Auto-detect the scheme
+            echo ""
+            echo "Auto-detecting scheme..."
+
+            # Get the workspace base name (e.g., "moviemanager" from "moviemanager.xcworkspace")
+            WORKSPACE_NAME=$(basename "$WORKSPACE" .xcworkspace)
+            echo "Workspace base name: $WORKSPACE_NAME"
+
+            # Get all schemes, one per line
+            ALL_SCHEMES=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null | \
+                          sed -n '/Schemes:/,/^$/p' | \
+                          grep -v 'Schemes:' | \
+                          grep -v '^$' | \
+                          sed 's/^[[:space:]]*//')
+
+            echo ""
+            echo "All schemes found:"
+            echo "$ALL_SCHEMES"
+
+            # Try to find a scheme matching the workspace name (case-insensitive)
+            SCHEME=$(echo "$ALL_SCHEMES" | grep -i "^${WORKSPACE_NAME}$" | head -1)
+
+            # If no exact match, try to find the main app scheme by filtering out known dependencies
+            if [ -z "$SCHEME" ]; then
+              echo ""
+              echo "⚠️  No scheme matching workspace name, filtering out dependency schemes..."
+              SCHEME=$(echo "$ALL_SCHEMES" | \
+                       grep -v -i '^Pods-' | \
+                       grep -v -i '^EX' | \
+                       grep -v -i '^RCT' | \
+                       grep -v -i '^React' | \
+                       grep -v -i 'Tests$' | \
+                       head -1)
+            fi
+
+            if [ -z "$SCHEME" ]; then
+              echo ""
+              echo "❌ Error: Could not auto-detect app scheme!"
+              echo ""
+              echo "All schemes available:"
+              echo "$ALL_SCHEMES"
+              echo ""
+              echo "Please set APP_SCHEME environment variable in workflow to your app's scheme name."
+              echo "Example: APP_SCHEME: \"MovieManager\""
+              exit 1
+            fi
+          fi
 
           echo ""
           echo "============================================"
           echo "Selected scheme: $SCHEME"
           echo "============================================"
 
-          if [ -z "$SCHEME" ]; then
-            echo "❌ Error: No non-Pods scheme found in workspace!"
-            echo "Available schemes:"
-            xcodebuild -workspace "$WORKSPACE" -list
-            exit 1
+          # Determine the iOS SDK to use (latest available)
+          echo ""
+          echo "Determining iOS SDK..."
+          IOS_SDK=$(xcodebuild -showsdks 2>/dev/null | \
+                    grep -o 'iphoneos[0-9.]*' | \
+                    tail -1)
+
+          if [ -z "$IOS_SDK" ]; then
+            echo "⚠️  No iOS SDK found, using 'generic/platform=iOS'"
+            DESTINATION="generic/platform=iOS"
+          else
+            echo "✅ Found iOS SDK: $IOS_SDK"
+            DESTINATION="generic/platform=iOS"
           fi
 
           # Build for generic iOS device (arm64) without signing
           echo ""
+          echo "============================================"
           echo "Starting build..."
+          echo "Destination: $DESTINATION"
+          echo "============================================"
           set -o pipefail
 
           xcodebuild \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration "${{ env.APP_CONFIGURATION }}" \
-            -destination "generic/platform=iOS" \
+            -destination "$DESTINATION" \
             -derivedDataPath build \
             -allowProvisioningUpdates=NO \
             CODE_SIGNING_ALLOWED=NO \
