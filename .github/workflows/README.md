@@ -1,6 +1,6 @@
 # iOS Build GitHub Action
 
-This workflow builds an unsigned iOS IPA file for the React Native (Expo) mobile app.
+This workflow builds an unsigned iOS IPA file for the React Native (Expo) mobile app locally on GitHub's macOS runner.
 
 ## How to Trigger the Build
 
@@ -9,7 +9,7 @@ This workflow builds an unsigned iOS IPA file for the React Native (Expo) mobile
 1. Go to any Pull Request in this repository
 2. Add a comment with the text: **`build ios`**
 3. The workflow will automatically start and add a 🚀 reaction to your comment
-4. Wait for the build to complete (typically 20-30 minutes)
+4. Wait for the build to complete (typically 10-15 minutes)
 5. Once complete, the workflow will comment with a link to download the IPA
 
 ## Downloading the IPA
@@ -43,56 +43,35 @@ Download [iOS App Signer](https://github.com/DanTheMan827/ios-app-signer) and fo
 
 ## Prerequisites
 
-For this workflow to work, you need to set up the following:
+**No tokens or secrets required!** This workflow builds the app locally on GitHub's macOS runner using:
+- `expo prebuild` to generate the native iOS project
+- `xcodebuild` to compile the app without code signing
+- Standard Xcode command-line tools (pre-installed on macOS runners)
 
-### Required Secret
+The Expo app configuration (app.json) already contains all necessary build settings.
 
-Add `EXPO_TOKEN` to your GitHub repository secrets:
+## How It Works
 
-1. Generate an Expo access token:
-   - Go to https://expo.dev/accounts/[your-account]/settings/access-tokens
-   - Click "Create token"
-   - Give it a name (e.g., "GitHub Actions")
-   - Copy the token
-
-2. Add the token to GitHub:
-   - Go to your repository's Settings → Secrets and variables → Actions
-   - Click "New repository secret"
-   - Name: `EXPO_TOKEN`
-   - Value: Paste your Expo token
-   - Click "Add secret"
-
-### EAS Build Configuration
-
-The workflow automatically creates an `eas.json` file if it doesn't exist. However, you can customize the build configuration by creating your own `eas.json` in the `mobile/` directory:
-
-```json
-{
-  "cli": {
-    "version": ">= 5.9.0"
-  },
-  "build": {
-    "unsigned": {
-      "ios": {
-        "simulator": false,
-        "buildType": "archive",
-        "distribution": "internal",
-        "autoIncrement": true
-      }
-    }
-  }
-}
-```
+1. **Expo Prebuild**: Generates the native iOS project from your Expo app
+2. **CocoaPods**: Installs native iOS dependencies
+3. **Xcodebuild**: Compiles the app with code signing disabled
+4. **Archive**: Creates an unsigned .xcarchive
+5. **IPA Creation**: Packages the app bundle into an IPA file
+6. **Upload**: Makes the IPA available as a GitHub Actions artifact
 
 ## Troubleshooting
 
-### Build fails with "EXPO_TOKEN not found"
+### Build fails during prebuild
 
-Make sure you've added the `EXPO_TOKEN` secret to your repository settings (see Prerequisites above).
+Check that your `app.json` has valid iOS configuration (bundle identifier, permissions, etc.).
+
+### Build fails during pod install
+
+This usually means there's an issue with native dependencies. Check the workflow logs for specific errors.
 
 ### Build times out
 
-EAS builds can take 20-40 minutes depending on server load. The workflow has a 30-minute timeout. If builds consistently timeout, you may need to increase the `TIMEOUT` value in the workflow file.
+Local builds typically take 10-15 minutes. If builds consistently timeout, check for issues in the native dependencies or Xcode configuration.
 
 ### Download link doesn't work
 
@@ -105,11 +84,10 @@ The IPA is unsigned. You must sign it with your own certificate before installin
 ## Technical Details
 
 - **Runner**: macOS-latest (GitHub-hosted)
-- **Build System**: EAS Build (Expo Application Services)
-- **Build Profile**: `unsigned` (defined in workflow)
-- **Distribution**: Internal (unsigned)
+- **Build System**: Expo Prebuild + Xcodebuild (local build, no cloud services)
+- **Build Type**: Release configuration, unsigned
 - **Artifact Retention**: 30 days
-- **Build Timeout**: 30 minutes
+- **No tokens required**: Builds entirely on GitHub's infrastructure
 
 ## Customization
 
@@ -135,21 +113,43 @@ if: github.event.issue.pull_request && contains(github.event.comment.body, 'buil
 
 Replace `'build ios'` with your desired trigger phrase.
 
-### Change build configuration
-
-Create or modify `mobile/eas.json` with your desired build settings. See [EAS Build documentation](https://docs.expo.dev/build/introduction/) for available options.
-
 ### Change artifact retention
 
 Edit the `retention-days` in the workflow file (default: 30 days).
 
+### Customize build configuration
+
+Edit `mobile/app.json` to change iOS-specific settings like:
+- Bundle identifier
+- App name
+- Icons and splash screens
+- Permissions (Info.plist)
+- Plugins and native modules
+
+## Advantages of Local Build vs EAS Build
+
+**Local Build (This Workflow)**:
+- ✅ No tokens or external services required
+- ✅ Free (uses GitHub Actions minutes)
+- ✅ Faster (10-15 minutes vs 20-40 minutes)
+- ✅ Full control over build process
+- ✅ Works offline/on-premise
+
+**EAS Build** (Previous Approach):
+- ❌ Requires EXPO_TOKEN
+- ❌ Requires Expo account
+- ❌ Limited free builds per month
+- ❌ Depends on external service availability
+- ✅ Handles complex native dependencies automatically
+- ✅ Provides cloud build logs and management
+
 ## Cost Considerations
 
 - **GitHub Actions**: macOS runners consume minutes faster than Linux runners (10x multiplier on free tier)
-- **EAS Build**: Free tier includes limited builds per month. See [Expo pricing](https://expo.dev/pricing) for details.
+- **No EAS costs**: Since we're not using EAS Build, there are no Expo subscription costs
 
 ## Additional Resources
 
-- [EAS Build Documentation](https://docs.expo.dev/build/introduction/)
-- [Expo Application Services](https://expo.dev/eas)
+- [Expo Prebuild Documentation](https://docs.expo.dev/workflow/prebuild/)
+- [Xcodebuild Documentation](https://developer.apple.com/library/archive/technotes/tn2339/_index.html)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)

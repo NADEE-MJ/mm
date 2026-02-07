@@ -43,7 +43,7 @@ jobs:
             core.setOutput('sha', pr.data.head.sha);
 
       # Security Note: We checkout the PR branch to build the React Native app.
-      # The build itself happens on EAS Build's infrastructure, not directly on this runner.
+      # The build happens locally on this runner using Expo prebuild + Xcode.
       # Only maintainers or trusted contributors should trigger this action.
       # Consider adding a check for author association if needed:
       # if: github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'MEMBER'
@@ -63,89 +63,67 @@ jobs:
         working-directory: mobile
         run: npm ci
 
-      - name: Setup Expo
-        uses: expo/expo-github-action@v8
+      - name: Install Expo CLI
+        run: npm install -g expo-cli@latest
+
+      - name: Setup Ruby (for CocoaPods)
+        uses: ruby/setup-ruby@v1
         with:
-          expo-version: latest
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install CocoaPods
+        run: sudo gem install cocoapods
+
+      - name: Generate native iOS project
+        working-directory: mobile
+        run: |
+          echo "Running expo prebuild to generate native iOS project..."
+          npx expo prebuild --platform ios --clean
+          
+      - name: Install iOS dependencies
+        working-directory: mobile/ios
+        run: |
+          echo "Installing CocoaPods dependencies..."
+          pod install
 
       - name: Build iOS app (unsigned)
-        working-directory: mobile
+        working-directory: mobile/ios
         run: |
-          # Create eas.json if it doesn't exist
-          if [ ! -f eas.json ]; then
-            cat > eas.json << 'EOF'
-          {
-            "cli": {
-              "version": ">= 5.9.0"
-            },
-            "build": {
-              "preview": {
-                "ios": {
-                  "simulator": false,
-                  "buildType": "archive",
-                  "distribution": "internal"
-                }
-              },
-              "unsigned": {
-                "ios": {
-                  "simulator": false,
-                  "buildType": "archive",
-                  "distribution": "internal",
-                  "autoIncrement": true
-                }
-              }
-            }
-          }
-          EOF
-          fi
+          echo "Building iOS app with xcodebuild..."
           
-          # Build the app
-          eas build --platform ios --profile unsigned --non-interactive --no-wait
+          # Build the app without code signing
+          xcodebuild clean archive \
+            -workspace moviemanager.xcworkspace \
+            -scheme moviemanager \
+            -configuration Release \
+            -archivePath "$RUNNER_TEMP/MovieManager.xcarchive" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee build.log
           
-          # Wait a moment for the build to be registered
-          sleep 5
+          echo "Build completed. Archive created at: $RUNNER_TEMP/MovieManager.xcarchive"
 
-      - name: Wait for build and download
-        working-directory: mobile
+      - name: Create IPA from archive
         run: |
-          # Wait for the build to complete and get the artifact URL
-          echo "Build submitted. Checking build status..."
+          echo "Creating IPA from archive..."
           
-          # Get the latest build ID
-          BUILD_ID=$(eas build:list --platform=ios --limit=1 --json --non-interactive | jq -r '.[0].id')
-          echo "Build ID: $BUILD_ID"
+          # Create Payload directory
+          mkdir -p "$RUNNER_TEMP/Payload"
           
-          # Wait for build to complete (max 30 minutes)
-          TIMEOUT=1800
-          ELAPSED=0
-          while [ $ELAPSED -lt $TIMEOUT ]; do
-            STATUS=$(eas build:view $BUILD_ID --json --non-interactive | jq -r '.status')
-            echo "Build status: $STATUS (${ELAPSED}s elapsed)"
-            
-            if [ "$STATUS" = "FINISHED" ]; then
-              echo "Build completed successfully!"
-              ARTIFACT_URL=$(eas build:view $BUILD_ID --json --non-interactive | jq -r '.artifacts.buildUrl')
-              echo "Artifact URL: $ARTIFACT_URL"
-              
-              # Download the IPA
-              curl -L -o app.ipa "$ARTIFACT_URL"
-              echo "IPA downloaded successfully"
-              break
-            elif [ "$STATUS" = "ERRORED" ] || [ "$STATUS" = "CANCELED" ]; then
-              echo "Build failed with status: $STATUS"
-              exit 1
-            fi
-            
-            sleep 30
-            ELAPSED=$((ELAPSED + 30))
-          done
+          # Copy the app bundle to Payload
+          cp -r "$RUNNER_TEMP/MovieManager.xcarchive/Products/Applications/moviemanager.app" "$RUNNER_TEMP/Payload/"
           
-          if [ $ELAPSED -ge $TIMEOUT ]; then
-            echo "Build timed out after 30 minutes"
-            exit 1
-          fi
+          # Create IPA (which is just a zip file)
+          cd "$RUNNER_TEMP"
+          zip -r MovieManager.ipa Payload
+          
+          # Move IPA to mobile directory for artifact upload
+          mv MovieManager.ipa "$GITHUB_WORKSPACE/mobile/app.ipa"
+          
+          echo "IPA created successfully at: $GITHUB_WORKSPACE/mobile/app.ipa"
+          ls -lh "$GITHUB_WORKSPACE/mobile/app.ipa"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
@@ -164,7 +142,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `✅ iOS build completed successfully!\n\n📦 Download the unsigned IPA from the [workflow artifacts](${runUrl}).`
+              body: `✅ iOS build completed successfully!\n\n📦 Download the unsigned IPA from the [workflow artifacts](${runUrl}).\n\n**Note**: This IPA is built locally without EAS Build, so no EXPO_TOKEN is required. The app is unsigned and ready for you to sign with your own certificate.`
             })
 
       - name: Comment build failure
