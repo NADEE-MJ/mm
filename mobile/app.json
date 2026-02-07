@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.moviemanager.mobile",
       "infoPlist": {
         "NSFaceIDUsageDescription": "Use Face ID to unlock the app",
-        "NSCameraUsageDescription": "We need camera access for scanning QR codes"
+        "NSCameraUsageDescription": "We need camera access for scanning QR codes",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

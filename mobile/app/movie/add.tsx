@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,23 +8,33 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ScrollView,
 } from 'react-native';
-import { Text, Searchbar, ActivityIndicator, TextInput, Button } from 'react-native-paper';
+import { Text, Searchbar, ActivityIndicator, TextInput, Button, Chip } from 'react-native-paper';
 import { router, Stack } from 'expo-router';
 import { searchTMDB, getTMDBMovie, TMDBSearchResult } from '../../src/services/api/movies';
 import { useMoviesStore } from '../../src/stores/moviesStore';
 import { useAuthStore } from '../../src/stores/authStore';
+import { usePeopleStore } from '../../src/stores/peopleStore';
 
 export default function AddMovieScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<TMDBSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<TMDBSearchResult | null>(null);
-  const [person, setPerson] = useState('');
+  const [selectedPerson, setSelectedPerson] = useState('');
+  const [customPerson, setCustomPerson] = useState('');
+  const [showCustomInput, setShowCustomInput] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
 
   const addMovie = useMoviesStore((state) => state.addMovie);
   const user = useAuthStore((state) => state.user);
+  const people = usePeopleStore((state) => state.people);
+  const loadPeople = usePeopleStore((state) => state.loadPeople);
+
+  useEffect(() => {
+    loadPeople();
+  }, []);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -47,8 +57,9 @@ export default function AddMovieScreen() {
   const handleAddMovie = async () => {
     if (!selectedMovie || !user) return;
 
-    if (!person.trim()) {
-      Alert.alert('Error', 'Please enter who recommended this movie');
+    const personName = selectedPerson || customPerson.trim();
+    if (!personName) {
+      Alert.alert('Error', 'Please select or enter who recommended this movie');
       return;
     }
 
@@ -62,7 +73,7 @@ export default function AddMovieScreen() {
       const imdbId = `tt${selectedMovie.id}`;
 
       // Add movie with recommendation
-      await addMovie(imdbId, user.id, tmdbData, undefined, person, 'upvote');
+      await addMovie(imdbId, user.id, tmdbData, undefined, personName, 'upvote');
 
       Alert.alert('Success', 'Movie added successfully!', [
         {
@@ -78,9 +89,7 @@ export default function AddMovieScreen() {
   };
 
   const renderSearchResult = ({ item }: { item: TMDBSearchResult }) => {
-    const posterUrl = item.poster_path
-      ? `https://image.tmdb.org/t/p/w500${item.poster_path}`
-      : null;
+    const posterUrl = item.poster || item.posterSmall || null;
 
     const isSelected = selectedMovie?.id === item.id;
 
@@ -102,7 +111,7 @@ export default function AddMovieScreen() {
               {item.title}
             </Text>
             <Text variant="bodySmall" style={styles.resultYear}>
-              {item.release_date?.substring(0, 4) || 'N/A'}
+              {item.year || 'N/A'}
             </Text>
             <Text variant="bodySmall" style={styles.resultOverview} numberOfLines={3}>
               {item.overview || 'No description available'}
@@ -161,22 +170,66 @@ export default function AddMovieScreen() {
           )}
 
           {selectedMovie && (
-            <View style={styles.selectedContainer}>
+            <ScrollView style={styles.selectedContainer}>
               <Text variant="titleLarge" style={styles.selectedTitle}>
                 {selectedMovie.title}
               </Text>
               <Text variant="bodyMedium" style={styles.selectedYear}>
-                {selectedMovie.release_date?.substring(0, 4)}
+                {selectedMovie.year || 'N/A'}
               </Text>
 
-              <TextInput
-                label="Who recommended this?"
-                value={person}
-                onChangeText={setPerson}
-                autoCapitalize="words"
-                style={styles.input}
-                mode="outlined"
-              />
+              <Text variant="titleSmall" style={styles.sectionLabel}>
+                Who recommended this?
+              </Text>
+
+              {people.length > 0 && (
+                <View style={styles.peopleChips}>
+                  {people.map((p) => (
+                    <Chip
+                      key={p.name}
+                      selected={selectedPerson === p.name}
+                      onPress={() => {
+                        setSelectedPerson(selectedPerson === p.name ? '' : p.name);
+                        setShowCustomInput(false);
+                        setCustomPerson('');
+                      }}
+                      style={[
+                        styles.chip,
+                        selectedPerson === p.name && { backgroundColor: p.color || '#0a84ff' },
+                      ]}
+                      textStyle={selectedPerson === p.name ? styles.chipTextSelected : styles.chipText}
+                      showSelectedOverlay={false}
+                    >
+                      {p.emoji ? `${p.emoji} ${p.name}` : p.name}
+                    </Chip>
+                  ))}
+                  <Chip
+                    icon="plus"
+                    onPress={() => {
+                      setShowCustomInput(!showCustomInput);
+                      setSelectedPerson('');
+                    }}
+                    style={[styles.chip, showCustomInput && styles.chipActive]}
+                    textStyle={showCustomInput ? styles.chipTextSelected : styles.chipText}
+                  >
+                    New Person
+                  </Chip>
+                </View>
+              )}
+
+              {(showCustomInput || people.length === 0) && (
+                <TextInput
+                  label="Enter name"
+                  value={customPerson}
+                  onChangeText={(text) => {
+                    setCustomPerson(text);
+                    setSelectedPerson('');
+                  }}
+                  autoCapitalize="words"
+                  style={styles.input}
+                  mode="outlined"
+                />
+              )}
 
               <View style={styles.buttonContainer}>
                 <Button
@@ -198,7 +251,7 @@ export default function AddMovieScreen() {
                   Add Movie
                 </Button>
               </View>
-            </View>
+            </ScrollView>
           )}
         </View>
       </KeyboardAvoidingView>
@@ -288,6 +341,34 @@ const styles = StyleSheet.create({
   selectedYear: {
     color: '#8e8e93',
     marginBottom: 16,
+  },
+  sectionLabel: {
+    color: '#8e8e93',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  peopleChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  chip: {
+    backgroundColor: '#1c1c1e',
+    borderColor: '#38383a',
+    borderWidth: 1,
+  },
+  chipActive: {
+    backgroundColor: '#0a84ff',
+    borderColor: '#0a84ff',
+  },
+  chipText: {
+    color: '#fff',
+  },
+  chipTextSelected: {
+    color: '#fff',
+    fontWeight: '600',
   },
   input: {
     marginBottom: 16,

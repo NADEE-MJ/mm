@@ -2,12 +2,26 @@ import { create } from "zustand";
 import { User } from "../types";
 import * as authApi from "../services/api/auth";
 import * as secureStorage from "../services/auth/secure-storage";
-import { clearDatabase, initDatabase } from "../services/database/init";
+import { clearDatabase, initDatabase, getDatabase } from "../services/database/init";
 import {
   isBiometricEnabled,
   setBiometricEnabled,
   authenticateWithBiometrics,
 } from "../services/auth/biometric";
+
+/**
+ * Save user to the local SQLite users table.
+ * This is required because movies.user_id has a FOREIGN KEY
+ * referencing users(id).
+ */
+async function saveUserToLocalDb(user: User): Promise<void> {
+  const db = getDatabase();
+  await db.runAsync(
+    `INSERT OR REPLACE INTO users (id, email, username, created_at)
+     VALUES (?, ?, ?, ?)`,
+    [user.id, user.email, user.username, user.created_at],
+  );
+}
 
 interface AuthState {
   user: User | null;
@@ -48,6 +62,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Clear any old data
       await clearDatabase();
 
+      // Save user to local DB so FK constraints on movies are satisfied
+      await saveUserToLocalDb(user);
+
       set({
         user,
         isAuthenticated: true,
@@ -74,6 +91,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Initialize database
       await initDatabase();
+
+      // Save user to local DB so FK constraints on movies are satisfied
+      await saveUserToLocalDb(user);
 
       set({
         user,
@@ -126,6 +146,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Initialize database
       await initDatabase();
+
+      // Save user to local DB so FK constraints on movies are satisfied
+      await saveUserToLocalDb(user);
 
       set({
         user,

@@ -166,11 +166,12 @@ export interface SyncResponse {
 }
 
 export interface ServerSyncData {
-  movies: Movie[];
-  recommendations: Recommendation[];
-  watch_history: WatchHistory[];
-  movie_status: MovieStatus[];
-  people: Person[];
-  custom_lists: CustomList[];
-  server_timestamp: number;
+  movies?: any[];  // Backend returns serialized movies, not full Movie objects
+  recommendations?: Recommendation[];
+  watch_history?: WatchHistory[];
+  movie_status?: MovieStatus[];
+  people?: any[];  // Backend returns simplified people objects
+  custom_lists?: CustomList[];
+  timestamp?: number;  // Backend uses "timestamp", not "server_timestamp"
+  server_timestamp?: number;  // Keep for future compatibility
 }

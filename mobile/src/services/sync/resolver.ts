@@ -12,34 +12,46 @@ export async function applySyncData(serverData: ServerSyncData): Promise<void> {
     // Start transaction for atomic updates
     await db.execAsync('BEGIN TRANSACTION');
 
-    // Apply movies
-    for (const movie of serverData.movies) {
-      await applyMovie(db, movie);
+    // Apply movies (with null safety)
+    if (serverData.movies && Array.isArray(serverData.movies)) {
+      for (const movie of serverData.movies) {
+        await applyMovie(db, movie);
+      }
     }
 
-    // Apply recommendations
-    for (const rec of serverData.recommendations) {
-      await applyRecommendation(db, rec);
+    // Apply recommendations (with null safety)
+    if (serverData.recommendations && Array.isArray(serverData.recommendations)) {
+      for (const rec of serverData.recommendations) {
+        await applyRecommendation(db, rec);
+      }
     }
 
-    // Apply watch history
-    for (const history of serverData.watch_history) {
-      await applyWatchHistory(db, history);
+    // Apply watch history (with null safety)
+    if (serverData.watch_history && Array.isArray(serverData.watch_history)) {
+      for (const history of serverData.watch_history) {
+        await applyWatchHistory(db, history);
+      }
     }
 
-    // Apply movie status
-    for (const status of serverData.movie_status) {
-      await applyMovieStatus(db, status);
+    // Apply movie status (with null safety)
+    if (serverData.movie_status && Array.isArray(serverData.movie_status)) {
+      for (const status of serverData.movie_status) {
+        await applyMovieStatus(db, status);
+      }
     }
 
-    // Apply people
-    for (const person of serverData.people) {
-      await applyPerson(db, person);
+    // Apply people (with null safety)
+    if (serverData.people && Array.isArray(serverData.people)) {
+      for (const person of serverData.people) {
+        await applyPerson(db, person);
+      }
     }
 
-    // Apply custom lists
-    for (const list of serverData.custom_lists) {
-      await applyCustomList(db, list);
+    // Apply custom lists (with null safety)
+    if (serverData.custom_lists && Array.isArray(serverData.custom_lists)) {
+      for (const list of serverData.custom_lists) {
+        await applyCustomList(db, list);
+      }
     }
 
     // Commit transaction

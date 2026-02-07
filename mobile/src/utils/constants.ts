@@ -7,7 +7,7 @@
 export const API_CONFIG = {
   BASE_URL:
     process.env.EXPO_PUBLIC_API_URL ||
-    (__DEV__ ? "http://192.168.1.85:8155" : "https://api.moviemanager.com/api"),
+    (__DEV__ ? "http://192.168.1.85:8155/api" : "https://api.moviemanager.com/api"),
   TIMEOUT: 30000,
   MAX_RETRIES: 3,
 };
