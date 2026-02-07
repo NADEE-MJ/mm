@@ -117,46 +117,48 @@ jobs:
             exit 1
           fi
 
+          # Ensure xcodebuild failures aren't masked by the tee pipe
+          set -o pipefail
+
           # Build the app without code signing
-          # Note: Using 'build' instead of 'archive' because unsigned archives
-          # don't produce a .app bundle in Products/Applications/
-          xcodebuild clean build \
+          # SKIP_INSTALL=NO ensures the .app is placed in the archive's Products/Applications/
+          xcodebuild clean archive \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            -archivePath "$RUNNER_TEMP/MovieManager.xcarchive" \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO \
             | tee build.log
 
-          echo "Build completed. Output at: $RUNNER_TEMP/DerivedData"
+          echo "Build completed. Archive created at: $RUNNER_TEMP/MovieManager.xcarchive"
 
-      - name: Create IPA from build
+      - name: Create IPA from archive
         run: |
-          echo "Creating IPA from build output..."
+          echo "Creating IPA from archive..."
 
-          BUILD_DIR="$RUNNER_TEMP/DerivedData/Build/Products/Release-iphoneos"
+          ARCHIVE_APPS="$RUNNER_TEMP/MovieManager.xcarchive/Products/Applications"
 
-          # Debug: show build products
-          echo "Build products directory:"
-          ls -la "$BUILD_DIR/" || true
+          # Debug: show archive contents
+          echo "Archive Products structure:"
+          find "$RUNNER_TEMP/MovieManager.xcarchive/Products" -maxdepth 2 || true
           echo "---"
 
-          # Find the .app bundle in build products
-          APP_PATH=$(find "$BUILD_DIR" -name "*.app" -maxdepth 1 -type d -print -quit)
+          # Find the .app bundle in the archive
+          APP_PATH=$(find "$ARCHIVE_APPS" -name "*.app" -maxdepth 1 -type d -print -quit 2>/dev/null)
 
-          # Fallback: search all of DerivedData if not in expected location
+          # Fallback: search the entire archive
           if [ -z "$APP_PATH" ]; then
-            echo "Not found in expected path, searching all DerivedData..."
-            APP_PATH=$(find "$RUNNER_TEMP/DerivedData" -name "*.app" -type d -print -quit)
+            echo "Not in Products/Applications, searching full archive..."
+            APP_PATH=$(find "$RUNNER_TEMP/MovieManager.xcarchive" -name "*.app" -type d -print -quit)
           fi
 
           if [ -z "$APP_PATH" ]; then
-            echo "Error: No .app bundle found in build output!"
-            echo "Full DerivedData structure:"
-            find "$RUNNER_TEMP/DerivedData" -type d
+            echo "Error: No .app bundle found in archive!"
+            echo "Full archive structure:"
+            find "$RUNNER_TEMP/MovieManager.xcarchive" -type d
             exit 1
           fi
 
