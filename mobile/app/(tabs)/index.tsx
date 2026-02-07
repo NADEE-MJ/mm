@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   list: {
-    paddingBottom: 80,
+    paddingBottom: 120,
   },
   emptyState: {
     flex: 1,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     margin: 16,
     right: 0,
-    bottom: 0,
-    backgroundColor: '#0a84ff',
+    bottom: 80,
+    backgroundColor: '#DBA506',
   },
 });

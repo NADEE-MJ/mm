@@ -43,7 +43,7 @@ export async function createList(
   id: string,
   userId: string,
   name: string,
-  color: string = '#0a84ff',
+  color: string = '#DBA506',
   icon: string = 'list',
   position: number = 0
 ): Promise<void> {

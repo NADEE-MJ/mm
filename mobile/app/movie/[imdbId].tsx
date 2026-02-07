@@ -310,7 +310,7 @@ export default function MovieDetailScreen() {
                 Your Rating
               </Text>
               <View style={styles.myRating}>
-                <Star size={24} color="#0a84ff" fill="#0a84ff" />
+                <Star size={24} color="#DBA506" fill="#DBA506" />
                 <Text variant="headlineMedium" style={styles.myRatingText}>
                   {watch_history.my_rating.toFixed(1)}
                 </Text>
@@ -464,13 +464,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   genreChip: {
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   genreText: {
     color: '#fff',
   },
   divider: {
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     marginVertical: 16,
   },
   watchedSection: {
