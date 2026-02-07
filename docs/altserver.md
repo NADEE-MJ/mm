@@ -1,0 +1,17 @@
+1.  Enable required services as a regular user (not root):
+    systemctl --user enable --now netmuxd.service
+    systemctl --user enable --now altserver.service
+
+2.  This package requires an Anisette server running via Docker.
+    If you haven't already, add your user to the 'docker' group:
+    sudo usermod -aG docker $USER
+
+    IMPORTANT: You must log out and log back in for this change to take effect.
+
+3.  Once you have logged back in, start the Anisette server container:
+    docker run -d --restart always --name anisette-v3 -p 6969:6969 --volume anisette-v3_data:/home/Alcoholic/.config/anisette-v3/lib/ dadoum/anisette-v3-server
+
+4.  Check the status of the services:
+    systemctl --user status netmuxd.service altserver.service
+
+5.  Follow the official README for pairing your device.
