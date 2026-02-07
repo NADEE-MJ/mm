@@ -1,0 +1,169 @@
+name: Build iOS (EAS Local)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  issue_comment:
+    types: [created]
+
+# Cancel in-progress runs for the same branch
+concurrency:
+  group: ios-eas-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build with EAS (Local)
+    # Run on PR comments containing "build ios" OR pushes to main branch
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, 'build ios'))
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    # Set minimal permissions for security
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      # ─────────────────────────────────────────────
+      # Handle PR comment triggers
+      # ─────────────────────────────────────────────
+      - name: Add reaction to comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: context.payload.comment.id,
+              content: 'rocket'
+            })
+
+      - name: Get PR branch
+        if: github.event_name == 'issue_comment'
+        id: pr-branch
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('ref', pr.data.head.ref);
+            core.setOutput('sha', pr.data.head.sha);
+
+      # ─────────────────────────────────────────────
+      # Setup
+      # ─────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'issue_comment' && steps.pr-branch.outputs.ref || github.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: npm ci
+
+      # ─────────────────────────────────────────────
+      # Build with EAS
+      # ─────────────────────────────────────────────
+      - name: Build iOS with EAS (local)
+        working-directory: mobile
+        run: |
+          echo "============================================"
+          echo "Building iOS app with EAS Build (local)"
+          echo "============================================"
+
+          # Build locally without code signing (for sideloading)
+          eas build \
+            --local \
+            --platform ios \
+            --profile preview \
+            --non-interactive \
+            --output ../app.ipa
+
+          echo ""
+          echo "✅ Build completed!"
+          ls -lh ../app.ipa
+
+      # ─────────────────────────────────────────────
+      # Upload artifact
+      # ─────────────────────────────────────────────
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa-eas
+          path: app.ipa
+          retention-days: 30
+          if-no-files-found: error
+
+      # ─────────────────────────────────────────────
+      # Build summary
+      # ─────────────────────────────────────────────
+      - name: Build summary
+        if: success()
+        run: |
+          IPA_SIZE=$(du -h app.ipa | cut -f1)
+
+          echo "## ✅ iOS Build Summary (EAS)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Build Method** | EAS Build (Local) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **IPA File** | \`app.ipa\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Size** | $IPA_SIZE |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Profile** | preview (unsigned) |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📱 Installation" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the \`ios-ipa-eas\` artifact" >> $GITHUB_STEP_SUMMARY
+          echo "2. Install with **SideStore** or **AltStore**" >> $GITHUB_STEP_SUMMARY
+          echo "3. The app will be re-signed with your free Apple ID" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment build result
+        if: success() && github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `✅ iOS build completed with EAS!\n\n📦 Download the \`ios-ipa-eas\` artifact from the [workflow run](${runUrl}).\n\n📱 Install with **SideStore** or **AltStore** to sideload on your device.`
+            })
+
+      - name: Comment build failure
+        if: failure() && github.event_name == 'issue_comment'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `❌ iOS build failed. Check the [workflow logs](${runUrl}) for details.`
+            })
