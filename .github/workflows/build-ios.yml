@@ -27,11 +27,6 @@ env:
   # ─── Customize these for your project ───
   APP_CONFIGURATION: "Release"       # Build configuration
   EXPO_PROJECT_DIR: "mobile"         # Mobile app directory
-  # ─── Xcode version ───
-  # GitHub Actions macOS runners come with multiple Xcode versions.
-  # As of early 2026, macos-15 runners include Xcode 26.x.
-  # Check: https://github.com/actions/runner-images
-  XCODE_VERSION: "26.0"
   # ─── Scheme name (optional override) ───
   # Leave empty for auto-detection, or set to your app's scheme name
   # Example: APP_SCHEME: "MovieManager"
@@ -46,7 +41,7 @@ jobs:
       (github.event_name == 'pull_request') ||
       (github.event_name == 'workflow_dispatch') ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, 'build ios'))
-    runs-on: macos-15  # Use macos-15 for Xcode 26 support
+    runs-on: macos-latest  # Use latest available macOS runner
     timeout-minutes: 60
 
     # Set minimal permissions for security
@@ -94,68 +89,31 @@ jobs:
           ref: ${{ github.event_name == 'issue_comment' && steps.pr-branch.outputs.ref || github.ref }}
 
       # ─────────────────────────────────────────────
-      # 2. Select Xcode version
+      # 2. Verify Xcode and iOS SDK
       # ─────────────────────────────────────────────
-      - name: Select Xcode
+      - name: Verify Xcode and iOS SDK
         run: |
           echo "============================================"
-          echo "Available Xcode versions:"
-          echo "============================================"
-          ls -la /Applications/ | grep Xcode || true
-
-          # Try to select the specified version, or fall back to latest stable
-          if [ -d "/Applications/Xcode_${{ env.XCODE_VERSION }}.app" ]; then
-            echo ""
-            echo "Selecting Xcode ${{ env.XCODE_VERSION }}..."
-            sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer
-          else
-            echo ""
-            echo "⚠️  Xcode ${{ env.XCODE_VERSION }} not found, using latest stable version"
-            # Find the latest non-beta Xcode (highest version number without _beta)
-            LATEST_XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | \
-                          grep -v beta | \
-                          sort -V | \
-                          tail -1)
-            if [ -n "$LATEST_XCODE" ]; then
-              echo "Found: $LATEST_XCODE"
-              sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
-            else
-              echo "Using default Xcode"
-              sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-            fi
-          fi
-
-          # Verify
-          echo ""
-          echo "============================================"
-          echo "Selected Xcode:"
+          echo "Xcode Version"
           echo "============================================"
           xcodebuild -version
           echo ""
           echo "Path: $(xcode-select -p)"
 
-      # ─────────────────────────────────────────────
-      # 2a. Verify iOS SDK availability
-      # ─────────────────────────────────────────────
-      - name: Verify iOS SDK
-        run: |
+          echo ""
           echo "============================================"
           echo "Available SDKs"
           echo "============================================"
           xcodebuild -showsdks
 
           echo ""
-          echo "============================================"
-          echo "iOS Platforms"
-          echo "============================================"
-          ls /Applications/Xcode_${{ env.XCODE_VERSION }}.app/Contents/Developer/Platforms/ || true
-
-          echo ""
           echo "Checking for iOS SDK..."
           if xcodebuild -showsdks | grep -q iphoneos; then
-            echo "✅ iOS SDK is available"
+            IOS_SDK=$(xcodebuild -showsdks | grep iphoneos | head -1 | awk '{print $2}')
+            echo "✅ iOS SDK is available: $IOS_SDK"
           else
-            echo "⚠️  iOS SDK not found in showsdks output, but may still be available"
+            echo "❌ No iOS SDK found!"
+            exit 1
           fi
 
       # ─────────────────────────────────────────────
@@ -337,26 +295,11 @@ jobs:
           echo "Selected scheme: $SCHEME"
           echo "============================================"
 
-          # Determine the iOS SDK to use (latest available)
-          echo ""
-          echo "Determining iOS SDK..."
-          IOS_SDK=$(xcodebuild -showsdks 2>/dev/null | \
-                    grep -o 'iphoneos[0-9.]*' | \
-                    tail -1)
-
-          if [ -z "$IOS_SDK" ]; then
-            echo "⚠️  No iOS SDK found, using 'generic/platform=iOS'"
-            DESTINATION="generic/platform=iOS"
-          else
-            echo "✅ Found iOS SDK: $IOS_SDK"
-            DESTINATION="generic/platform=iOS"
-          fi
-
-          # Build for generic iOS device (arm64) without signing
+          # Build for iOS device using -sdk (more reliable than -destination)
           echo ""
           echo "============================================"
           echo "Starting build..."
-          echo "Destination: $DESTINATION"
+          echo "SDK: iphoneos (latest available)"
           echo "============================================"
           set -o pipefail
 
@@ -364,9 +307,8 @@ jobs:
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration "${{ env.APP_CONFIGURATION }}" \
-            -destination "$DESTINATION" \
+            -sdk iphoneos \
             -derivedDataPath build \
-            -allowProvisioningUpdates=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
