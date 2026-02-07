@@ -122,28 +122,35 @@ jobs:
           npx expo prebuild --platform ios --clean
           echo "✅ Native project generated"
 
-      - name: Disable code signing in Podfile
+      - name: Modify existing post_install hook
         working-directory: mobile/ios
         run: |
           echo "============================================"
-          echo "Adding post_install hook to disable signing"
+          echo "Modifying post_install hook to disable signing"
           echo "============================================"
 
-          cat >> Podfile << 'EOF'
-
-          post_install do |installer|
-            installer.pods_project.targets.each do |target|
-              target.build_configurations.each do |config|
-                config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-                config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
-                config.build_settings['CODE_SIGN_IDENTITY'] = ''
-                config.build_settings['EXPANDED_CODE_SIGN_IDENTITY'] = ''
-              end
+          # Insert code signing disable logic into existing post_install hook
+          # Find the post_install block and add our code at the end (before final 'end')
+          ruby -i -pe '
+            if /^end$/ && !$done && $in_post_install
+              print "  # Disable code signing for all targets\n"
+              print "  installer.pods_project.targets.each do |target|\n"
+              print "    target.build_configurations.each do |config|\n"
+              print "      config.build_settings[\"CODE_SIGNING_ALLOWED\"] = \"NO\"\n"
+              print "      config.build_settings[\"CODE_SIGNING_REQUIRED\"] = \"NO\"\n"
+              print "      config.build_settings[\"CODE_SIGN_IDENTITY\"] = \"\"\n"
+              print "      config.build_settings[\"EXPANDED_CODE_SIGN_IDENTITY\"] = \"\"\n"
+              print "    end\n"
+              print "  end\n\n"
+              $done = true
             end
-          end
-          EOF
+            $in_post_install = true if /post_install do/
+          ' Podfile
 
-          echo "✅ Podfile updated"
+          echo "✅ Podfile modified"
+          echo ""
+          echo "Modified post_install hook:"
+          sed -n '/post_install/,/^end$/p' Podfile
 
       - name: Install CocoaPods
         working-directory: mobile/ios
