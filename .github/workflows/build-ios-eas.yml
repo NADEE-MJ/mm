@@ -88,6 +88,83 @@ jobs:
         run: npm ci
 
       # ─────────────────────────────────────────────
+      # Generate self-signed credentials
+      # ─────────────────────────────────────────────
+      - name: Generate self-signed iOS credentials
+        working-directory: mobile
+        run: |
+          echo "============================================"
+          echo "Creating self-signed credentials"
+          echo "============================================"
+
+          # Create a self-signed certificate
+          openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem \
+            -days 365 -nodes -subj "/CN=CI Build"
+
+          # Convert to p12 format (what Xcode/EAS expects)
+          openssl pkcs12 -export -out dist_cert.p12 \
+            -inkey key.pem -in cert.pem \
+            -passout pass:buildpass
+
+          # Create a minimal provisioning profile
+          cat > profile.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>AppIDName</key>
+              <string>MovieManager</string>
+              <key>ApplicationIdentifierPrefix</key>
+              <array><string>XXXXXXXXXX</string></array>
+              <key>CreationDate</key>
+              <date>2026-02-07T00:00:00Z</date>
+              <key>Platform</key>
+              <array><string>iOS</string></array>
+              <key>TeamIdentifier</key>
+              <array><string>XXXXXXXXXX</string></array>
+              <key>TeamName</key>
+              <string>CI Build Team</string>
+              <key>UUID</key>
+              <string>00000000-0000-0000-0000-000000000000</string>
+              <key>Version</key>
+              <integer>1</integer>
+              <key>DeveloperCertificates</key>
+              <array>
+                <data>$(base64 -w 0 cert.pem)</data>
+              </array>
+              <key>Entitlements</key>
+              <dict>
+                <key>application-identifier</key>
+                <string>XXXXXXXXXX.com.moviemanager.mobile</string>
+                <key>get-task-allow</key>
+                <true/>
+              </dict>
+          </dict>
+          </plist>
+          EOF
+
+          # Sign the plist to make it a .mobileprovision file
+          openssl smime -sign -in profile.plist -out profile.mobileprovision \
+            -signer cert.pem -inkey key.pem -certfile cert.pem \
+            -outform der -nodetach
+
+          # Create credentials.json for EAS
+          cat > credentials.json << EOF
+          {
+            "ios": {
+              "distributionCertificate": {
+                "path": "dist_cert.p12",
+                "password": "buildpass"
+              },
+              "provisioningProfilePath": "profile.mobileprovision"
+            }
+          }
+          EOF
+
+          echo "✅ Self-signed credentials created"
+          echo "Note: These are placeholder credentials - SideStore will re-sign with your Apple ID"
+
+      # ─────────────────────────────────────────────
       # Build with EAS
       # ─────────────────────────────────────────────
       - name: Build iOS with EAS (local)
@@ -97,7 +174,7 @@ jobs:
           echo "Building iOS app with EAS Build (local)"
           echo "============================================"
 
-          # Build locally without code signing (for sideloading)
+          # Build locally with self-signed credentials
           eas build \
             --local \
             --platform ios \
