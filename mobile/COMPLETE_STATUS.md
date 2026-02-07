@@ -378,10 +378,10 @@ ifconfig | grep inet
 
 ### Phase 9: Deployment
 
-- [ ] Setup EAS Build
+- [x] Setup GitHub Actions unsigned iOS build (`build-ios-simple.yml`)
 - [ ] Create app icons
-- [ ] Build for iOS TestFlight
-- [ ] Build for Android internal testing
+- [ ] Publish Android testing build path
+- [ ] Document SideStore + LiveContainer install flow
 
 ---
 

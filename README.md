@@ -64,6 +64,13 @@ mm/
 │   ├── package.json         # Node dependencies
 │   └── .env.example        # Environment variables template
 │
+├── mobile/
+│   ├── app/                 # Expo Router screens
+│   ├── src/                 # React Native app code
+│   ├── app.json             # Expo app config
+│   ├── .env.example         # EXPO_PUBLIC_API_URL template
+│   └── README.md            # Mobile-specific setup
+│
 └── README.md
 ```
 
@@ -146,6 +153,50 @@ mm/
    ```
 
    The app will be available at: `http://localhost:5173`
+
+### Mobile Setup (Expo + iOS IPA CI)
+
+1. Navigate to mobile directory:
+   ```bash
+   cd mobile
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Create mobile env file:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. Set API URL in `mobile/.env`:
+   ```env
+   EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:8000/api
+   ```
+
+5. Start Expo for on-device development:
+   ```bash
+   npx expo start
+   ```
+
+6. Open with Expo Go on your iPhone for hot refresh development from Linux.
+
+### iOS Build Pipeline (Unsigned IPA)
+
+This repo uses one workflow: `.github/workflows/build-ios-simple.yml`.
+
+1. Set GitHub repository variable or secret `EXPO_PUBLIC_API_URL` (production API URL used by CI builds).
+2. Push to `main` (or run workflow manually).
+3. Workflow builds unsigned `.ipa` on macOS runner.
+4. Download from:
+   - Action artifact `ios-unsigned-ipa`, or
+   - Release tag `ios-latest` in GitHub Releases (easiest on GitHub mobile app).
+
+Install flow:
+- Import IPA into SideStore / LiveContainer.
+- Use iOS Shortcuts + custom icons to launch multiple LiveContainer apps.
 
 ## Usage
 

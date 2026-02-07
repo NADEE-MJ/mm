@@ -206,9 +206,9 @@ npx expo run:ios
 # Type check
 npx tsc --noEmit
 
-# Build for production
-eas build --platform android
-eas build --platform ios
+# Build unsigned iOS IPA via GitHub Actions
+# Push to main or run workflow manually:
+# .github/workflows/build-ios-simple.yml
 ```
 
 ---

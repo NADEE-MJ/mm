@@ -1,129 +1,44 @@
-# 🚀 Quick Start: iOS Unsigned Builds
+# Quick Start (Mobile + iOS Build)
 
-## TL;DR
+## 1. Local development (Linux + iPhone)
 
-Your iOS build setup has been **completely simplified**! No more Apple credentials, keychain headaches, or complex signing. Just build, download, and sideload.
-
----
-
-## 📦 What Changed
-
-### ❌ OLD: Signed Build (Complex)
-- Required `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID` secrets
-- Complex keychain management
-- Fragile authentication
-- ~300 lines of workflow code
-
-### ✅ NEW: Unsigned Build (Simple)
-- **Zero secrets required**
-- No keychain management
-- No authentication
-- ~350 lines (but simpler logic!)
-
----
-
-## 🎯 How to Build Now
-
-### Method 1: Push to Main (Automatic)
 ```bash
-git push origin main
-# Workflow triggers automatically
+cd mobile
+npm install
+cp .env.example .env
 ```
 
-### Method 2: Manual Trigger
-1. **Actions** tab → **Build iOS (Unsigned for Sideloading)**
-2. Click **Run workflow**
-3. Wait ~10-15 minutes
+Set:
 
-### Method 3: Comment on PR
-Comment `build ios` on any pull request
+```env
+EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:8000/api
+```
 
----
+Run:
 
-## 📥 How to Install
+```bash
+npx expo start
+```
 
-1. **Download** the `ios-unsigned-ipa` artifact from Actions
-2. **Extract** the `.ipa` file
-3. **Transfer** to your iOS device (AirDrop, iCloud, etc.)
-4. **Open** in SideStore or AltStore
-5. **Install** (it auto-re-signs with your free Apple ID)
-6. **Trust** the certificate in Settings
-7. **Launch** the app! 🎉
+Open in Expo Go.
 
----
+## 2. CI unsigned iOS build
 
-## 🔧 Quick Troubleshooting
+Set GitHub repository variable or secret:
 
-### Build Fails?
-- Check Xcode version in workflow (may need to change `XCODE_VERSION`)
-- View full logs in GitHub Actions
-- See `docs/IOS_BUILD_GUIDE.md` for detailed troubleshooting
+- `EXPO_PUBLIC_API_URL=https://api.moviemanager.com/api`
 
-### Can't Install?
-- Make sure you're using SideStore or AltStore
-- The `.ipa` must be unsigned (which it is!)
-- Check device compatibility (iOS 13+)
+Then push to `main`.
 
-### App Won't Launch?
-- Go to **Settings → General → VPN & Device Management**
-- Trust the developer certificate
-- Try again
+## 3. Download on iPhone
 
----
+In GitHub app:
 
-## 📚 Documentation
+1. Repo → Releases
+2. Open `ios-latest`
+3. Download `MovieManager-unsigned.ipa`
 
-| File | Purpose |
-|------|---------|
-| `docs/IOS_BUILD_GUIDE.md` | Complete guide to the unsigned build system |
-| `docs/MIGRATION_CHECKLIST.md` | Step-by-step migration from old setup |
-| `docs/QUICK_START.md` | This file - quick reference |
+## 4. Install
 
----
-
-## ⏰ Remember
-
-- Apps signed with free Apple ID **expire after 7 days**
-- Just re-download and re-sign the `.ipa` when expired
-- Or trigger a fresh build
-
----
-
-## 🎊 What You Get
-
-- ✅ **Free** - No paid Apple Developer account needed
-- ✅ **Simple** - No credentials to manage
-- ✅ **Reliable** - No authentication failures
-- ✅ **Fast** - Builds complete in ~10-15 minutes
-- ✅ **Perfect** - Designed for SideStore/AltStore
-
----
-
-## 🚦 Next Steps
-
-1. **Test the workflow**: Push a commit or trigger manually
-2. **Download the artifact**: Get the `.ipa` from Actions
-3. **Install on device**: Use SideStore or AltStore
-4. **Verify it works**: Launch the app and test
-5. **Clean up secrets** (optional): Remove old Apple credentials from GitHub
-
----
-
-## 💡 Pro Tips
-
-- **Bookmark** the Actions page for easy access to builds
-- **Set up SideStore** WiFi refresh to auto-renew the app
-- **Create a release** workflow to tag important builds
-- **Share .ipa files** with team members (they can re-sign too!)
-
----
-
-## ❓ Questions?
-
-Check the detailed guides:
-- **Full documentation**: `docs/IOS_BUILD_GUIDE.md`
-- **Migration guide**: `docs/MIGRATION_CHECKLIST.md`
-
----
-
-**That's it!** Your iOS builds are now **simple, free, and reliable**. 🎉
+- Import into SideStore or LiveContainer.
+- Optional: create Shortcuts + custom icon per LiveContainer app entry.

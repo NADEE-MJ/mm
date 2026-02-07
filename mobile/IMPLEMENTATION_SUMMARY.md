@@ -397,7 +397,7 @@ npx expo start --web
 - Bug fixes
 
 ### Phase 9: Deployment
-- EAS Build configuration
+- GitHub Actions unsigned iOS build configuration (`build-ios-simple.yml`)
 - App icons and splash screens
 - TestFlight (iOS)
 - Internal testing (Android)

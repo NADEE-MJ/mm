@@ -5,9 +5,7 @@
 // API Configuration
 // Uses EXPO_PUBLIC_API_URL from .env, with fallback defaults
 export const API_CONFIG = {
-  BASE_URL:
-    process.env.EXPO_PUBLIC_API_URL ||
-    (__DEV__ ? "http://192.168.1.85:8155/api" : "https://api.moviemanager.com/api"),
+  BASE_URL: process.env.EXPO_PUBLIC_API_URL || "https://api.moviemanager.com/api",
   TIMEOUT: 30000,
   MAX_RETRIES: 3,
 };
