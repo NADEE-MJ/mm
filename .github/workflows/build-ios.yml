@@ -120,18 +120,18 @@ jobs:
           # Ensure xcodebuild failures aren't masked by the tee pipe
           set -o pipefail
 
-          # Build the app without code signing
-          # Note: Using 'build' instead of 'archive' because unsigned archives
-          # don't produce a .app bundle in Products/Applications/
+          # Build the app with ad-hoc signing (no certificate needed)
+          # Ad-hoc signing is required to create a .app bundle for iOS device builds
+          # The app will be unsigned but packaged properly for distribution
           xcodebuild clean build \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             -derivedDataPath "$RUNNER_TEMP/DerivedData" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
             | tee build.log
 
           echo "Build completed. Output at: $RUNNER_TEMP/DerivedData"
