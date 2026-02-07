@@ -105,6 +105,26 @@ Comment `build ios` on any PR, and the workflow will build that PR's code.
 
 ## 🔧 Technical Details
 
+### Auto-Detection of Scheme Name
+
+The workflow **automatically detects** your app's scheme name during the build process:
+
+1. After `expo prebuild` generates the iOS project, the workflow scans for the `.xcworkspace`
+2. It lists all available schemes using `xcodebuild -workspace -list`
+3. It filters out Pods-related schemes (which start with `Pods-`)
+4. It selects the first non-Pods scheme (your app's scheme)
+
+**No manual configuration needed!** The scheme name is dynamically detected for every build.
+
+Example output:
+```
+Available schemes:
+    moviemanager
+    Pods-moviemanager
+
+Selected scheme: moviemanager
+```
+
 ### Xcode Build Settings Used
 
 These flags disable code signing entirely:

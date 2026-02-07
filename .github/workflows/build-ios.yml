@@ -32,6 +32,7 @@ env:
   # As of early 2026, macos-15 runners include Xcode 26.x.
   # Check: https://github.com/actions/runner-images
   XCODE_VERSION: "26.0"
+  # Note: APP_SCHEME is auto-detected in the build step
 
 jobs:
   build-unsigned-ipa:
@@ -134,6 +135,30 @@ jobs:
           ls -la ios/
 
       # ─────────────────────────────────────────────
+      # 5a. Debug - Show workspace and schemes
+      # ─────────────────────────────────────────────
+      - name: Debug workspace and schemes
+        working-directory: ${{ env.EXPO_PROJECT_DIR }}/ios
+        run: |
+          echo "============================================"
+          echo "Workspace and Scheme Information"
+          echo "============================================"
+          echo ""
+          echo "Workspace files:"
+          ls -la *.xcworkspace 2>/dev/null || echo "❌ No workspace found"
+          echo ""
+          echo "Project files:"
+          ls -la *.xcodeproj 2>/dev/null || echo "❌ No xcodeproj found"
+          echo ""
+          WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          if [ -n "$WORKSPACE" ]; then
+            echo "Schemes in $WORKSPACE:"
+            xcodebuild -workspace "$WORKSPACE" -list
+          fi
+          echo ""
+          echo "============================================"
+
+      # ─────────────────────────────────────────────
       # 6. Patch Xcode project to disable code signing
       # ─────────────────────────────────────────────
       - name: Disable code signing in Xcode project
@@ -192,22 +217,42 @@ jobs:
         run: |
           # Determine workspace and scheme names
           WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          echo "============================================"
           echo "Using workspace: $WORKSPACE"
+          echo "============================================"
 
           # List available schemes
+          echo ""
           echo "Available schemes:"
           xcodebuild -workspace "$WORKSPACE" -list
 
           # Get the first scheme name (Expo typically generates one matching the project)
-          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null | sed -n '/Schemes:/,/^$/p' | grep -v 'Schemes:' | head -1 | xargs)
-          echo "Using scheme: $SCHEME"
+          # Filter out Pods schemes which start with "Pods-"
+          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list 2>/dev/null | \
+                   sed -n '/Schemes:/,/^$/p' | \
+                   grep -v 'Schemes:' | \
+                   grep -v '^$' | \
+                   grep -v 'Pods-' | \
+                   head -1 | \
+                   xargs)
+
+          echo ""
+          echo "============================================"
+          echo "Selected scheme: $SCHEME"
+          echo "============================================"
 
           if [ -z "$SCHEME" ]; then
-            echo "❌ Error: No scheme found in workspace!"
+            echo "❌ Error: No non-Pods scheme found in workspace!"
+            echo "Available schemes:"
+            xcodebuild -workspace "$WORKSPACE" -list
             exit 1
           fi
 
           # Build for generic iOS device (arm64) without signing
+          echo ""
+          echo "Starting build..."
+          set -o pipefail
+
           xcodebuild \
             -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
@@ -223,18 +268,63 @@ jobs:
             DEVELOPMENT_TEAM="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
             build \
-            | tee build.log
+            2>&1 | tee build.log
 
-          # Verify .app was produced
-          APP_PATH=$(find build -name "*.app" -type d | head -1)
+          # Check if build succeeded
+          if [ ${PIPESTATUS[0]} -ne 0 ]; then
+            echo "❌ xcodebuild failed"
+            echo "Last 100 lines of build log:"
+            tail -100 build.log
+            exit 1
+          fi
+
+          echo ""
+          echo "============================================"
+          echo "Build completed, searching for .app bundle..."
+          echo "============================================"
+
+          # Debug: show build products structure
+          echo ""
+          echo "Build products directory structure:"
+          find build/Build/Products -maxdepth 3 -type d 2>/dev/null | sort || true
+
+          # Search for .app bundle in the expected location
+          echo ""
+          echo "Searching for .app bundles:"
+          find build/Build/Products -name "*.app" -type d 2>/dev/null || true
+
+          # Find the .app - it should be in Release-iphoneos for Release builds
+          APP_PATH=$(find build/Build/Products/${{ env.APP_CONFIGURATION }}-iphoneos -name "*.app" -type d 2>/dev/null | grep -v "Pods" | head -1)
+
+          # Fallback: search anywhere in build directory
           if [ -z "$APP_PATH" ]; then
-            echo "❌ Build failed: no .app found"
+            echo ""
+            echo "⚠️  Not found in expected location, searching entire build directory..."
+            APP_PATH=$(find build -name "*.app" -type d 2>/dev/null | grep -v "Pods" | grep -v ".xcarchive" | head -1)
+          fi
+
+          if [ -z "$APP_PATH" ]; then
+            echo ""
+            echo "❌ Build succeeded but no .app bundle found!"
+            echo ""
+            echo "Checked locations:"
+            echo "  - build/Build/Products/${{ env.APP_CONFIGURATION }}-iphoneos/*.app"
+            echo "  - build/**/*.app (excluding Pods)"
+            echo ""
+            echo "Actual build products:"
+            find build/Build/Products -type f -o -type d -name "*.app" | head -50
+            echo ""
             echo "Last 50 lines of build log:"
             tail -50 build.log
             exit 1
           fi
 
-          echo "✅ Built: $APP_PATH"
+          echo ""
+          echo "============================================"
+          echo "✅ Found .app bundle: $APP_PATH"
+          echo "============================================"
+          ls -lh "$APP_PATH"
+
           echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
 
       # ─────────────────────────────────────────────
@@ -243,28 +333,49 @@ jobs:
       - name: Package .app into .ipa
         working-directory: ${{ env.EXPO_PROJECT_DIR }}/ios
         run: |
+          echo "============================================"
+          echo "Packaging .app into .ipa"
+          echo "============================================"
+          echo ""
+          echo "App bundle path: ${{ env.APP_PATH }}"
+
           # Create the Payload directory structure that .ipa requires
           mkdir -p Payload
+
+          # Copy the .app bundle into Payload/
           cp -R "${{ env.APP_PATH }}" Payload/
 
           # Show what we're packaging
+          echo ""
           echo "📦 Payload contents:"
-          ls -la Payload/
+          ls -lah Payload/
+          du -sh Payload/
 
           # Get the app name for the .ipa filename
           APP_NAME=$(basename "${{ env.APP_PATH }}" .app)
           IPA_NAME="${APP_NAME}-unsigned.ipa"
 
+          echo ""
+          echo "Creating IPA: $IPA_NAME"
+
           # Create the .ipa (it's just a zip with Payload/ inside)
           zip -r -9 "$IPA_NAME" Payload/
 
           # Verify
-          echo "✅ Created: $IPA_NAME ($(du -h "$IPA_NAME" | cut -f1))"
+          echo ""
+          echo "============================================"
+          echo "✅ Created: $IPA_NAME"
+          echo "Size: $(du -h "$IPA_NAME" | cut -f1)"
+          echo "============================================"
+          ls -lh "$IPA_NAME"
 
           # Move to a consistent location for upload
           mv "$IPA_NAME" "$GITHUB_WORKSPACE/$IPA_NAME"
           echo "IPA_PATH=$GITHUB_WORKSPACE/$IPA_NAME" >> $GITHUB_ENV
           echo "IPA_NAME=$IPA_NAME" >> $GITHUB_ENV
+
+          echo ""
+          echo "IPA ready for upload: $GITHUB_WORKSPACE/$IPA_NAME"
 
       # ─────────────────────────────────────────────
       # 10. Upload .ipa as artifact
