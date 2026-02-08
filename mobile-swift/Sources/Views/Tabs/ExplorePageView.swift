@@ -1,7 +1,8 @@
 import SwiftUI
 
 // MARK: - Explore Page
-// Search and discover new movies
+// Search TMDB and add movies with recommender selection.
+// Uses debounced search, glass-effect cards, and sheet presentation.
 
 struct ExplorePageView: View {
     @State private var searchText = ""
@@ -10,105 +11,89 @@ struct ExplorePageView: View {
     @State private var showAddSheet = false
     @State private var selectedMovie: TMDBMovie?
     @State private var recommenderName = ""
+    @State private var people: [Person] = []
     @Environment(ScrollState.self) private var scrollState
 
     var body: some View {
         NavigationStack {
-            VStack {
-                if searchResults.isEmpty && !searchText.isEmpty && !isSearching {
-                    ContentUnavailableView(
-                        "No Results",
-                        systemImage: "magnifyingglass",
-                        description: Text("Try a different search term")
-                    )
-                } else if searchResults.isEmpty {
-                    ContentUnavailableView(
-                        "Search Movies",
-                        systemImage: "film",
-                        description: Text("Search TMDB for movies to add")
-                    )
-                } else {
-                    List(searchResults) { movie in
-                        Button {
-                            selectedMovie = movie
-                            showAddSheet = true
-                        } label: {
-                            HStack(alignment: .top, spacing: 12) {
-                                AsyncImage(url: movie.posterURL) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                    case .failure, .empty:
-                                        Rectangle()
-                                            .fill(AppTheme.surfaceMuted)
-                                            .overlay {
-                                                Image(systemName: "film")
-                                                    .foregroundStyle(AppTheme.textTertiary)
-                                            }
-                                    @unknown default:
-                                        Rectangle().fill(AppTheme.surfaceMuted)
-                                    }
-                                }
-                                .frame(width: 60, height: 90)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    if searchResults.isEmpty && !searchText.isEmpty && !isSearching {
+                        EmptyStateView(
+                            icon: "magnifyingglass",
+                            title: "No Results",
+                            subtitle: "Try a different search term."
+                        )
+                    } else if searchResults.isEmpty && searchText.isEmpty {
+                        EmptyStateView(
+                            icon: "sparkle.magnifyingglass",
+                            title: "Discover Movies",
+                            subtitle: "Search TMDB for movies to add to your collection."
+                        )
+                    } else if isSearching {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 60)
+                    } else {
+                        Text("\(searchResults.count) results")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.textSecondary)
 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(movie.title)
-                                        .font(.headline)
-                                        .foregroundStyle(AppTheme.textPrimary)
-
-                                    if let year = movie.releaseDate?.prefix(4) {
-                                        Text(String(year))
-                                            .font(.subheadline)
-                                            .foregroundStyle(AppTheme.textSecondary)
-                                    }
-
-                                    if let rating = movie.voteAverage {
-                                        HStack(spacing: 2) {
-                                            Image(systemName: "star.fill")
-                                                .font(.caption2)
-                                            Text(String(format: "%.1f", rating))
-                                                .font(.caption)
-                                        }
-                                        .foregroundStyle(.yellow)
-                                    }
-                                }
-
-                                Spacer()
-
-                                Image(systemName: "plus.circle.fill")
-                                    .foregroundStyle(AppTheme.blue)
-                                    .font(.title2)
+                        ForEach(Array(searchResults.enumerated()), id: \.element.id) { index, movie in
+                            Button {
+                                selectedMovie = movie
+                                showAddSheet = true
+                            } label: {
+                                searchResultRow(movie)
                             }
-                            .padding(.vertical, 4)
+                            .buttonStyle(.plain)
+
+                            if index < searchResults.count - 1 {
+                                Rectangle().fill(AppTheme.stroke).frame(height: 1)
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
-                    .listStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 100)
+            }
+            .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
+            .onScrollGeometryChange(for: CGFloat.self) { geo in
+                geo.contentOffset.y
+            } action: { _, offset in
+                withAnimation(.spring(duration: 0.35)) {
+                    scrollState.update(offset: offset)
                 }
             }
-            .background(AppTheme.background)
+            .background { PageBackground() }
             .navigationTitle("Explore")
-            .searchable(text: $searchText, prompt: "Search movies")
+            .searchable(text: $searchText, prompt: "Search movies on TMDB...")
             .onChange(of: searchText) { _, newValue in
                 Task {
                     guard !newValue.isEmpty else {
                         searchResults = []
                         return
                     }
-                    
+
                     isSearching = true
-                    // Debounce
                     try? await Task.sleep(for: .milliseconds(500))
                     searchResults = await NetworkService.shared.searchMovies(query: newValue)
                     isSearching = false
                 }
             }
+            .task {
+                await NetworkService.shared.fetchPeople()
+                people = NetworkService.shared.people
+            }
             .sheet(isPresented: $showAddSheet) {
                 if let movie = selectedMovie {
-                    AddMovieSheet(movie: movie, recommenderName: $recommenderName) {
+                    AddMovieSheet(
+                        movie: movie,
+                        recommenderName: $recommenderName,
+                        people: people
+                    ) {
                         Task {
                             _ = await NetworkService.shared.addMovie(
                                 tmdbId: movie.id,
@@ -118,9 +103,54 @@ struct ExplorePageView: View {
                             recommenderName = ""
                         }
                     }
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(28)
                 }
             }
         }
+    }
+
+    // MARK: - Search Result Row
+
+    private func searchResultRow(_ movie: TMDBMovie) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            MoviePosterImage(
+                url: movie.posterURL,
+                width: 60,
+                height: 90
+            )
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(movie.title)
+                    .font(.headline)
+                    .foregroundStyle(AppTheme.textPrimary)
+
+                if let year = movie.releaseDate?.prefix(4) {
+                    Text(String(year))
+                        .font(.subheadline)
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+
+                if let overview = movie.overview {
+                    Text(overview)
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textTertiary)
+                        .lineLimit(2)
+                }
+
+                if let rating = movie.voteAverage {
+                    StarRatingView(rating)
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: "plus.circle.fill")
+                .foregroundStyle(AppTheme.blue)
+                .font(.title2)
+        }
+        .padding(.vertical, 6)
     }
 }
 
@@ -129,6 +159,7 @@ struct ExplorePageView: View {
 private struct AddMovieSheet: View {
     let movie: TMDBMovie
     @Binding var recommenderName: String
+    let people: [Person]
     let onAdd: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -137,17 +168,11 @@ private struct AddMovieSheet: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Movie info
                 HStack(alignment: .top, spacing: 12) {
-                    if let url = movie.posterURL {
-                        AsyncImage(url: url) { phase in
-                            if case .success(let image) = phase {
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                            }
-                        }
-                        .frame(width: 80, height: 120)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
+                    MoviePosterImage(
+                        url: movie.posterURL,
+                        width: 80,
+                        height: 120
+                    )
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(movie.title)
@@ -159,6 +184,10 @@ private struct AddMovieSheet: View {
                                 .font(.subheadline)
                                 .foregroundStyle(AppTheme.textSecondary)
                         }
+
+                        if let rating = movie.voteAverage {
+                            StarRatingView(rating)
+                        }
                     }
                 }
 
@@ -167,6 +196,24 @@ private struct AddMovieSheet: View {
                     .textFieldStyle(.plain)
                     .padding(12)
                     .glassEffect(.regular, in: .rect(cornerRadius: 12))
+
+                // Quick select from existing people
+                if !people.isEmpty {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(people) { person in
+                                FilterChip(
+                                    title: person.name,
+                                    isSelected: recommenderName == person.name
+                                ) {
+                                    recommenderName = person.name
+                                }
+                            }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                    .scrollClipDisabled()
+                }
 
                 Spacer()
             }
@@ -179,11 +226,9 @@ private struct AddMovieSheet: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        onAdd()
-                    }
-                    .bold()
-                    .disabled(recommenderName.isEmpty)
+                    Button("Add") { onAdd() }
+                        .bold()
+                        .disabled(recommenderName.isEmpty)
                 }
             }
         }
