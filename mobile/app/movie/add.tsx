@@ -214,7 +214,7 @@ export default function AddMovieScreen() {
             <>
               {isSearching ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#0a84ff" />
+                  <ActivityIndicator size="large" color="#DBA506" />
                 </View>
               ) : searchResults.length > 0 ? (
                 <FlatList
@@ -259,7 +259,7 @@ export default function AddMovieScreen() {
                       }}
                       style={[
                         styles.chip,
-                        selectedPerson === p.name && { backgroundColor: p.color || '#0a84ff' },
+                        selectedPerson === p.name && { backgroundColor: p.color || '#DBA506' },
                       ]}
                       textStyle={selectedPerson === p.name ? styles.chipTextSelected : styles.chipText}
                       showSelectedOverlay={false}
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   selectedCard: {
-    borderColor: '#0a84ff',
+    borderColor: '#DBA506',
   },
   poster: {
     width: 60,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   posterPlaceholder: {
-    backgroundColor: '#38383a',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -424,12 +424,12 @@ const styles = StyleSheet.create({
   },
   chip: {
     backgroundColor: '#1c1c1e',
-    borderColor: '#38383a',
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderWidth: 1,
   },
   chipActive: {
-    backgroundColor: '#0a84ff',
-    borderColor: '#0a84ff',
+    backgroundColor: '#DBA506',
+    borderColor: '#DBA506',
   },
   chipText: {
     color: '#fff',

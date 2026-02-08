@@ -25,7 +25,7 @@ export async function applySyncData(serverData: ServerSyncData): Promise<void> {
           person.user_id,
           person.is_trusted ? 1 : 0,
           person.is_default ? 1 : 0,
-          person.color || '#0a84ff',
+          person.color || '#DBA506',
           person.emoji || null,
         ]
       );

@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS people (
     user_id TEXT NOT NULL,
     is_trusted INTEGER DEFAULT 0,
     is_default INTEGER DEFAULT 0,
-    color TEXT DEFAULT '#0a84ff',
+    color TEXT DEFAULT '#DBA506',
     emoji TEXT
 );
 
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS custom_lists (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    color TEXT DEFAULT '#0a84ff',
+    color TEXT DEFAULT '#DBA506',
     icon TEXT DEFAULT 'list',
     position INTEGER DEFAULT 0,
     created_at REAL NOT NULL

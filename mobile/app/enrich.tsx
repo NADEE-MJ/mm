@@ -80,7 +80,7 @@ export default function EnrichScreen() {
         </Text>
       </View>
 
-      {isEnriching && <ProgressBar progress={progress} color="#0a84ff" style={styles.progress} />}
+      {isEnriching && <ProgressBar progress={progress} color="#DBA506" style={styles.progress} />}
 
       <View style={styles.actions}>
         <Button mode="contained" onPress={handleEnrichAll} disabled={isEnriching || movies.length === 0}>

@@ -20,7 +20,9 @@ export const SYNC_CONFIG = {
 
 // Theme Colors
 export const COLORS = {
-  primary: "#0a84ff",
+  primary: "#DBA506",
+  primaryLight: "#F2DB83",
+  primaryDark: "#B88A05",
   secondary: "#5856d6",
   success: "#34c759",
   warning: "#ff9500",
@@ -32,7 +34,7 @@ export const COLORS = {
   separator: "rgba(255,255,255,0.08)",
   text: "#ffffff",
   textSecondary: "#8e8e93",
-  border: "#38383a",
+  border: "rgba(255, 255, 255, 0.1)",
 };
 
 // Movie Status
@@ -50,7 +52,7 @@ export const VOTE_TYPES = {
 } as const;
 
 // Default Person Color
-export const DEFAULT_PERSON_COLOR = "#0a84ff";
+export const DEFAULT_PERSON_COLOR = "#DBA506";
 
 // Rating Range
 export const RATING_RANGE = {
