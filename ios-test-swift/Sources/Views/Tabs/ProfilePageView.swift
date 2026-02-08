@@ -7,6 +7,7 @@ import SwiftUI
 struct ProfilePageView: View {
     @State private var status = ""
     @State private var showingStatusSheet = false
+    @Environment(ScrollState.self) private var scrollState
 
     var body: some View {
         NavigationStack {
@@ -17,6 +18,7 @@ struct ProfilePageView: View {
                     bioSection
                     statsSection
                     actionsCard
+                    labsCard
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -24,6 +26,13 @@ struct ProfilePageView: View {
             }
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize)
+            .onScrollGeometryChange(for: Bool.self) { geo in
+                geo.contentOffset.y > 20
+            } action: { _, isScrolled in
+                withAnimation(.spring(duration: 0.35)) {
+                    scrollState.isMinimized = isScrolled
+                }
+            }
             .background { PageBackground() }
             .navigationTitle("Profile")
             .toolbar {
@@ -35,7 +44,7 @@ struct ProfilePageView: View {
                     }
                 }
                 ToolbarItem(placement: .secondaryAction) {
-                    Button { } label: {
+                    ShareLink(item: URL(string: "https://github.com/NADEE-MJ")!) {
                         Label("Share Profile", systemImage: "square.and.arrow.up")
                     }
                 }
@@ -128,6 +137,34 @@ struct ProfilePageView: View {
             Text("8 following")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.textSecondary)
+        }
+    }
+
+    // MARK: - Labs Card
+
+    private var labsCard: some View {
+        FrostedCard {
+            NavigationLink {
+                DevToolsView()
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "hammer.fill")
+                        .frame(width: 22)
+                        .foregroundStyle(.purple)
+                    Text("Developer Labs")
+                        .foregroundStyle(AppTheme.textPrimary)
+                    Spacer()
+                    Text("SQLite · API · WS")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textTertiary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(AppTheme.textTertiary)
+                }
+                .padding(14)
+                .contentShape(.rect)
+            }
+            .buttonStyle(.plain)
         }
     }
 

@@ -8,6 +8,7 @@ struct InboxPageView: View {
     @State private var threads = DemoData.inboxThreads
     @State private var searchText = ""
     @State private var selectedScope: InboxScope = .all
+    @Environment(ScrollState.self) private var scrollState
 
     private enum InboxScope: String, CaseIterable, Hashable {
         case all = "All"
@@ -87,6 +88,13 @@ struct InboxPageView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
+                    .onScrollGeometryChange(for: Bool.self) { geo in
+                        geo.contentOffset.y > 20
+                    } action: { _, isScrolled in
+                        withAnimation(.spring(duration: 0.35)) {
+                            scrollState.isMinimized = isScrolled
+                        }
+                    }
                 }
             }
             .background { PageBackground() }

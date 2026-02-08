@@ -10,6 +10,7 @@ struct HomePageView: View {
     @State private var itemToDelete: WorkRow?
     @State private var showDeleteAlert = false
     @State private var searchText = ""
+    @Environment(ScrollState.self) private var scrollState
 
     private var filteredItems: [WorkRow] {
         if searchText.isEmpty { return workItems }
@@ -50,7 +51,9 @@ struct HomePageView: View {
                         }
                         .contextMenu {
                             Button { } label: { Label("Copy Link", systemImage: "doc.on.doc") }
-                            Button { } label: { Label("Share", systemImage: "square.and.arrow.up") }
+                            ShareLink(item: "Check out \(item.title) on GitHub") {
+                                Label("Share", systemImage: "square.and.arrow.up")
+                            }
                             Button { toggleFavorite(item) } label: {
                                 Label(
                                     item.isFavorite ? "Remove Favorite" : "Favorite",
@@ -141,6 +144,13 @@ struct HomePageView: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
+            .onScrollGeometryChange(for: Bool.self) { geo in
+                geo.contentOffset.y > 20
+            } action: { _, isScrolled in
+                withAnimation(.spring(duration: 0.35)) {
+                    scrollState.isMinimized = isScrolled
+                }
+            }
             .background { PageBackground() }
             .navigationTitle("Home")
             .searchable(text: $searchText, prompt: "Search work items…")

@@ -9,6 +9,7 @@ struct ExplorePageView: View {
     @State private var searchText = ""
     @State private var selectedLanguage: String?
     @State private var isGridView = false
+    @Environment(ScrollState.self) private var scrollState
 
     private var languages: [String] {
         Array(Set(repos.map(\.language))).sorted()
@@ -53,6 +54,13 @@ struct ExplorePageView: View {
             }
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize)
+            .onScrollGeometryChange(for: Bool.self) { geo in
+                geo.contentOffset.y > 20
+            } action: { _, isScrolled in
+                withAnimation(.spring(duration: 0.35)) {
+                    scrollState.isMinimized = isScrolled
+                }
+            }
             .background { PageBackground() }
             .navigationTitle("Explore")
             .searchable(text: $searchText, prompt: "Search repositories…")
@@ -133,7 +141,9 @@ struct ExplorePageView: View {
         Button { } label: { Label("Star", systemImage: "star") }
         Button { } label: { Label("Fork", systemImage: "tuningfork") }
         Button { } label: { Label("Copy URL", systemImage: "doc.on.doc") }
-        Button { } label: { Label("Share", systemImage: "square.and.arrow.up") }
+        ShareLink(item: "https://github.com/\(repo.owner)/\(repo.name)") {
+            Label("Share", systemImage: "square.and.arrow.up")
+        }
     }
 }
 
@@ -334,7 +344,7 @@ private struct RepoDetailView: View {
                     }
                     .buttonStyle(.bordered).tint(AppTheme.blue)
 
-                    Button { } label: {
+                    ShareLink(item: "https://github.com/\(repo.owner)/\(repo.name)") {
                         Label("Share", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered).tint(AppTheme.blue)

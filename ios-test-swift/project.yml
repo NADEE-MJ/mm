@@ -3,6 +3,14 @@ name: SwiftTestApp
 options:
   minimumXcodeGenVersion: 2.39.0
 
+packages:
+  Nuke:
+    url: https://github.com/kean/Nuke
+    from: "12.8.0"
+  GRDB:
+    url: https://github.com/groue/GRDB.swift
+    from: "7.5.0"
+
 targets:
   SwiftTestApp:
     type: application
@@ -12,6 +20,11 @@ targets:
       - Sources
     info:
       path: Sources/Info.plist
+    dependencies:
+      - package: Nuke
+        product: NukeUI
+      - package: GRDB
+        product: GRDB
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.moviemanager.swifttest

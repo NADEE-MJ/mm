@@ -59,6 +59,13 @@ jobs:
         working-directory: ios-test-swift
         run: xcodegen generate
 
+      - name: Resolve SPM dependencies
+        working-directory: ios-test-swift
+        run: |
+          xcodebuild -project SwiftTestApp.xcodeproj \
+            -scheme SwiftTestApp \
+            -resolvePackageDependencies
+
       - name: Build with xcodebuild
         working-directory: ios-test-swift
         run: |

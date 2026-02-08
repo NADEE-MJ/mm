@@ -111,6 +111,15 @@ struct SettingsView: View {
                 .foregroundStyle(.red)
             }
 
+            // ── Developer Labs ──
+            Section("Developer") {
+                NavigationLink {
+                    DevToolsView()
+                } label: {
+                    Label("Developer Labs", systemImage: "hammer.fill")
+                }
+            }
+
             // ── About ──
             Section("About") {
                 HStack {

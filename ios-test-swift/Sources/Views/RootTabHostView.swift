@@ -1,8 +1,8 @@
 import SwiftUI
 
 // MARK: - Root Tab Host
-// 4 tabs + a disconnected floating action button on the right side.
-// The FAB expands into multiple quick-action options (compose, message, community, camera).
+// Custom bottom bar: tab pill (left) + FAB (right).
+// Both collapse/minimize when the user scrolls down.
 
 struct RootTabHostView: View {
     @State private var selectedTab: TabItem = .home
@@ -10,29 +10,35 @@ struct RootTabHostView: View {
     @State private var showCompose = false
     @State private var showNewMessage = false
     @State private var showCommunity = false
+    @State private var scrollState = ScrollState()
+
+    private var isMinimized: Bool { scrollState.isMinimized }
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            // ── Tab View ──
+        ZStack {
+            // ── Tab Content ──
             TabView(selection: $selectedTab) {
-                Tab(TabItem.home.title, systemImage: TabItem.home.icon, value: .home) {
-                    HomePageView()
-                }
-                Tab(TabItem.inbox.title, systemImage: TabItem.inbox.icon, value: .inbox) {
-                    InboxPageView()
-                }
-                Tab(TabItem.explore.title, systemImage: TabItem.explore.icon, value: .explore) {
-                    ExplorePageView()
-                }
-                Tab(TabItem.profile.title, systemImage: TabItem.profile.icon, value: .profile) {
-                    ProfilePageView()
-                }
+                Tab(value: .home) { HomePageView() }
+                Tab(value: .inbox) { InboxPageView() }
+                Tab(value: .explore) { ExplorePageView() }
+                Tab(value: .profile) { ProfilePageView() }
             }
+            .toolbar(.hidden, for: .tabBar)
             .tint(AppTheme.blue)
             .preferredColorScheme(.dark)
             .sensoryFeedback(.selection, trigger: selectedTab)
+            .environment(scrollState)
+            .onChange(of: selectedTab) { _, _ in
+                withAnimation(.spring(duration: 0.3)) {
+                    scrollState.isMinimized = false
+                    if isFABExpanded { isFABExpanded = false }
+                }
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomBar
+            }
 
-            // ── Dimming overlay when FAB is open ──
+            // ── Dimming overlay ──
             if isFABExpanded {
                 Color.black.opacity(0.45)
                     .ignoresSafeArea()
@@ -42,26 +48,28 @@ struct RootTabHostView: View {
                     .transition(.opacity)
             }
 
-            // ── Disconnected Floating Action Button ──
-            ExpandableFAB(
-                isExpanded: $isFABExpanded,
-                actions: [
-                    FABAction(icon: "square.and.pencil", label: "New Post", color: .blue) {
-                        showCompose = true
-                    },
-                    FABAction(icon: "envelope.fill", label: "Message", color: .green) {
-                        showNewMessage = true
-                    },
-                    FABAction(icon: "person.2.fill", label: "Community", color: .purple) {
-                        showCommunity = true
-                    },
-                    FABAction(icon: "camera.fill", label: "Camera", color: .orange) {
-                        // Camera action placeholder
+            // ── Expanded FAB actions ──
+            if isFABExpanded {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        VStack(alignment: .trailing, spacing: 12) {
+                            ForEach(Array(fabActions.enumerated()), id: \.offset) { index, action in
+                                fabActionRow(action, index: index)
+                                    .transition(
+                                        .asymmetric(
+                                            insertion: .scale(scale: 0.4).combined(with: .opacity),
+                                            removal: .scale(scale: 0.6).combined(with: .opacity)
+                                        )
+                                    )
+                            }
+                        }
+                        .padding(.trailing, 20)
                     }
-                ]
-            )
-            .padding(.trailing, 20)
-            .padding(.bottom, 100)
+                }
+                .padding(.bottom, isMinimized ? 56 : 72)
+            }
         }
         // ── Sheets & Covers ──
         .sheet(isPresented: $showCompose) {
@@ -85,6 +93,117 @@ struct RootTabHostView: View {
                         }
                     }
             }
+        }
+    }
+
+    // MARK: - Bottom Bar
+
+    @ViewBuilder
+    private var bottomBar: some View {
+        HStack(spacing: isMinimized ? 8 : 12) {
+            tabBarPill
+            Spacer()
+            fabMainButton
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+        .animation(.spring(duration: 0.35), value: isMinimized)
+    }
+
+    // MARK: - Tab Bar Pill
+
+    private var tabBarPill: some View {
+        HStack(spacing: isMinimized ? 16 : 4) {
+            ForEach(TabItem.allCases, id: \.self) { tab in
+                Button {
+                    selectedTab = tab
+                } label: {
+                    if isMinimized {
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(selectedTab == tab ? AppTheme.blue : AppTheme.textSecondary)
+                            .frame(width: 28, height: 28)
+                    } else {
+                        VStack(spacing: 2) {
+                            Image(systemName: tab.icon)
+                                .font(.system(size: 20))
+                            Text(tab.title)
+                                .font(.caption2.weight(.medium))
+                        }
+                        .foregroundStyle(selectedTab == tab ? AppTheme.blue : AppTheme.textSecondary)
+                        .frame(width: 60, height: 44)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, isMinimized ? 10 : 12)
+        .padding(.vertical, isMinimized ? 6 : 6)
+        .glassEffect(.regular, in: .capsule)
+    }
+
+    // MARK: - FAB Main Button
+
+    private var fabMainButton: some View {
+        let size: CGFloat = isMinimized ? 36 : 48
+        return Button {
+            withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
+                isFABExpanded.toggle()
+            }
+        } label: {
+            Image(systemName: isFABExpanded ? "xmark" : "plus")
+                .font(.system(size: isMinimized ? 14 : 18, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: size, height: size)
+                .background(
+                    isFABExpanded ? Color.gray : AppTheme.blue,
+                    in: .circle
+                )
+                .shadow(
+                    color: (isFABExpanded ? Color.gray : AppTheme.blue).opacity(0.35),
+                    radius: 8, y: 3
+                )
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.impact(flexibility: .solid), trigger: isFABExpanded)
+    }
+
+    // MARK: - FAB Actions
+
+    private var fabActions: [FABAction] {
+        [
+            FABAction(icon: "square.and.pencil", label: "New Post", color: .blue) { showCompose = true },
+            FABAction(icon: "envelope.fill", label: "Message", color: .green) { showNewMessage = true },
+            FABAction(icon: "person.2.fill", label: "Community", color: .purple) { showCommunity = true },
+            FABAction(icon: "camera.fill", label: "Camera", color: .orange) { }
+        ]
+    }
+
+    private func fabActionRow(_ item: FABAction, index: Int) -> some View {
+        HStack(spacing: 10) {
+            Text(item.label)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(AppTheme.textPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .glassEffect(.regular, in: .capsule)
+
+            Button {
+                item.action()
+                withAnimation(.spring(duration: 0.3)) {
+                    isFABExpanded = false
+                }
+            } label: {
+                Image(systemName: item.icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(item.color, in: .circle)
+                    .shadow(color: item.color.opacity(0.3), radius: 6, y: 3)
+            }
+            .buttonStyle(.plain)
         }
     }
 }
