@@ -85,10 +85,12 @@ The app connects to the Movie Manager backend API. The API base URL is configure
 
 **For CI/CD builds:**
 - **REQUIRED**: Set repository secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
-- Must use HTTPS URL (e.g., `https://your-api.example.com/api`)
+- Must use HTTPS URL. You can set either:
+  - `https://your-api.example.com` (the build/runtime appends `/api`)
+  - `https://your-api.example.com/api`
 - The workflow validates this is set and **fails early** if missing/invalid (no fallback)
 - The workflow generates `Config/Env.generated.xcconfig` from this secret
-- The build verifies the compiled app Info.plist contains the exact secret URL
+- The build verifies the compiled app Info.plist contains the normalized API URL (always ending in `/api`)
 
 Then regenerate the Xcode project:
 ```bash

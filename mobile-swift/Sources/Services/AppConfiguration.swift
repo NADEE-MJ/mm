@@ -18,13 +18,24 @@ enum AppConfiguration {
             fatalError("Invalid API_BASE_URL '\(raw)'. Expected non-localhost https URL.")
         }
 
-        let normalized = raw.hasSuffix("/") ? String(raw.dropLast()) : raw
+        var normalizedComponents = components
+        normalizedComponents.query = nil
+        normalizedComponents.fragment = nil
+
         let normalizedPath = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard normalizedPath == "api" else {
-            fatalError("Invalid API_BASE_URL '\(raw)'. Expected URL path to end with '/api'.")
+        if normalizedPath.isEmpty {
+            normalizedComponents.path = "/api"
+        } else if normalizedPath == "api" {
+            normalizedComponents.path = "/api"
+        } else {
+            fatalError("Invalid API_BASE_URL '\(raw)'. Expected base host URL or URL ending with '/api'.")
         }
 
-        return normalized
+        guard let normalizedURL = normalizedComponents.url else {
+            fatalError("Unable to normalize API_BASE_URL '\(raw)'.")
+        }
+
+        return normalizedURL.absoluteString
     }()
 
     static let webSocketURL: URL = {

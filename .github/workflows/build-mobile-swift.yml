@@ -100,8 +100,12 @@ jobs:
             exit 1
           fi
 
-          if [[ ! "$API_BASE_URL" =~ /api/?$ ]]; then
-            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL must end with /api"
+          if [[ "$API_BASE_URL" =~ /api/?$ ]]; then
+            API_BASE_URL="${API_BASE_URL%/}"
+          elif [[ "$API_BASE_URL" =~ ^https://[^/]+/?$ ]]; then
+            API_BASE_URL="${API_BASE_URL%/}/api"
+          else
+            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL must be a base host URL (https://host) or end with /api"
             echo "❌ Received: $API_BASE_URL"
             exit 1
           fi

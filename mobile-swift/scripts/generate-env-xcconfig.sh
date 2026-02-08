@@ -64,8 +64,12 @@ if [[ "$API_BASE_URL_VALUE" =~ localhost|127\.0\.0\.1|::1 ]]; then
   exit 1
 fi
 
-if [[ ! "$API_BASE_URL_VALUE" =~ /api/?$ ]]; then
-  echo "❌ ERROR: API_BASE_URL must end with /api"
+if [[ "$API_BASE_URL_VALUE" =~ /api/?$ ]]; then
+  API_BASE_URL_VALUE="${API_BASE_URL_VALUE%/}"
+elif [[ "$API_BASE_URL_VALUE" =~ ^https://[^/]+/?$ ]]; then
+  API_BASE_URL_VALUE="${API_BASE_URL_VALUE%/}/api"
+else
+  echo "❌ ERROR: API_BASE_URL must be a base host URL (https://host) or end with /api."
   echo "Received: $API_BASE_URL_VALUE"
   exit 1
 fi
