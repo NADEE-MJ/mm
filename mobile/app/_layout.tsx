@@ -104,6 +104,10 @@ export default function RootLayout() {
       >
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="movie/[imdbId]" />
+        <Stack.Screen name="movie/add" />
+        <Stack.Screen name="people/[name]" />
+        <Stack.Screen name="lists/[id]" />
         <Stack.Screen name="enrich" />
       </Stack>
     </PaperProvider>

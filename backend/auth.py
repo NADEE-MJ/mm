@@ -60,7 +60,7 @@ class LoginResponse(BaseModel):
     user: UserResponse
 
 
-def hash_password(password: str, salt: str = None) -> tuple[str, str]:
+def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     """Hash a password with PBKDF2-SHA256."""
     if salt is None:
         salt = secrets.token_hex(32)
@@ -108,7 +108,7 @@ def get_user_by_username(db: Session, username: str) -> Optional[User]:
     return db.query(User).filter(User.username == username).first()
 
 
-def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
+def get_user_by_id(db: Session, user_id: str | None) -> Optional[User]:
     """Get a user by ID."""
     return db.query(User).filter(User.id == user_id).first()
 
@@ -148,7 +148,7 @@ async def get_current_user(
     token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
+        user_id: str | None = payload.get("sub")
         if user_id is None:
             return None
         token_data = TokenData(user_id=user_id)

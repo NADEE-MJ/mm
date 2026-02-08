@@ -1,64 +1,86 @@
-/**
- * Main App component - iOS Style
- * Simplified routing and layout
- */
-
-import { useCallback } from "react";
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { useCallback, useState } from "react";
+import { BrowserRouter, Route, Routes, useSearchParams } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
 
 import { useAuth } from "./contexts/AuthContext";
-import { ModalProvider } from "./contexts/ModalContext";
 import { MoviesProvider, useMoviesContext } from "./contexts/MoviesContext";
+import { useSync } from "./hooks/useSync";
 
 import AuthScreen from "./components/AuthScreen";
-import { IOSTabBar } from "./components/ui";
-import OfflineBanner from "./components/OfflineBanner";
+import AppShell from "./components/layout/AppShell";
+import MovieDetailPanel from "./components/MovieDetailPanel";
+import Modal from "./components/ui/Modal";
+import AddMovie from "./components/AddMovie";
 
-// Page components
 import MoviesPage from "./pages/MoviesPage";
 import PeoplePage from "./pages/PeoplePage";
 import ListsPage from "./pages/ListsPage";
-import DeletedListPage from "./pages/DeletedListPage";
-import MovieDetailPage from "./pages/MovieDetailPage";
-import AddMoviePage from "./pages/AddMoviePage";
 import AccountPage from "./pages/AccountPage";
-import AddPersonPage from "./pages/AddPersonPage";
 import PersonDetailPage from "./pages/PersonDetailPage";
+import StatsPage from "./pages/StatsPage";
+
+import { usePeople } from "./hooks/usePeople";
+
+function LoadingScreen({ label = "Loading..." }) {
+  return (
+    <div className="app-loading-screen">
+      <RefreshCw className="w-8 h-8 animate-spin text-ios-blue" />
+      <p className="text-ios-secondary-label mt-3">{label}</p>
+    </div>
+  );
+}
+
+function AddMovieModal({ onClose, onMovieAdded }) {
+  const { addRecommendation } = useMoviesContext();
+  const { people, getPeopleNames } = usePeople();
+
+  const handleAdd = async (...args) => {
+    await addRecommendation(...args);
+  };
+
+  const handleClose = (imdbId) => {
+    if (imdbId) {
+      onMovieAdded(imdbId);
+    }
+    onClose();
+  };
+
+  return (
+    <Modal isOpen={true} onClose={() => handleClose(null)} title="Add Movie" maxWidth="860px">
+      <AddMovie onAdd={handleAdd} onClose={handleClose} people={people} peopleNames={getPeopleNames()} />
+    </Modal>
+  );
+}
 
 function AppContent() {
   const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
   const { movies, loading, loadMovies } = useMoviesContext();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Detect if we're on a stacked/modal page
-  const isStackedPage =
-    location.pathname.startsWith("/movie/") ||
-    location.pathname === "/add" ||
-    location.pathname.startsWith("/people/add") ||
-    (location.pathname.startsWith("/people/") && location.pathname !== "/people") ||
-    location.pathname === "/lists/deleted";
+  useSync();
+
+  const [showAddMovie, setShowAddMovie] = useState(false);
+  const selectedMovieId = searchParams.get("movie");
+
+  const setSelectedMovieId = useCallback(
+    (imdbId) => {
+      const nextParams = new URLSearchParams(searchParams);
+      if (imdbId) {
+        nextParams.set("movie", imdbId);
+      } else {
+        nextParams.delete("movie");
+      }
+      setSearchParams(nextParams, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
   const handleRefresh = useCallback(async () => {
     await loadMovies();
   }, [loadMovies]);
 
-  const handleMovieClick = useCallback(
-    (movie) => {
-      navigate(`/movie/${movie.imdbId}`);
-    },
-    [navigate],
-  );
-
-  // Loading states
   if (authLoading) {
-    return (
-      <div className="ios-loading-screen">
-        <RefreshCw className="w-8 h-8 animate-spin text-ios-blue" />
-        <p className="text-ios-secondary-label mt-3">Loading...</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -66,73 +88,52 @@ function AppContent() {
   }
 
   if (loading) {
-    return (
-      <div className="ios-loading-screen">
-        <RefreshCw className="w-8 h-8 animate-spin text-ios-blue" />
-        <p className="text-ios-secondary-label mt-3">Loading movies...</p>
-      </div>
-    );
+    return <LoadingScreen label="Loading movies..." />;
   }
 
   return (
-    <div className="ios-app">
-      {/* Offline/Sync Banner */}
-      <OfflineBanner />
-
-      {/* Main Content - Base Pages */}
-      <main className={`ios-main-content ${isStackedPage ? "has-overlay" : ""}`}>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <MoviesPage
-                movies={movies}
-                onMovieClick={handleMovieClick}
-                onRefresh={handleRefresh}
-              />
-            }
-          />
-          <Route path="/people" element={<PeoplePage movies={movies} />} />
-          <Route path="/lists" element={<ListsPage movies={movies} />} />
-          <Route
-            path="/account"
-            element={<AccountPage movies={movies} user={user} logout={logout} />}
-          />
-        </Routes>
-      </main>
-
-      {/* Stacked/Modal Pages - Rendered on top */}
+    <AppShell onAddMovie={() => setShowAddMovie(true)} panelOpen={Boolean(selectedMovieId)}>
       <Routes>
-        <Route path="/people/add" element={<AddPersonPage />} />
-        <Route path="/people/:personName" element={<PersonDetailPage movies={movies} />} />
         <Route
-          path="/lists/deleted"
+          path="/"
           element={
-            <DeletedListPage
+            <MoviesPage
               movies={movies}
-              onMovieClick={handleMovieClick}
+              onMovieClick={(movie) => setSelectedMovieId(movie.imdbId)}
               onRefresh={handleRefresh}
             />
           }
         />
-        <Route path="/movie/:imdbId" element={<MovieDetailPage />} />
-        <Route path="/add" element={<AddMoviePage />} />
+        <Route path="/people" element={<PeoplePage movies={movies} />} />
+        <Route path="/people/:name" element={<PersonDetailPage movies={movies} />} />
+        <Route
+          path="/lists"
+          element={<ListsPage movies={movies} onMovieClick={(movie) => setSelectedMovieId(movie.imdbId)} />}
+        />
+        <Route path="/stats" element={<StatsPage movies={movies} user={user} />} />
+        <Route path="/account" element={<AccountPage movies={movies} user={user} logout={logout} />} />
       </Routes>
 
-      {/* Bottom Tab Bar */}
-      <IOSTabBar onAddClick={() => navigate("/add")} />
-    </div>
+      {selectedMovieId && (
+        <MovieDetailPanel imdbId={selectedMovieId} onClose={() => setSelectedMovieId(null)} />
+      )}
+
+      {showAddMovie && (
+        <AddMovieModal
+          onClose={() => setShowAddMovie(false)}
+          onMovieAdded={(imdbId) => setSelectedMovieId(imdbId)}
+        />
+      )}
+    </AppShell>
   );
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <ModalProvider>
-        <MoviesProvider>
-          <AppContent />
-        </MoviesProvider>
-      </ModalProvider>
+      <MoviesProvider>
+        <AppContent />
+      </MoviesProvider>
     </BrowserRouter>
   );
 }

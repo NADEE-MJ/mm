@@ -8,11 +8,13 @@
     "install:all": "bash scripts/mm-cli.sh install:all",
     "install:frontend": "bash scripts/mm-cli.sh install:frontend",
     "install:backend": "bash scripts/mm-cli.sh install:backend",
+    "install:mobile": "bash scripts/mm-cli.sh install:mobile",
     "install:sync": "bash scripts/mm-cli.sh install:sync",
     "build:frontend": "bash scripts/mm-cli.sh build:frontend",
     "frontend:dev": "bash scripts/mm-cli.sh frontend:dev",
     "backend:migrate": "bash scripts/mm-cli.sh backend:migrate",
     "backend:start": "bash scripts/mm-cli.sh backend:start",
+    "mobile:start": "bash scripts/mm-cli.sh mobile:start",
     "start": "bash scripts/mm-cli.sh start"
   }
 }

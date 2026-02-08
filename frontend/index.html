@@ -1,67 +1,14 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-    />
-
-    <!-- PWA Meta Tags -->
-    <meta
-      name="description"
-      content="Track movie recommendations and manage your watchlist offline-first"
-    />
-    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Movie Manager" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="format-detection" content="telephone=no" />
-
-    <!-- Icons -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Movie recommendation and watchlist manager" />
     <link rel="icon" type="image/jpeg" href="/icon-192.jpg" />
-    <link rel="apple-touch-icon" href="/icon-192.jpg" />
-    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.jpg" />
-
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
-
     <title>Movie Manager</title>
-
-    <!-- Prevent FOUC -->
-    <style>
-      html {
-        background-color: #111827;
-      }
-      body {
-        opacity: 0;
-        transition: opacity 0.1s;
-      }
-      body.loaded {
-        opacity: 1;
-      }
-    </style>
   </head>
-  <body class="bg-gray-900 text-gray-100">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-
-    <!-- Service Worker will be registered automatically by vite-plugin-pwa -->
-    <script>
-      // Show body once loaded
-      document.body.classList.add("loaded");
-
-      // Handle messages from service worker (background sync)
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.addEventListener("message", (event) => {
-          if (event.data && event.data.type === "SYNC_REQUESTED") {
-            // Dispatch custom event for the app to handle
-            window.dispatchEvent(new CustomEvent("sw-sync-requested"));
-          }
-        });
-      }
-    </script>
   </body>
 </html>

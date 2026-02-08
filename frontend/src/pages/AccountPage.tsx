@@ -1,5 +1,4 @@
 import { LogOut } from "lucide-react";
-import SyncIndicator from "../components/SyncIndicator";
 import UserStats from "../components/UserStats";
 
 export default function AccountPage({ movies, user, logout }) {
@@ -10,7 +9,6 @@ export default function AccountPage({ movies, user, logout }) {
           <h2 className="text-ios-title1">Account</h2>
           <p className="text-ios-caption1 text-ios-secondary-label mt-1">{user?.username}</p>
         </div>
-        <SyncIndicator />
       </div>
 
       <div className="ios-card p-5 space-y-4">

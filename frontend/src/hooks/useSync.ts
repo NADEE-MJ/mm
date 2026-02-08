@@ -18,6 +18,7 @@ function buildWebSocketUrl(token) {
 export function useSync() {
   const reconnectRef = useRef(null);
   const socketRef = useRef(null);
+  const connectSocketRef = useRef(() => {});
   const [syncStatus, setSyncStatus] = useState({
     status: "synced",
     pending: 0,
@@ -114,7 +115,7 @@ export function useSync() {
       if (navigator.onLine && !reconnectRef.current) {
         reconnectRef.current = setTimeout(() => {
           reconnectRef.current = null;
-          connectSocket();
+          connectSocketRef.current();
         }, WS_RECONNECT_DELAY);
       }
     };
@@ -125,7 +126,10 @@ export function useSync() {
   }, []);
 
   useEffect(() => {
-    updateOnlineStatus();
+    connectSocketRef.current = connectSocket;
+  }, [connectSocket]);
+
+  useEffect(() => {
     connectSocket();
 
     const handleOnline = () => {

@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND_DIR="$ROOT_DIR/frontend"
 BACKEND_DIR="$ROOT_DIR/backend"
+MOBILE_DIR="$ROOT_DIR/mobile"
 
 log() {
   echo "[mm-cli] $*"
@@ -35,14 +36,22 @@ install_backend() {
   run_in_dir "$BACKEND_DIR" uv sync
 }
 
+install_mobile() {
+  require_cmd npm
+  log "Installing mobile dependencies"
+  run_in_dir "$MOBILE_DIR" npm install
+}
+
 install_sync() {
   require_cmd npm
   require_cmd uv
   log "Syncing frontend dependencies (npm ci)"
   run_in_dir "$FRONTEND_DIR" npm ci
+  log "Syncing mobile dependencies (npm ci)"
+  run_in_dir "$MOBILE_DIR" npm ci
   log "Syncing backend dependencies (uv sync)"
   run_in_dir "$BACKEND_DIR" uv sync
-  log "Frontend and backend dependencies synced"
+  log "All dependencies synced"
 }
 
 build_frontend() {
@@ -175,10 +184,18 @@ backend_start() {
   run_in_dir "$BACKEND_DIR" "${cmd[@]}"
 }
 
+mobile_start() {
+  require_cmd npx
+  log "Starting Expo dev server"
+  run_in_dir "$MOBILE_DIR" npm start -- "$@"
+}
+
+
 stack_install() {
   install_frontend
   install_backend
-  log "Frontend and backend dependencies installed"
+  install_mobile
+  log "All dependencies installed"
 }
 
 stack_start() {
@@ -191,14 +208,16 @@ usage() {
 Usage: $(basename "$0") <command>
 
 Commands:
-  install:all        Install frontend and backend dependencies
+  install:all        Install frontend, backend, and mobile dependencies
   install:frontend   Install only frontend dependencies
   install:backend    Install only backend dependencies
-  install:sync       Sync frontend (npm ci) and backend (uv sync) dependencies from lock files
+  install:mobile     Install only mobile dependencies
+  install:sync       Sync frontend (npm ci), mobile (npm ci), and backend (uv sync) dependencies from lock files
   build:frontend     Build the frontend bundle
   frontend:dev       Start the frontend dev server (opts: --host, --port, use -- to pass extra Vite args)
   backend:migrate    Apply the latest Alembic migrations
   backend:start      Start the FastAPI backend (opts: --host, --port, --no-reload, use -- for uvicorn args)
+  mobile:start       Start the Expo dev server (extra args forwarded)
   start              Build frontend, then start backend (accepts backend:start opts)
   help               Show this message
 USAGE
@@ -217,6 +236,9 @@ case "$COMMAND" in
   install:backend)
     install_backend
     ;;
+  install:mobile)
+    install_mobile
+    ;;
   install:sync)
     install_sync
     ;;
@@ -231,6 +253,9 @@ case "$COMMAND" in
     ;;
   backend:start)
     backend_start "$@"
+    ;;
+  mobile:start)
+    mobile_start "$@"
     ;;
   start|stack:start)
     stack_start "$@"

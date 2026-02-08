@@ -16,12 +16,9 @@ export default function MovieDetailContainer({
   onClose,
   onMarkWatched,
   onUpdateStatus,
-  onAddVote,
   onRemoveVote,
   onShowAddUpvote,
   onShowAddDownvote,
-  people = [],
-  peopleNames = []
 }) {
   const [showRating, setShowRating] = useState(false);
 
@@ -51,17 +48,15 @@ export default function MovieDetailContainer({
 
   return (
     <>
-      <div className="bg-ios-bg min-h-screen">
-        {/* Header with back button */}
-        <header className="nav-stack-header">
-          <button onClick={onClose} className="nav-stack-back-button">
+      <div className="bg-ios-bg min-h-full flex flex-col">
+        <header className="app-panel-header">
+          <button onClick={onClose} className="app-panel-back-button">
             <ChevronRight className="w-5 h-5 rotate-180" />
-            <span>Back</span>
+            <span>Close</span>
           </button>
         </header>
 
-        {/* Movie Content */}
-        <div className="pb-32">
+        <div className="pb-8">
           <MovieHeader movie={movie} omdb={omdb} tmdb={tmdb} />
           <MovieInfo omdb={omdb} tmdb={tmdb} />
           <VotesSection
@@ -73,7 +68,6 @@ export default function MovieDetailContainer({
           />
         </div>
 
-        {/* Bottom Actions */}
         <ActionsBar
           movie={movie}
           watchHistory={watchHistory}
@@ -82,7 +76,6 @@ export default function MovieDetailContainer({
         />
       </div>
 
-      {/* Rating Modal */}
       <RatingModal
         isOpen={showRating}
         onClose={() => setShowRating(false)}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Search, Check } from "lucide-react";
-import { IOSSheet } from "../../ui";
+import Modal from "../../ui/Modal";
 
 export default function UpvoteModal({ isOpen, onClose, peopleNames, onAdd }) {
   const [query, setQuery] = useState("");
@@ -20,7 +20,7 @@ export default function UpvoteModal({ isOpen, onClose, peopleNames, onAdd }) {
   };
 
   return (
-    <IOSSheet isOpen={isOpen} onClose={onClose} title="Add Recommendation" modalId="upvote-modal">
+    <Modal isOpen={isOpen} onClose={onClose} title="Add Recommendation" maxWidth="560px">
       <div className="space-y-4">
         <p className="text-ios-body text-ios-secondary-label">
           Who recommended this movie?
@@ -80,6 +80,6 @@ export default function UpvoteModal({ isOpen, onClose, peopleNames, onAdd }) {
           </button>
         </div>
       </div>
-    </IOSSheet>
+    </Modal>
   );
 }

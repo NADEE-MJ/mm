@@ -1,18 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View,
-  StyleSheet,
-  ScrollView,
-  Image,
   Alert,
-  TouchableOpacity,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
-import { Text, Button, Chip, IconButton, Divider } from 'react-native-paper';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
+import { Button, Chip, Dialog, Portal, TextInput } from 'react-native-paper';
+import {
+  ChevronLeft,
+  RefreshCw,
+  Star,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+} from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMoviesStore } from '../../src/stores/moviesStore';
 import { useAuthStore } from '../../src/stores/authStore';
+import { usePeopleStore } from '../../src/stores/peopleStore';
+import { useListsStore } from '../../src/stores/listsStore';
 import { MovieWithDetails } from '../../src/types';
-import { Star, ThumbsUp, ThumbsDown, Trash2 } from 'lucide-react-native';
+import CircleButton from '../../src/components/ui/CircleButton';
+import { COLORS } from '../../src/utils/constants';
 import {
   getBackdropUrl,
   getMovieGenres,
@@ -24,30 +37,87 @@ import {
   getMovieYear,
   getPosterUrl,
 } from '../../src/utils/movieData';
+import { refreshMovie as refreshMovieApi } from '../../src/services/api/movies';
+
+function StatusPill({ label }: { label: string }) {
+  return (
+    <View style={styles.statusPill}>
+      <Text style={styles.statusPillText}>{label}</Text>
+    </View>
+  );
+}
 
 export default function MovieDetailScreen() {
   const { imdbId } = useLocalSearchParams<{ imdbId: string }>();
+  const insets = useSafeAreaInsets();
+
   const [movie, setMovie] = useState<MovieWithDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [showRecommendationDialog, setShowRecommendationDialog] = useState(false);
+  const [recommendationVoteType, setRecommendationVoteType] = useState<'upvote' | 'downvote'>('upvote');
+  const [selectedPerson, setSelectedPerson] = useState('');
+  const [customPerson, setCustomPerson] = useState('');
+
+  const [showListDialog, setShowListDialog] = useState(false);
+  const [selectedListId, setSelectedListId] = useState('');
 
   const getMovie = useMoviesStore((state) => state.getMovie);
   const markAsWatched = useMoviesStore((state) => state.markAsWatched);
   const updateRating = useMoviesStore((state) => state.updateRating);
-  const updateRecommendationVote = useMoviesStore(
-    (state) => state.updateRecommendationVote
-  );
+  const updateRecommendationVote = useMoviesStore((state) => state.updateRecommendationVote);
   const removeRecommendation = useMoviesStore((state) => state.removeRecommendation);
-  const deleteMovie = useMoviesStore((state) => state.deleteMovie);
+  const addRecommendation = useMoviesStore((state) => state.addRecommendation);
+  const updateStatus = useMoviesStore((state) => state.updateStatus);
+  const loadMovies = useMoviesStore((state) => state.loadMovies);
+
+  const people = usePeopleStore((state) => state.people);
+  const loadPeople = usePeopleStore((state) => state.loadPeople);
+
+  const lists = useListsStore((state) => state.lists);
+  const loadLists = useListsStore((state) => state.loadLists);
+
   const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     loadMovie();
-  }, [imdbId]);
+    loadPeople();
+    loadLists();
+  }, [imdbId, loadPeople, loadLists]);
 
   const loadMovie = async () => {
     if (!imdbId) return;
     const movieData = await getMovie(imdbId);
     setMovie(movieData);
+  };
+
+  const openRecommendationDialog = (voteType: 'upvote' | 'downvote') => {
+    setRecommendationVoteType(voteType);
+    setSelectedPerson('');
+    setCustomPerson('');
+    setShowRecommendationDialog(true);
+  };
+
+  const handleAddRecommendation = async () => {
+    if (!movie || !user) return;
+
+    const person = selectedPerson || customPerson.trim();
+    if (!person) {
+      Alert.alert('Select Person', 'Choose a person or enter a name.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await addRecommendation(movie.imdb_id, user.id, person, recommendationVoteType);
+      setShowRecommendationDialog(false);
+      await loadMovie();
+    } catch (_error) {
+      Alert.alert('Error', 'Failed to add recommendation');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleMarkAsWatched = () => {
@@ -64,7 +134,7 @@ export default function MovieDetailScreen() {
             if (!rating) return;
             const numRating = parseFloat(rating);
 
-            if (isNaN(numRating) || numRating < 1 || numRating > 10) {
+            if (Number.isNaN(numRating) || numRating < 1 || numRating > 10) {
               Alert.alert('Error', 'Please enter a valid rating between 1 and 10');
               return;
             }
@@ -73,8 +143,7 @@ export default function MovieDetailScreen() {
             try {
               await markAsWatched(movie.imdb_id, user.id, numRating);
               await loadMovie();
-              Alert.alert('Success', 'Movie marked as watched!');
-            } catch (error) {
+            } catch (_error) {
               Alert.alert('Error', 'Failed to mark as watched');
             } finally {
               setIsLoading(false);
@@ -101,7 +170,7 @@ export default function MovieDetailScreen() {
             if (!rating) return;
             const numRating = parseFloat(rating);
 
-            if (isNaN(numRating) || numRating < 1 || numRating > 10) {
+            if (Number.isNaN(numRating) || numRating < 1 || numRating > 10) {
               Alert.alert('Error', 'Please enter a valid rating between 1 and 10');
               return;
             }
@@ -110,8 +179,7 @@ export default function MovieDetailScreen() {
             try {
               await updateRating(movie.imdb_id, numRating);
               await loadMovie();
-              Alert.alert('Success', 'Rating updated!');
-            } catch (error) {
+            } catch (_error) {
               Alert.alert('Error', 'Failed to update rating');
             } finally {
               setIsLoading(false);
@@ -124,7 +192,7 @@ export default function MovieDetailScreen() {
     );
   };
 
-  const handleToggleVote = async (person: string, currentVoteType: string) => {
+  const handleToggleVote = async (person: string, currentVoteType: 'upvote' | 'downvote') => {
     if (!movie) return;
 
     const newVoteType = currentVoteType === 'upvote' ? 'downvote' : 'upvote';
@@ -133,7 +201,7 @@ export default function MovieDetailScreen() {
     try {
       await updateRecommendationVote(movie.imdb_id, person, newVoteType);
       await loadMovie();
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error', 'Failed to update vote');
     } finally {
       setIsLoading(false);
@@ -143,66 +211,104 @@ export default function MovieDetailScreen() {
   const handleRemoveRecommendation = (person: string) => {
     if (!movie) return;
 
-    Alert.alert(
-      'Remove Recommendation',
-      `Remove ${person}'s recommendation?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            setIsLoading(true);
-            try {
-              await removeRecommendation(movie.imdb_id, person);
-              await loadMovie();
-              Alert.alert('Success', 'Recommendation removed');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to remove recommendation');
-            } finally {
-              setIsLoading(false);
-            }
-          },
+    Alert.alert('Remove Recommendation', `Remove ${person}'s recommendation?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          setIsLoading(true);
+          try {
+            await removeRecommendation(movie.imdb_id, person);
+            await loadMovie();
+          } catch (_error) {
+            Alert.alert('Error', 'Failed to remove recommendation');
+          } finally {
+            setIsLoading(false);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
-  const handleDeleteMovie = () => {
+  const handleSetStatus = async (
+    status: 'toWatch' | 'watched' | 'deleted' | 'custom',
+    customListId?: string
+  ) => {
+    if (!movie || !user) return;
+
+    setIsLoading(true);
+    try {
+      await updateStatus(movie.imdb_id, user.id, status, customListId);
+      await loadMovie();
+    } catch (_error) {
+      Alert.alert('Error', 'Failed to update movie status');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMoveToList = async () => {
+    if (!selectedListId) {
+      Alert.alert('Select List', 'Choose a list first.');
+      return;
+    }
+
+    await handleSetStatus('custom', selectedListId);
+    setShowListDialog(false);
+    setSelectedListId('');
+  };
+
+  const handleRefreshMovie = async () => {
     if (!movie) return;
 
-    Alert.alert(
-      'Delete Movie',
-      'Are you sure you want to delete this movie?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setIsLoading(true);
-            try {
-              await deleteMovie(movie.imdb_id);
-              router.back();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete movie');
-              setIsLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    setIsRefreshing(true);
+    try {
+      await refreshMovieApi(movie.imdb_id);
+      await loadMovie();
+      await loadMovies();
+      Alert.alert('Refreshed', 'Movie metadata was refreshed.');
+    } catch (_error) {
+      Alert.alert('Error', 'Failed to refresh movie data');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
+
+  const status = movie?.status.status;
+  const actionBarConfig =
+    status === 'watched'
+      ? {
+          primaryLabel: 'Update Rating',
+          primaryAction: handleUpdateRating,
+          secondaryLabel: 'Move to To Watch',
+          secondaryAction: () => handleSetStatus('toWatch'),
+          secondaryDestructive: false,
+        }
+      : status === 'deleted'
+      ? {
+          primaryLabel: 'Restore to To Watch',
+          primaryAction: () => handleSetStatus('toWatch'),
+          secondaryLabel: '',
+          secondaryAction: () => undefined,
+          secondaryDestructive: false,
+        }
+      : {
+          primaryLabel: 'Mark as Watched',
+          primaryAction: handleMarkAsWatched,
+          secondaryLabel: 'Delete from List',
+          secondaryAction: () => handleSetStatus('deleted'),
+          secondaryDestructive: true,
+        };
 
   if (!movie) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingWrap}>
         <Text style={styles.errorText}>Movie not found</Text>
       </View>
     );
   }
 
-  const { recommendations, watch_history } = movie;
   const title = getMovieTitle(movie);
   const year = getMovieYear(movie);
   const voteAverage = getMovieVoteAverage(movie);
@@ -213,188 +319,249 @@ export default function MovieDetailScreen() {
   const posterUrl = getPosterUrl(movie);
   const backdropUrl = getBackdropUrl(movie);
 
-  const upvotes = recommendations.filter((r) => r.vote_type === 'upvote');
-  const downvotes = recommendations.filter((r) => r.vote_type === 'downvote');
+  const upvotes = movie.recommendations.filter((recommendation) => recommendation.vote_type === 'upvote');
+  const downvotes = movie.recommendations.filter((recommendation) => recommendation.vote_type === 'downvote');
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: title || 'Movie Details',
           headerShown: true,
-          headerStyle: { backgroundColor: '#1c1c1e' },
-          headerTintColor: '#fff',
+          headerStyle: { backgroundColor: COLORS.background },
+          headerBackVisible: false,
+          headerTitleAlign: 'center',
+          headerTitle: () => <Text style={styles.headerTitle}>{title}</Text>,
+          headerLeft: () => <CircleButton icon={ChevronLeft} onPress={() => router.back()} />,
           headerRight: () => (
-            <IconButton
-              icon={() => <Trash2 size={20} color="#ff3b30" />}
-              onPress={handleDeleteMovie}
+            <CircleButton
+              icon={RefreshCw}
+              onPress={handleRefreshMovie}
+              iconColor={isRefreshing ? COLORS.textSecondary : COLORS.text}
             />
           ),
         }}
       />
 
-      <ScrollView style={styles.container}>
-        {backdropUrl && (
-          <Image source={{ uri: backdropUrl }} style={styles.backdrop} />
-        )}
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{
+          paddingBottom: 180 + insets.bottom,
+        }}
+      >
+        {backdropUrl ? <Image source={{ uri: backdropUrl }} style={styles.backdrop} /> : null}
 
         <View style={styles.content}>
-          <View style={styles.header}>
-            {posterUrl && (
-              <Image source={{ uri: posterUrl }} style={styles.poster} />
-            )}
+          <View style={styles.headerSection}>
+            {posterUrl ? <Image source={{ uri: posterUrl }} style={styles.poster} /> : null}
 
-            <View style={styles.headerText}>
-              <Text variant="headlineSmall" style={styles.title}>
-                {title}
-              </Text>
-
-              <Text variant="bodyMedium" style={styles.year}>
-                {year}
-              </Text>
+            <View style={styles.headerTextWrap}>
+              <Text style={styles.title}>{title}</Text>
+              <Text style={styles.subtitle}>{year}</Text>
 
               {voteAverage ? (
-                <View style={styles.rating}>
-                  <Star size={16} color="#ffd700" fill="#ffd700" />
-                  <Text variant="bodyMedium" style={styles.ratingText}>
-                    {voteAverage.toFixed(1)} / 10
-                  </Text>
+                <View style={styles.ratingRow}>
+                  <Star size={15} color="#ffd60a" fill="#ffd60a" />
+                  <Text style={styles.ratingText}>{voteAverage.toFixed(1)} / 10</Text>
                 </View>
               ) : null}
 
-              {runtime ? (
-                <Text variant="bodySmall" style={styles.runtime}>
-                  {runtime}
-                </Text>
-              ) : null}
+              {runtime ? <Text style={styles.runtime}>{runtime}</Text> : null}
+              <StatusPill label={movie.status.status} />
             </View>
           </View>
 
-          {tagline ? (
-            <Text variant="bodyMedium" style={styles.tagline}>
-              "{tagline}"
-            </Text>
-          ) : null}
+          {tagline ? <Text style={styles.tagline}>"{tagline}"</Text> : null}
 
           {overview ? (
             <>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                Overview
-              </Text>
-              <Text variant="bodyMedium" style={styles.overview}>
-                {overview}
-              </Text>
+              <Text style={styles.sectionTitle}>Overview</Text>
+              <Text style={styles.overview}>{overview}</Text>
             </>
           ) : null}
 
-          {genres.length > 0 && (
+          {genres.length > 0 ? (
             <>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                Genres
-              </Text>
-              <View style={styles.genres}>
+              <Text style={styles.sectionTitle}>Genres</Text>
+              <View style={styles.genreWrap}>
                 {genres.map((genre) => (
-                  <Chip key={genre} style={styles.genreChip} textStyle={styles.genreText}>
+                  <Chip key={genre} style={styles.genreChip} textStyle={styles.genreChipText}>
                     {genre}
                   </Chip>
                 ))}
               </View>
             </>
-          )}
+          ) : null}
 
-          <Divider style={styles.divider} />
-
-          {watch_history ? (
-            <View style={styles.watchedSection}>
-              <Text variant="titleMedium" style={styles.sectionTitle}>
-                Your Rating
-              </Text>
-              <View style={styles.myRating}>
-                <Star size={24} color="#0a84ff" fill="#0a84ff" />
-                <Text variant="headlineMedium" style={styles.myRatingText}>
-                  {watch_history.my_rating.toFixed(1)}
-                </Text>
-              </View>
-              <Button mode="outlined" onPress={handleUpdateRating} disabled={isLoading}>
-                Update Rating
-              </Button>
-            </View>
-          ) : (
-            <Button
-              mode="contained"
-              onPress={handleMarkAsWatched}
-              disabled={isLoading}
-              style={styles.watchButton}
+          {lists.length > 0 && movie.status.status !== 'deleted' ? (
+            <Pressable
+              onPress={() => setShowListDialog(true)}
+              style={({ pressed }) => [styles.addToListButton, pressed && styles.pressed]}
             >
-              Mark as Watched
-            </Button>
-          )}
+              <Text style={styles.addToListButtonText}>Add to List</Text>
+            </Pressable>
+          ) : null}
 
-          <Divider style={styles.divider} />
+          <Text style={styles.sectionTitle}>Recommendations</Text>
+          <View style={styles.addVoteRow}>
+            <Pressable
+              onPress={() => openRecommendationDialog('upvote')}
+              style={({ pressed }) => [styles.voteActionButton, pressed && styles.pressed]}
+            >
+              <ThumbsUp size={14} color={COLORS.success} />
+              <Text style={styles.voteActionText}>+ Add Upvote</Text>
+            </Pressable>
 
-          <Text variant="titleMedium" style={styles.sectionTitle}>
-            Recommendations
-          </Text>
+            <Pressable
+              onPress={() => openRecommendationDialog('downvote')}
+              style={({ pressed }) => [styles.voteActionButton, pressed && styles.pressed]}
+            >
+              <ThumbsDown size={14} color={COLORS.error} />
+              <Text style={styles.voteActionText}>+ Add Downvote</Text>
+            </Pressable>
+          </View>
 
-          {upvotes.length > 0 && (
-            <>
-              <Text variant="titleSmall" style={styles.voteTypeTitle}>
-                Upvotes ({upvotes.length})
-              </Text>
-              {upvotes.map((rec) => (
-                <View key={rec.person} style={styles.recommendationItem}>
-                  <TouchableOpacity
-                    onPress={() => handleToggleVote(rec.person, rec.vote_type)}
-                    style={styles.voteButton}
-                  >
-                    <ThumbsUp size={20} color="#34c759" fill="#34c759" />
-                  </TouchableOpacity>
-                  <Text variant="bodyMedium" style={styles.personName}>
-                    {rec.person}
-                  </Text>
-                  <IconButton
-                    icon={() => <Trash2 size={16} color="#ff3b30" />}
-                    size={20}
-                    onPress={() => handleRemoveRecommendation(rec.person)}
-                  />
-                </View>
-              ))}
-            </>
-          )}
+          {upvotes.length > 0 ? <Text style={styles.voteLabel}>Upvotes ({upvotes.length})</Text> : null}
+          {upvotes.map((recommendation) => (
+            <View key={`up_${recommendation.person}`} style={styles.recRow}>
+              <Pressable
+                onPress={() => handleToggleVote(recommendation.person, recommendation.vote_type)}
+                style={({ pressed }) => [styles.voteToggle, pressed && styles.pressed]}
+              >
+                <ThumbsUp size={16} color={COLORS.success} />
+              </Pressable>
 
-          {downvotes.length > 0 && (
-            <>
-              <Text variant="titleSmall" style={styles.voteTypeTitle}>
-                Downvotes ({downvotes.length})
-              </Text>
-              {downvotes.map((rec) => (
-                <View key={rec.person} style={styles.recommendationItem}>
-                  <TouchableOpacity
-                    onPress={() => handleToggleVote(rec.person, rec.vote_type)}
-                    style={styles.voteButton}
-                  >
-                    <ThumbsDown size={20} color="#ff3b30" fill="#ff3b30" />
-                  </TouchableOpacity>
-                  <Text variant="bodyMedium" style={styles.personName}>
-                    {rec.person}
-                  </Text>
-                  <IconButton
-                    icon={() => <Trash2 size={16} color="#ff3b30" />}
-                    size={20}
-                    onPress={() => handleRemoveRecommendation(rec.person)}
-                  />
-                </View>
-              ))}
-            </>
-          )}
+              <Text style={styles.recName}>{recommendation.person}</Text>
 
-          {recommendations.length === 0 && (
-            <Text variant="bodyMedium" style={styles.noRecommendations}>
-              No recommendations yet
-            </Text>
-          )}
+              <Pressable
+                onPress={() => handleRemoveRecommendation(recommendation.person)}
+                style={({ pressed }) => [styles.removeAction, pressed && styles.pressed]}
+              >
+                <Trash2 size={14} color={COLORS.error} />
+              </Pressable>
+            </View>
+          ))}
+
+          {downvotes.length > 0 ? <Text style={styles.voteLabel}>Downvotes ({downvotes.length})</Text> : null}
+          {downvotes.map((recommendation) => (
+            <View key={`down_${recommendation.person}`} style={styles.recRow}>
+              <Pressable
+                onPress={() => handleToggleVote(recommendation.person, recommendation.vote_type)}
+                style={({ pressed }) => [styles.voteToggle, pressed && styles.pressed]}
+              >
+                <ThumbsDown size={16} color={COLORS.error} />
+              </Pressable>
+
+              <Text style={styles.recName}>{recommendation.person}</Text>
+
+              <Pressable
+                onPress={() => handleRemoveRecommendation(recommendation.person)}
+                style={({ pressed }) => [styles.removeAction, pressed && styles.pressed]}
+              >
+                <Trash2 size={14} color={COLORS.error} />
+              </Pressable>
+            </View>
+          ))}
+
+          {movie.recommendations.length === 0 ? (
+            <Text style={styles.noRecommendations}>No recommendations yet</Text>
+          ) : null}
         </View>
       </ScrollView>
+
+      <View style={[styles.actionBar, { bottom: 18 + insets.bottom }]}>
+        <Button
+          mode="contained"
+          onPress={actionBarConfig.primaryAction}
+          disabled={isLoading || isRefreshing}
+          style={styles.primaryActionButton}
+        >
+          {actionBarConfig.primaryLabel}
+        </Button>
+
+        {actionBarConfig.secondaryLabel ? (
+          <Pressable
+            onPress={actionBarConfig.secondaryAction}
+            style={({ pressed }) => [styles.secondaryActionWrap, pressed && styles.pressed]}
+          >
+            <Text
+              style={[
+                styles.secondaryActionText,
+                actionBarConfig.secondaryDestructive ? styles.destructiveText : undefined,
+              ]}
+            >
+              {actionBarConfig.secondaryLabel}
+            </Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <Portal>
+        <Dialog
+          visible={showRecommendationDialog}
+          onDismiss={() => setShowRecommendationDialog(false)}
+        >
+          <Dialog.Title>
+            {recommendationVoteType === 'upvote' ? 'Add Upvote' : 'Add Downvote'}
+          </Dialog.Title>
+          <Dialog.Content>
+            <View style={styles.personChipsWrap}>
+              {people.map((person) => (
+                <Chip
+                  key={person.name}
+                  selected={selectedPerson === person.name}
+                  onPress={() => {
+                    setSelectedPerson(selectedPerson === person.name ? '' : person.name);
+                    setCustomPerson('');
+                  }}
+                  style={styles.personChip}
+                >
+                  {person.name}
+                </Chip>
+              ))}
+            </View>
+            <TextInput
+              label="Or enter name"
+              value={customPerson}
+              onChangeText={(value) => {
+                setCustomPerson(value);
+                setSelectedPerson('');
+              }}
+              mode="outlined"
+              style={styles.customPersonInput}
+            />
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowRecommendationDialog(false)}>Cancel</Button>
+            <Button onPress={handleAddRecommendation} loading={isLoading}>
+              Add
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        <Dialog visible={showListDialog} onDismiss={() => setShowListDialog(false)}>
+          <Dialog.Title>Add to List</Dialog.Title>
+          <Dialog.Content>
+            <View style={styles.personChipsWrap}>
+              {lists.map((list) => (
+                <Chip
+                  key={list.id}
+                  selected={selectedListId === list.id}
+                  onPress={() => setSelectedListId(selectedListId === list.id ? '' : list.id)}
+                  style={styles.personChip}
+                >
+                  {list.name}
+                </Chip>
+              ))}
+            </View>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowListDialog(false)}>Cancel</Button>
+            <Button onPress={handleMoveToList} loading={isLoading}>
+              Save
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </>
   );
 }
@@ -402,118 +569,217 @@ export default function MovieDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.background,
+  },
+  loadingWrap: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: COLORS.error,
+  },
+  headerTitle: {
+    color: COLORS.text,
+    fontSize: 17,
+    fontWeight: '600',
   },
   backdrop: {
     width: '100%',
-    height: 200,
+    height: 210,
   },
   content: {
     padding: 16,
   },
-  header: {
+  headerSection: {
     flexDirection: 'row',
-    marginBottom: 16,
+    gap: 14,
+    marginBottom: 14,
   },
   poster: {
-    width: 100,
-    height: 150,
-    borderRadius: 8,
-    marginRight: 16,
+    width: 110,
+    height: 165,
+    borderRadius: 10,
+    backgroundColor: '#2c2c2e',
   },
-  headerText: {
+  headerTextWrap: {
     flex: 1,
   },
   title: {
-    color: '#fff',
-    marginBottom: 8,
+    color: COLORS.text,
+    fontSize: 24,
+    fontWeight: '700',
   },
-  year: {
-    color: '#8e8e93',
-    marginBottom: 8,
+  subtitle: {
+    color: COLORS.textSecondary,
+    marginTop: 5,
+    fontSize: 14,
   },
-  rating: {
+  ratingRow: {
+    marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    gap: 6,
   },
   ratingText: {
-    color: '#fff',
-    marginLeft: 4,
+    color: COLORS.text,
+    fontSize: 14,
   },
   runtime: {
-    color: '#8e8e93',
+    color: COLORS.textSecondary,
+    marginTop: 6,
+    fontSize: 13,
+  },
+  statusPill: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: '#2c2c2e',
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  statusPillText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
   tagline: {
-    color: '#8e8e93',
+    color: COLORS.textSecondary,
     fontStyle: 'italic',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   sectionTitle: {
-    color: '#fff',
-    marginTop: 16,
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: 8,
+    marginTop: 10,
   },
   overview: {
-    color: '#fff',
+    color: COLORS.text,
     lineHeight: 22,
   },
-  genres: {
+  genreWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
   genreChip: {
-    backgroundColor: '#38383a',
+    backgroundColor: '#2c2c2e',
   },
-  genreText: {
-    color: '#fff',
+  genreChipText: {
+    color: COLORS.text,
   },
-  divider: {
-    backgroundColor: '#38383a',
-    marginVertical: 16,
+  addToListButton: {
+    marginTop: 14,
+    alignSelf: 'flex-start',
+    backgroundColor: '#2c2c2e',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  watchedSection: {
-    alignItems: 'center',
+  addToListButtonText: {
+    color: COLORS.text,
+    fontWeight: '600',
+    fontSize: 13,
   },
-  myRating: {
+  addVoteRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginVertical: 16,
-  },
-  myRatingText: {
-    color: '#fff',
-  },
-  watchButton: {
-    marginVertical: 8,
-  },
-  voteTypeTitle: {
-    color: '#8e8e93',
-    marginTop: 8,
+    gap: 10,
     marginBottom: 8,
   },
-  recommendationItem: {
+  voteActionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    borderRadius: 14,
+    backgroundColor: '#2c2c2e',
+    paddingHorizontal: 10,
     paddingVertical: 8,
-    gap: 12,
   },
-  voteButton: {
-    padding: 8,
+  voteActionText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontWeight: '600',
   },
-  personName: {
+  voteLabel: {
+    color: COLORS.textSecondary,
+    marginTop: 8,
+    marginBottom: 4,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  recRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 10,
+  },
+  voteToggle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#2c2c2e',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recName: {
     flex: 1,
-    color: '#fff',
+    color: COLORS.text,
+    fontSize: 15,
+  },
+  removeAction: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   noRecommendations: {
-    color: '#8e8e93',
+    color: COLORS.textSecondary,
     textAlign: 'center',
+    marginTop: 6,
+  },
+  actionBar: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    borderRadius: 16,
+    padding: 12,
+    backgroundColor: COLORS.surfaceGroup,
+    borderWidth: 0.5,
+    borderColor: COLORS.separator,
+  },
+  primaryActionButton: {
+    borderRadius: 12,
+  },
+  secondaryActionWrap: {
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  secondaryActionText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  destructiveText: {
+    color: COLORS.error,
+  },
+  personChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  personChip: {
+    marginBottom: 8,
+    backgroundColor: '#2c2c2e',
+  },
+  customPersonInput: {
     marginTop: 8,
   },
-  errorText: {
-    color: '#ff3b30',
-    textAlign: 'center',
-    marginTop: 20,
+  pressed: {
+    opacity: 0.75,
   },
 });

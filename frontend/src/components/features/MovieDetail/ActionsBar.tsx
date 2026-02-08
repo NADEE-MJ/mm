@@ -1,9 +1,9 @@
 import { CheckCircle, RotateCcw, Trash2 } from "lucide-react";
 import { MOVIE_STATUS } from "../../../utils/constants";
 
-export default function ActionsBar({ movie, watchHistory, onShowRating, onStatusChange }) {
+export default function ActionsBar({ movie, onShowRating, onStatusChange }) {
   return (
-    <div className="border-t border-ios-separator p-4 safe-area-bottom bg-ios-bg space-y-3">
+    <div className="border-t border-ios-separator p-4 bg-ios-bg space-y-3">
       {movie.status === MOVIE_STATUS.TO_WATCH && (
         <>
           {/* Mark as Watched Button */}

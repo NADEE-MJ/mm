@@ -120,7 +120,8 @@ export default function AddMovieScreen() {
       const tmdbData = await getTMDBMovie(selectedMovie.id);
 
       // Extract IMDb ID from TMDB data or generate one
-      const imdbId = `tt${selectedMovie.id}`;
+      const imdbId =
+        tmdbData?.imdbId || tmdbData?.external_ids?.imdb_id || `tt${selectedMovie.id}`;
 
       // Add movie with recommendation
       await addMovie(imdbId, user.id, tmdbData, undefined, personName, 'upvote');

@@ -1,21 +1,14 @@
 import { Tabs } from 'expo-router';
 import { Film, Users, List, User } from 'lucide-react-native';
+import FloatingTabBar from '../../src/components/ui/FloatingTabBar';
 
 export default function TabLayout() {
   return (
     <Tabs
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: '#0a84ff',
-        tabBarInactiveTintColor: '#8e8e93',
-        tabBarStyle: {
-          backgroundColor: '#1c1c1e',
-          borderTopColor: '#38383a',
-        },
-        headerStyle: {
-          backgroundColor: '#1c1c1e',
-        },
-        headerTintColor: '#fff',
-        headerShadowVisible: false,
+        headerShown: false,
+        tabBarStyle: { display: 'none' },
       }}
     >
       <Tabs.Screen

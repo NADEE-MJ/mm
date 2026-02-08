@@ -28,14 +28,18 @@ export function AuthProvider({ children }) {
     setIsLoading(false);
   }, []);
 
-  // Verify token is still valid
-  useEffect(() => {
-    if (token) {
-      verifyToken();
-    }
-  }, [token]);
+  const logout = useCallback(async () => {
+    setToken(null);
+    setUser(null);
+    setError(null);
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+  }, []);
 
-  const verifyToken = async () => {
+  const verifyToken = useCallback(async () => {
+    if (!token) {
+      return;
+    }
     try {
       const response = await fetch("/api/auth/me", {
         headers: {
@@ -50,7 +54,12 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error("Token verification failed:", err);
     }
-  };
+  }, [logout, token]);
+
+  // Verify token is still valid
+  useEffect(() => {
+    verifyToken();
+  }, [verifyToken]);
 
   const login = useCallback(async (email, password) => {
     setError(null);
@@ -131,14 +140,6 @@ export function AuthProvider({ children }) {
     },
     [login],
   );
-
-  const logout = useCallback(async () => {
-    setToken(null);
-    setUser(null);
-    setError(null);
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-    localStorage.removeItem(AUTH_USER_KEY);
-  }, []);
 
   const value = {
     user,
