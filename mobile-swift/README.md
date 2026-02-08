@@ -61,10 +61,55 @@ mobile-swift/
 
 ### Configuration
 
-The app connects to the Movie Manager backend API. Update the `baseURL` in `Sources/Services/NetworkService.swift`:
+The app connects to the Movie Manager backend API. The API base URL is configured via build settings and expanded into Info.plist at build time.
 
-```swift
-private let baseURL = "http://your-api-url:8000/api"
+**Security Note:** The app enforces HTTPS-only connections per Apple's App Transport Security (ATS) policy. All API URLs must use HTTPS.
+
+**How it works:**
+- `Config/App.xcconfig` is loaded for Debug/Release and optionally includes `Config/Env.generated.xcconfig`
+- The app uses `Sources/Info.plist` (`GENERATE_INFOPLIST_FILE = NO`)
+- `Sources/Info.plist` contains `<string>$(API_BASE_URL)</string>` and build settings expansion writes the final URL
+- The generator script escapes `/` safely for xcconfig so `https://...` is preserved
+
+**For local development:**
+- Create `mobile-swift/.env` with one of:
+  - `API_BASE_URL=https://your-api.example.com/api`
+  - `MOBILE_SWIFT_API_BASE_URL=https://your-api.example.com/api`
+- Generate xcconfig before building:
+  ```bash
+  cd mobile-swift
+  ./scripts/generate-env-xcconfig.sh
+  ```
+- `Config/Env.generated.xcconfig` is generated and ignored by git
+- Ensure your backend server supports HTTPS
+
+**For CI/CD builds:**
+- **REQUIRED**: Set repository secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
+- Must use HTTPS URL. You can set either:
+  - `https://your-api.example.com` (the build/runtime appends `/api`)
+  - `https://your-api.example.com/api`
+- The workflow validates this is set and **fails early** if missing/invalid (no fallback)
+- The workflow generates `Config/Env.generated.xcconfig` from this secret
+- The build verifies the compiled app Info.plist contains the normalized API URL (always ending in `/api`)
+
+Then regenerate the Xcode project:
+```bash
+xcodegen generate
+```
+
+## Debug Logging
+
+- Uses `os.Logger` for device console logs.
+- Developer Labs includes a Logs tab for:
+  - Verbose logging toggle (Debug builds)
+  - Test log entry
+  - Export logs (`app-debug.log`) via share sheet
+  - Clear log file
+- Log file is stored in app Documents and file sharing is enabled (`UIFileSharingEnabled`).
+
+On Arch Linux, view live device logs:
+```bash
+idevicesyslog | grep -i "com.moviemanager.mobileswift"
 ```
 
 ## CI/CD Pipeline
