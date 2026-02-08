@@ -204,7 +204,7 @@ struct HomePageView: View {
             Button {
                 Task {
                     await NetworkService.shared.updateMovie(
-                        id: movie.id, rating: nil, status: "watched"
+                        movie: movie, rating: nil, status: "watched"
                     )
                     await loadMovies()
                 }
@@ -217,7 +217,7 @@ struct HomePageView: View {
             Button {
                 Task {
                     await NetworkService.shared.updateMovie(
-                        id: movie.id, rating: nil, status: "to_watch"
+                        movie: movie, rating: nil, status: "to_watch"
                     )
                     await loadMovies()
                 }
@@ -229,7 +229,7 @@ struct HomePageView: View {
         Button(role: .destructive) {
             Task {
                 await NetworkService.shared.updateMovie(
-                    id: movie.id, rating: nil, status: "deleted"
+                    movie: movie, rating: nil, status: "deleted"
                 )
                 await loadMovies()
             }
@@ -458,7 +458,7 @@ private struct MovieDetailView: View {
                                         rating = value
                                         Task {
                                             await NetworkService.shared.updateMovie(
-                                                id: movie.id, rating: value, status: nil
+                                                movie: movie, rating: value, status: nil
                                             )
                                         }
                                     } label: {
@@ -544,7 +544,7 @@ private struct RatingSheet: View {
                 Button {
                     Task {
                         await NetworkService.shared.updateMovie(
-                            id: movie.id, rating: selectedRating, status: "watched"
+                            movie: movie, rating: selectedRating, status: "watched"
                         )
                         dismiss()
                     }
