@@ -21,22 +21,21 @@ final class AuthManager {
     private let baseURL: String
 
     private init() {
-        let infoURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        baseURL = infoURL ?? "https://localhost:8000/api"
+        baseURL = AppConfiguration.apiBaseURLString
         
         // Debug: Log the configured API base URL
-        print("🔧 [AuthManager] Initialized with baseURL: \(baseURL)")
-        print("🔧 [AuthManager] Info.plist API_BASE_URL: \(infoURL ?? "nil (using fallback)")")
+        logDebug("🔧 [AuthManager] Initialized with baseURL: \(baseURL)")
+        logDebug("🔧 [AuthManager] Info.plist API_BASE_URL: \(baseURL)")
 
         // Load saved auth from Keychain
         if let saved = KeychainHelper.load(key: "auth_token") {
             token = saved
-            print("🔧 [AuthManager] Loaded saved token from Keychain")
+            logDebug("🔧 [AuthManager] Loaded saved token from Keychain")
         }
         if let userData = KeychainHelper.loadData(key: "auth_user"),
            let decoded = try? JSONDecoder().decode(AuthUser.self, from: userData) {
             user = decoded
-            print("🔧 [AuthManager] Loaded saved user from Keychain: \(decoded.email)")
+            logDebug("🔧 [AuthManager] Loaded saved user from Keychain: \(decoded.email)")
         }
     }
 
@@ -50,14 +49,14 @@ final class AuthManager {
         let body = LoginRequest(email: email, password: password)
         let urlString = "\(baseURL)/auth/login"
         
-        print("\n🔐 [LOGIN] Starting login attempt")
-        print("🔐 [LOGIN] Base URL: \(baseURL)")
-        print("🔐 [LOGIN] Full URL: \(urlString)")
-        print("🔐 [LOGIN] Email: \(email)")
+        logDebug("\n🔐 [LOGIN] Starting login attempt")
+        logDebug("🔐 [LOGIN] Base URL: \(baseURL)")
+        logDebug("🔐 [LOGIN] Full URL: \(urlString)")
+        logDebug("🔐 [LOGIN] Email: \(email)")
         
         guard let url = URL(string: urlString) else {
             let errorMsg = "❌ Invalid URL: \(urlString)"
-            print("🔐 [LOGIN] \(errorMsg)")
+            logDebug("🔐 [LOGIN] \(errorMsg)")
             error = "Invalid URL - Check: \(urlString)"
             return false
         }
@@ -67,38 +66,38 @@ final class AuthManager {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONEncoder().encode(body)
         
-        print("🔐 [LOGIN] Request method: POST")
-        print("🔐 [LOGIN] Request headers: \(request.allHTTPHeaderFields ?? [:])")
+        logDebug("🔐 [LOGIN] Request method: POST")
+        logDebug("🔐 [LOGIN] Request headers: \(request.allHTTPHeaderFields ?? [:])")
 
         do {
-            print("🔐 [LOGIN] Sending request...")
+            logDebug("🔐 [LOGIN] Sending request...")
             let startTime = Date()
             let (data, response) = try await session.data(for: request)
             let duration = Date().timeIntervalSince(startTime)
             
-            print("🔐 [LOGIN] Response received in \(String(format: "%.2f", duration))s")
+            logDebug("🔐 [LOGIN] Response received in \(String(format: "%.2f", duration))s")
             
             guard let http = response as? HTTPURLResponse else {
                 let errorMsg = "❌ Invalid response type"
-                print("🔐 [LOGIN] \(errorMsg)")
+                logDebug("🔐 [LOGIN] \(errorMsg)")
                 error = "Invalid response - Not HTTP response"
                 return false
             }
 
-            print("🔐 [LOGIN] HTTP Status: \(http.statusCode)")
-            print("🔐 [LOGIN] Response headers: \(http.allHeaderFields)")
+            logDebug("🔐 [LOGIN] HTTP Status: \(http.statusCode)")
+            logDebug("🔐 [LOGIN] Response headers: \(http.allHeaderFields)")
             
             if let dataString = String(data: data, encoding: .utf8) {
-                print("🔐 [LOGIN] Response body: \(dataString)")
+                logDebug("🔐 [LOGIN] Response body: \(dataString)")
             }
 
             if http.statusCode != 200 {
                 var errorMsg = "Login failed (HTTP \(http.statusCode))"
                 if let errResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
                     errorMsg = "\(errResponse.detail) (HTTP \(http.statusCode))"
-                    print("🔐 [LOGIN] ❌ Server error: \(errResponse.detail)")
+                    logDebug("🔐 [LOGIN] ❌ Server error: \(errResponse.detail)")
                 } else if let dataString = String(data: data, encoding: .utf8) {
-                    print("🔐 [LOGIN] ❌ Raw error: \(dataString)")
+                    logDebug("🔐 [LOGIN] ❌ Raw error: \(dataString)")
                     errorMsg = "Login failed: \(dataString.prefix(100))"
                 }
                 error = errorMsg
@@ -107,22 +106,22 @@ final class AuthManager {
 
             guard let tokenResponse = try? JSONDecoder().decode(TokenResponse.self, from: data) else {
                 let errorMsg = "❌ Invalid response format - couldn't decode token"
-                print("🔐 [LOGIN] \(errorMsg)")
+                logDebug("🔐 [LOGIN] \(errorMsg)")
                 error = "Invalid response format from server"
                 return false
             }
 
-            print("🔐 [LOGIN] ✅ Token received successfully")
+            logDebug("🔐 [LOGIN] ✅ Token received successfully")
 
             // Fetch user info with the new token
             guard let fetchedUser = await fetchMe(token: tokenResponse.accessToken) else {
                 let errorMsg = "❌ Failed to fetch user info"
-                print("🔐 [LOGIN] \(errorMsg)")
+                logDebug("🔐 [LOGIN] \(errorMsg)")
                 error = "Failed to get user info from server"
                 return false
             }
 
-            print("🔐 [LOGIN] ✅ User info retrieved: \(fetchedUser.email)")
+            logDebug("🔐 [LOGIN] ✅ User info retrieved: \(fetchedUser.email)")
 
             // Save to Keychain
             token = tokenResponse.accessToken
@@ -132,12 +131,12 @@ final class AuthManager {
                 KeychainHelper.saveData(key: "auth_user", data: userData)
             }
 
-            print("🔐 [LOGIN] ✅ Login successful!\n")
+            logDebug("🔐 [LOGIN] ✅ Login successful!\n")
             return true
         } catch let urlError as URLError {
             let errorMsg = "Network error: \(urlError.localizedDescription) (Code: \(urlError.code.rawValue))"
-            print("🔐 [LOGIN] ❌ URLError: \(errorMsg)")
-            print("🔐 [LOGIN] ❌ URLError details: \(urlError)")
+            logDebug("🔐 [LOGIN] ❌ URLError: \(errorMsg)")
+            logDebug("🔐 [LOGIN] ❌ URLError details: \(urlError)")
             
             // Provide more specific error messages
             var detailedError = errorMsg
@@ -162,8 +161,8 @@ final class AuthManager {
             return false
         } catch {
             let errorMsg = "Unexpected error: \(error.localizedDescription)"
-            print("🔐 [LOGIN] ❌ \(errorMsg)")
-            print("🔐 [LOGIN] ❌ Error details: \(error)")
+            logDebug("🔐 [LOGIN] ❌ \(errorMsg)")
+            logDebug("🔐 [LOGIN] ❌ Error details: \(error)")
             self.error = "\(errorMsg)\nURL: \(urlString)"
             return false
         }
@@ -179,14 +178,14 @@ final class AuthManager {
         let body = RegisterRequest(email: email, username: username, password: password)
         let urlString = "\(baseURL)/auth/register"
         
-        print("\n📝 [REGISTER] Starting registration attempt")
-        print("📝 [REGISTER] Base URL: \(baseURL)")
-        print("📝 [REGISTER] Full URL: \(urlString)")
-        print("📝 [REGISTER] Email: \(email), Username: \(username)")
+        logDebug("\n📝 [REGISTER] Starting registration attempt")
+        logDebug("📝 [REGISTER] Base URL: \(baseURL)")
+        logDebug("📝 [REGISTER] Full URL: \(urlString)")
+        logDebug("📝 [REGISTER] Email: \(email), Username: \(username)")
         
         guard let url = URL(string: urlString) else {
             let errorMsg = "❌ Invalid URL: \(urlString)"
-            print("📝 [REGISTER] \(errorMsg)")
+            logDebug("📝 [REGISTER] \(errorMsg)")
             error = "Invalid URL - Check: \(urlString)"
             return false
         }
@@ -197,42 +196,42 @@ final class AuthManager {
         request.httpBody = try? JSONEncoder().encode(body)
 
         do {
-            print("📝 [REGISTER] Sending request...")
+            logDebug("📝 [REGISTER] Sending request...")
             let (data, response) = try await session.data(for: request)
             
             guard let http = response as? HTTPURLResponse else {
-                print("📝 [REGISTER] ❌ Invalid response type")
+                logDebug("📝 [REGISTER] ❌ Invalid response type")
                 error = "Invalid response"
                 return false
             }
 
-            print("📝 [REGISTER] HTTP Status: \(http.statusCode)")
+            logDebug("📝 [REGISTER] HTTP Status: \(http.statusCode)")
 
             if http.statusCode != 200 {
                 var errorMsg = "Registration failed (HTTP \(http.statusCode))"
                 if let errResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
                     errorMsg = "\(errResponse.detail) (HTTP \(http.statusCode))"
-                    print("📝 [REGISTER] ❌ Server error: \(errResponse.detail)")
+                    logDebug("📝 [REGISTER] ❌ Server error: \(errResponse.detail)")
                 } else if let dataString = String(data: data, encoding: .utf8) {
-                    print("📝 [REGISTER] ❌ Raw error: \(dataString)")
+                    logDebug("📝 [REGISTER] ❌ Raw error: \(dataString)")
                 }
                 error = errorMsg
                 return false
             }
 
-            print("📝 [REGISTER] ✅ Registration successful, now logging in...")
+            logDebug("📝 [REGISTER] ✅ Registration successful, now logging in...")
             
             // Auto-login after registration
             isLoading = false
             return await login(email: email, password: password)
         } catch let urlError as URLError {
             let errorMsg = "Network error: \(urlError.localizedDescription)"
-            print("📝 [REGISTER] ❌ URLError: \(errorMsg)")
+            logDebug("📝 [REGISTER] ❌ URLError: \(errorMsg)")
             self.error = "\(errorMsg)\nURL: \(urlString)"
             return false
         } catch {
             let errorMsg = "Unexpected error: \(error.localizedDescription)"
-            print("📝 [REGISTER] ❌ \(errorMsg)")
+            logDebug("📝 [REGISTER] ❌ \(errorMsg)")
             self.error = "\(errorMsg)\nURL: \(urlString)"
             return false
         }
@@ -268,10 +267,10 @@ final class AuthManager {
 
     private func fetchMe(token: String) async -> AuthUser? {
         let urlString = "\(baseURL)/auth/me"
-        print("👤 [FETCH_ME] Fetching user info from: \(urlString)")
+        logDebug("👤 [FETCH_ME] Fetching user info from: \(urlString)")
         
         guard let url = URL(string: urlString) else {
-            print("👤 [FETCH_ME] ❌ Invalid URL")
+            logDebug("👤 [FETCH_ME] ❌ Invalid URL")
             return nil
         }
         
@@ -281,32 +280,41 @@ final class AuthManager {
         do {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                print("👤 [FETCH_ME] ❌ Invalid response type")
+                logDebug("👤 [FETCH_ME] ❌ Invalid response type")
                 return nil
             }
             
-            print("👤 [FETCH_ME] HTTP Status: \(http.statusCode)")
+            logDebug("👤 [FETCH_ME] HTTP Status: \(http.statusCode)")
             
             if http.statusCode != 200 {
                 if let dataString = String(data: data, encoding: .utf8) {
-                    print("👤 [FETCH_ME] ❌ Error response: \(dataString)")
+                    logDebug("👤 [FETCH_ME] ❌ Error response: \(dataString)")
                 }
                 return nil
             }
             
             let user = try? JSONDecoder().decode(AuthUser.self, from: data)
             if let user = user {
-                print("👤 [FETCH_ME] ✅ Successfully fetched user: \(user.email)")
+                logDebug("👤 [FETCH_ME] ✅ Successfully fetched user: \(user.email)")
             } else {
-                print("👤 [FETCH_ME] ❌ Failed to decode user data")
+                logDebug("👤 [FETCH_ME] ❌ Failed to decode user data")
             }
             return user
         } catch let urlError as URLError {
-            print("👤 [FETCH_ME] ❌ URLError: \(urlError.localizedDescription)")
+            logDebug("👤 [FETCH_ME] ❌ URLError: \(urlError.localizedDescription)")
             return nil
         } catch {
-            print("👤 [FETCH_ME] ❌ Error: \(error.localizedDescription)")
+            logDebug("👤 [FETCH_ME] ❌ Error: \(error.localizedDescription)")
             return nil
+        }
+    }
+
+    private func logDebug(_ message: @autoclosure () -> String) {
+        let value = message()
+        if value.contains("❌") {
+            AppLog.error(value, category: .auth)
+        } else {
+            AppLog.debug(value, category: .auth)
         }
     }
 }

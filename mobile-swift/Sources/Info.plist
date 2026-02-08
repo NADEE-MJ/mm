@@ -29,6 +29,10 @@
   <dict/>
   <key>NSFaceIDUsageDescription</key>
   <string>Authenticate to unlock the app</string>
+  <key>UIFileSharingEnabled</key>
+  <true/>
+  <key>LSSupportsOpeningDocumentsInPlace</key>
+  <true/>
   <key>API_BASE_URL</key>
   <string>$(API_BASE_URL)</string>
 </dict>

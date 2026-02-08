@@ -177,12 +177,11 @@ final class NetworkService {
     private let baseURL: String
 
     private init() {
-        let infoURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        baseURL = infoURL ?? "https://localhost:8000/api"
+        baseURL = AppConfiguration.apiBaseURLString
         
         // Debug: Log the configured API base URL
-        print("🌐 [NetworkService] Initialized with baseURL: \(baseURL)")
-        print("🌐 [NetworkService] Info.plist API_BASE_URL: \(infoURL ?? "nil (using fallback)")")
+        AppLog.debug("🌐 [NetworkService] Initialized with baseURL: \(baseURL)", category: .network)
+        AppLog.debug("🌐 [NetworkService] Info.plist API_BASE_URL: \(baseURL)", category: .network)
     }
 
     // MARK: - Movies
@@ -245,7 +244,10 @@ final class NetworkService {
     }
 
     private func get(_ urlString: String) async -> Data? {
-        guard let url = URL(string: urlString) else { return nil }
+        guard let url = URL(string: urlString) else {
+            AppLog.error("🌐 [NetworkService] Invalid URL in GET: \(urlString)", category: .network)
+            return nil
+        }
         var request = URLRequest(url: url)
         for (key, value) in authHeaders {
             request.setValue(value, forHTTPHeaderField: key)
@@ -255,12 +257,16 @@ final class NetworkService {
             return data
         } catch {
             lastError = error.localizedDescription
+            AppLog.error("🌐 [NetworkService] GET failed: \(error.localizedDescription) @ \(urlString)", category: .network)
             return nil
         }
     }
 
     private func post<T: Encodable>(_ urlString: String, body: T) async -> Bool {
-        guard let url = URL(string: urlString) else { return false }
+        guard let url = URL(string: urlString) else {
+            AppLog.error("🌐 [NetworkService] Invalid URL in POST: \(urlString)", category: .network)
+            return false
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -270,15 +276,24 @@ final class NetworkService {
         request.httpBody = try? JSONEncoder().encode(body)
         do {
             let (_, response) = try await session.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200
+            let ok = (response as? HTTPURLResponse)?.statusCode == 200
+            if !ok {
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                AppLog.warning("🌐 [NetworkService] POST returned status \(status) @ \(urlString)", category: .network)
+            }
+            return ok
         } catch {
             lastError = error.localizedDescription
+            AppLog.error("🌐 [NetworkService] POST failed: \(error.localizedDescription) @ \(urlString)", category: .network)
             return false
         }
     }
 
     private func put<T: Encodable>(_ urlString: String, body: T) async -> Bool {
-        guard let url = URL(string: urlString) else { return false }
+        guard let url = URL(string: urlString) else {
+            AppLog.error("🌐 [NetworkService] Invalid URL in PUT: \(urlString)", category: .network)
+            return false
+        }
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -288,9 +303,15 @@ final class NetworkService {
         request.httpBody = try? JSONEncoder().encode(body)
         do {
             let (_, response) = try await session.data(for: request)
-            return (response as? HTTPURLResponse)?.statusCode == 200
+            let ok = (response as? HTTPURLResponse)?.statusCode == 200
+            if !ok {
+                let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+                AppLog.warning("🌐 [NetworkService] PUT returned status \(status) @ \(urlString)", category: .network)
+            }
+            return ok
         } catch {
             lastError = error.localizedDescription
+            AppLog.error("🌐 [NetworkService] PUT failed: \(error.localizedDescription) @ \(urlString)", category: .network)
             return false
         }
     }

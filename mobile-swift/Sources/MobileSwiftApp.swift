@@ -27,6 +27,7 @@ struct MobileSwiftApp: App {
             }
             .animation(.easeInOut(duration: 0.3), value: authManager.isAuthenticated)
             .task {
+                AppLog.info("📱 [App] Launching app and verifying auth token", category: .app)
                 await authManager.verifyToken()
             }
         }

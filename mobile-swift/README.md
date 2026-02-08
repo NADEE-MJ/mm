@@ -70,14 +70,14 @@ The app connects to the Movie Manager backend API. The API base URL is configure
 - The build setting value gets injected into the compiled app's Info.plist
 
 **For local development:**
-- Default value is `https://localhost:8000/api` (set in `project.yml`)
-- Ensure your local backend server supports HTTPS
-- This works for Xcode builds without any changes
+- Set `API_BASE_URL` to a real HTTPS backend URL before building
+- The project default is intentionally unset to prevent accidental localhost builds
+- Ensure your backend server supports HTTPS
 
 **For CI/CD builds:**
-- **REQUIRED**: Set repository variable or secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
+- **REQUIRED**: Set repository secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
 - Must use HTTPS URL (e.g., `https://your-api.example.com/api`)
-- The workflow validates this is set and **fails early** if missing (no fallback)
+- The workflow validates this is set and **fails early** if missing/invalid (no fallback)
 - The workflow automatically injects this value during build
 - The preprocessor expands `$(API_BASE_URL)` to the actual URL
 
@@ -92,6 +92,21 @@ settings:
 Then regenerate the Xcode project:
 ```bash
 xcodegen generate
+```
+
+## Debug Logging
+
+- Uses `os.Logger` for device console logs.
+- Developer Labs includes a Logs tab for:
+  - Verbose logging toggle (Debug builds)
+  - Test log entry
+  - Export logs (`app-debug.log`) via share sheet
+  - Clear log file
+- Log file is stored in app Documents and file sharing is enabled (`UIFileSharingEnabled`).
+
+On Arch Linux, view live device logs:
+```bash
+idevicesyslog | grep -i "com.moviemanager.mobileswift"
 ```
 
 ## CI/CD Pipeline

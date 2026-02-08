@@ -37,7 +37,7 @@ targets:
         INFOPLIST_PREPROCESS: YES
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        API_BASE_URL: "https://localhost:8000/api"
+        API_BASE_URL: "__UNSET_API_BASE_URL__"
 
 schemes:
   MobileSwift:

@@ -14,9 +14,7 @@ final class WebSocketManager {
 
     private var task: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
-
-    // TODO: Replace with actual WebSocket URL
-    private let wsURL = URL(string: "ws://localhost:8000/ws")!
+    private let wsURL = AppConfiguration.webSocketURL
 
     struct WSMessage: Identifiable, Hashable {
         let id = UUID()
@@ -33,6 +31,7 @@ final class WebSocketManager {
         guard !isConnected else { return }
         lastError = nil
 
+        AppLog.info("🔌 [WebSocket] Connecting to \(wsURL.absoluteString)", category: .websocket)
         task = session.webSocketTask(with: wsURL)
         task?.resume()
         isConnected = true
@@ -44,6 +43,7 @@ final class WebSocketManager {
     // MARK: - Disconnect
 
     func disconnect() {
+        AppLog.info("🔌 [WebSocket] Disconnect requested", category: .websocket)
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
         isConnected = false
@@ -56,10 +56,12 @@ final class WebSocketManager {
         guard let task, isConnected else { return }
         let message = URLSessionWebSocketTask.Message.string(text)
         messages.append(WSMessage(text: text, isOutgoing: true, timestamp: .now))
+        AppLog.debug("🔌 [WebSocket] Sending message (\(text.count) chars)", category: .websocket)
         task.send(message) { error in
             if let error {
                 Task { @MainActor [weak self] in
                     self?.lastError = error.localizedDescription
+                    AppLog.error("🔌 [WebSocket] Send failed: \(error.localizedDescription)", category: .websocket)
                 }
             }
         }
@@ -72,8 +74,10 @@ final class WebSocketManager {
             Task { @MainActor [weak self] in
                 if let error {
                     self?.addSystemMessage("Ping failed: \(error.localizedDescription)")
+                    AppLog.warning("🔌 [WebSocket] Ping failed: \(error.localizedDescription)", category: .websocket)
                 } else {
                     self?.addSystemMessage("Pong received ✓")
+                    AppLog.debug("🔌 [WebSocket] Pong received", category: .websocket)
                 }
             }
         }
@@ -95,10 +99,13 @@ final class WebSocketManager {
                     switch msg {
                     case .string(let text):
                         self?.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
+                        AppLog.debug("🔌 [WebSocket] Received text message (\(text.count) chars)", category: .websocket)
                     case .data(let data):
                         let text = String(data: data, encoding: .utf8) ?? "<binary \(data.count) bytes>"
                         self?.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
+                        AppLog.debug("🔌 [WebSocket] Received binary message (\(data.count) bytes)", category: .websocket)
                     @unknown default:
+                        AppLog.warning("🔌 [WebSocket] Received unknown message type", category: .websocket)
                         break
                     }
                     self?.receiveLoop()
@@ -107,6 +114,7 @@ final class WebSocketManager {
                     self?.isConnected = false
                     self?.lastError = error.localizedDescription
                     self?.addSystemMessage("Connection lost")
+                    AppLog.error("🔌 [WebSocket] Connection lost: \(error.localizedDescription)", category: .websocket)
                 }
             }
         }

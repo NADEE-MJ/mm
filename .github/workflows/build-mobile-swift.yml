@@ -73,19 +73,39 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks
 
-      - name: Validate API base URL (fail if not set)
+      - name: Validate API base URL (required secret)
         env:
-          API_BASE_URL: ${{ vars.MOBILE_SWIFT_API_BASE_URL != '' && vars.MOBILE_SWIFT_API_BASE_URL || secrets.MOBILE_SWIFT_API_BASE_URL || '' }}
+          API_BASE_URL: ${{ secrets.MOBILE_SWIFT_API_BASE_URL }}
         run: |
           set -euo pipefail
+          API_BASE_URL=$(echo "${API_BASE_URL:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+
           if [ -z "$API_BASE_URL" ]; then
             echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL is not set"
-            echo "❌ Please set MOBILE_SWIFT_API_BASE_URL as a repository variable or secret"
+            echo "❌ Please set MOBILE_SWIFT_API_BASE_URL as a repository secret"
             echo "❌ Format: https://your-domain.example.com/api"
             echo "❌ This is a required configuration for building the mobile-swift app"
             exit 1
           fi
-          
+
+          if [[ ! "$API_BASE_URL" =~ ^https:// ]]; then
+            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL must start with https://"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          if [[ "$API_BASE_URL" =~ localhost|127\.0\.0\.1|::1 ]]; then
+            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL cannot point to localhost/loopback in CI"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          if [[ "$API_BASE_URL" == *'$('* || "$API_BASE_URL" == *'${'* ]]; then
+            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL contains unresolved variable syntax"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
           echo "✅ API base URL validated: $API_BASE_URL"
           echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
 
@@ -105,6 +125,11 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [ -z "${API_BASE_URL:-}" ]; then
+            echo "❌ API_BASE_URL is missing in build environment"
+            exit 1
+          fi
+
           DEPLOYMENT_TARGET_RAW="${{ github.event.inputs.deployment_target }}"
           DEPLOYMENT_TARGET=$(echo "$DEPLOYMENT_TARGET_RAW" | tr -cd '0-9.')
           if [ -z "$DEPLOYMENT_TARGET" ]; then
@@ -120,7 +145,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             IPHONEOS_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
-            API_BASE_URL="${{ env.API_BASE_URL }}" \
+            API_BASE_URL="$API_BASE_URL" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -138,7 +163,28 @@ jobs:
             exit 1
           fi
 
+          BUILT_INFO_PLIST="$APP_PATH/Info.plist"
+          if [ ! -f "$BUILT_INFO_PLIST" ]; then
+            echo "❌ Built app Info.plist not found: $BUILT_INFO_PLIST"
+            exit 1
+          fi
+
+          BUILT_API_BASE_URL=$(/usr/libexec/PlistBuddy -c "Print :API_BASE_URL" "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          BUILT_API_BASE_URL=$(echo "${BUILT_API_BASE_URL:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+          if [ -z "$BUILT_API_BASE_URL" ]; then
+            echo "❌ Built app API_BASE_URL is empty or missing in Info.plist"
+            exit 1
+          fi
+
+          if [ "$BUILT_API_BASE_URL" != "$API_BASE_URL" ]; then
+            echo "❌ Built app API_BASE_URL does not match pipeline secret"
+            echo "❌ Expected: $API_BASE_URL"
+            echo "❌ Actual:   $BUILT_API_BASE_URL"
+            exit 1
+          fi
+
           echo "✅ Found app bundle: $APP_PATH"
+          echo "✅ Built Info.plist API_BASE_URL verified: $BUILT_API_BASE_URL"
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
       - name: Package IPA
