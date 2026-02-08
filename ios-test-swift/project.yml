@@ -25,6 +25,7 @@ targets:
         product: NukeUI
       - package: GRDB
         product: GRDB
+      - framework: LocalAuthentication.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.moviemanager.swifttest

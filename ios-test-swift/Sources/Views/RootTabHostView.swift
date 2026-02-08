@@ -100,7 +100,7 @@ struct RootTabHostView: View {
 
     @ViewBuilder
     private var bottomBar: some View {
-        HStack(spacing: isMinimized ? 8 : 12) {
+        HStack(spacing: 12) {
             tabBarPill
             Spacer()
             fabMainButton
@@ -114,17 +114,19 @@ struct RootTabHostView: View {
     // MARK: - Tab Bar Pill
 
     private var tabBarPill: some View {
-        HStack(spacing: isMinimized ? 16 : 4) {
-            ForEach(TabItem.allCases, id: \.self) { tab in
-                Button {
-                    selectedTab = tab
-                } label: {
-                    if isMinimized {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(selectedTab == tab ? AppTheme.blue : AppTheme.textSecondary)
-                            .frame(width: 28, height: 28)
-                    } else {
+        HStack(spacing: isMinimized ? 0 : 4) {
+            if isMinimized {
+                // Collapsed: show only the current tab
+                Image(systemName: selectedTab.icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppTheme.blue)
+                    .frame(width: 28, height: 28)
+                    .contentTransition(.symbolEffect(.replace))
+            } else {
+                ForEach(TabItem.allCases, id: \.self) { tab in
+                    Button {
+                        selectedTab = tab
+                    } label: {
                         VStack(spacing: 2) {
                             Image(systemName: tab.icon)
                                 .font(.system(size: 20))
@@ -134,26 +136,27 @@ struct RootTabHostView: View {
                         .foregroundStyle(selectedTab == tab ? AppTheme.blue : AppTheme.textSecondary)
                         .frame(width: 60, height: 44)
                     }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, isMinimized ? 10 : 12)
         .padding(.vertical, isMinimized ? 6 : 6)
+        .frame(height: isMinimized ? 40 : 56)
         .glassEffect(.regular, in: .capsule)
     }
 
     // MARK: - FAB Main Button
 
     private var fabMainButton: some View {
-        let size: CGFloat = isMinimized ? 36 : 48
+        let size: CGFloat = isMinimized ? 40 : 56
         return Button {
             withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
                 isFABExpanded.toggle()
             }
         } label: {
             Image(systemName: isFABExpanded ? "xmark" : "plus")
-                .font(.system(size: isMinimized ? 14 : 18, weight: .bold))
+                .font(.system(size: isMinimized ? 16 : 20, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: size, height: size)
                 .background(

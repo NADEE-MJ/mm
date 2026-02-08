@@ -27,5 +27,7 @@
   </dict>
   <key>UILaunchScreen</key>
   <dict/>
+  <key>NSFaceIDUsageDescription</key>
+  <string>Authenticate to unlock the app</string>
 </dict>
 </plist>
