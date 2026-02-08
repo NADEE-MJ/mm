@@ -9,7 +9,7 @@ struct FrostedCard<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
-        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .glassEffect(.regular, in: .rect(cornerRadius: 18, style: .continuous))
     }
 }
 
@@ -38,7 +38,7 @@ struct CircleIconButton: View {
                 .frame(width: 38, height: 38)
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive, in: .circle)
+        .glassEffect(.regular.interactive(), in: .circle)
     }
 }
 

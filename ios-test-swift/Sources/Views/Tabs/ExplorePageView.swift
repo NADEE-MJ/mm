@@ -1,4 +1,3 @@
-import Foundation
 import SwiftUI
 
 private enum RepoFilter: String, CaseIterable, Identifiable {
@@ -26,7 +25,7 @@ struct ExplorePageView: View {
                         CircleIconButton(icon: "magnifyingglass") { }
                     }
 
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollView(.horizontal) {
                         HStack(spacing: 8) {
                             ForEach(RepoFilter.allCases) { filter in
                                 Button {
@@ -47,14 +46,15 @@ struct ExplorePageView: View {
                                 .buttonStyle(.plain)
                                 .glassEffect(
                                     selectedFilter == filter
-                                        ? .regular.interactive
+                                        ? .regular.interactive()
                                         : .regular,
-                                    in: Capsule()
+                                    in: .capsule
                                 )
                             }
                         }
                     }
                     .scrollClipDisabled()
+                    .scrollIndicators(.hidden)
 
                     ForEach(Array(DemoData.repositories.enumerated()), id: \.element.id) { index, repo in
                         VStack(alignment: .leading, spacing: 6) {

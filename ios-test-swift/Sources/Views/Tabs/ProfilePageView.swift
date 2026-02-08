@@ -69,7 +69,7 @@ struct ProfilePageView: View {
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 14)
-                                .contentShape(Rectangle())
+                                .contentShape(.rect)
                             }
                             .buttonStyle(.plain)
 
