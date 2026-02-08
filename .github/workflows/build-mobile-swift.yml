@@ -209,7 +209,7 @@ jobs:
           done
           
           if [ -n "$ARTIFACT_ID" ]; then
-            ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${ARTIFACT_ID}"
+            ARTIFACT_URL="https://api.github.com/repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip"
           else
             ARTIFACT_URL="${WORKFLOW_URL}"
           fi
