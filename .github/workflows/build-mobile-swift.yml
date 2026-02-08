@@ -73,19 +73,21 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks
 
-      - name: Configure API base URL
+      - name: Validate API base URL (fail if not set)
         env:
           API_BASE_URL: ${{ vars.MOBILE_SWIFT_API_BASE_URL != '' && vars.MOBILE_SWIFT_API_BASE_URL || secrets.MOBILE_SWIFT_API_BASE_URL || '' }}
         run: |
           set -euo pipefail
           if [ -z "$API_BASE_URL" ]; then
-            echo "⚠️  Missing MOBILE_SWIFT_API_BASE_URL"
-            echo "Using default https://localhost:8000/api. Set repository variable or secret MOBILE_SWIFT_API_BASE_URL to configure."
-            API_BASE_URL="https://localhost:8000/api"
+            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL is not set"
+            echo "❌ Please set MOBILE_SWIFT_API_BASE_URL as a repository variable or secret"
+            echo "❌ Format: https://your-domain.example.com/api"
+            echo "❌ This is a required configuration for building the mobile-swift app"
+            exit 1
           fi
           
+          echo "✅ API base URL validated: $API_BASE_URL"
           echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
-          echo "✅ API base URL configured: $API_BASE_URL"
 
       - name: Generate Xcode project
         working-directory: mobile-swift

@@ -75,8 +75,9 @@ The app connects to the Movie Manager backend API. The API base URL is configure
 - This works for Xcode builds without any changes
 
 **For CI/CD builds:**
-- Set repository variable or secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
+- **REQUIRED**: Set repository variable or secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
 - Must use HTTPS URL (e.g., `https://your-api.example.com/api`)
+- The workflow validates this is set and **fails early** if missing (no fallback)
 - The workflow automatically injects this value during build
 - The preprocessor expands `$(API_BASE_URL)` to the actual URL
 
