@@ -39,11 +39,13 @@ on:
     branches: [main]
     paths:
       - "mobile-swift/**"
+      - ".github/workflows/build-mobile-swift.yml"
 
   push:
     branches: [main]
     paths:
       - "mobile-swift/**"
+      - ".github/workflows/build-mobile-swift.yml"
 
 concurrency:
   group: mobile-swift-build-${{ github.ref }}

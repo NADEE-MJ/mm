@@ -14,11 +14,13 @@ on:
     branches: [main]
     paths:
       - "mobile/**"
+      - ".github/workflows/build-ios-simple.yml"
 
   push:
     branches: [main]
     paths:
       - "mobile/**"
+      - ".github/workflows/build-ios-simple.yml"
 
 concurrency:
   group: ios-build-${{ github.ref }}
