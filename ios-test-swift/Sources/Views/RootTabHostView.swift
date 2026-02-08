@@ -1,34 +1,37 @@
 import SwiftUI
 
+// MARK: - Root Tab Host
+// Uses native iOS 26 TabView for automatic liquid glass tab bar.
+// Only the active tab is rendered, eliminating the ZStack performance cost.
+
 struct RootTabHostView: View {
-    @Namespace private var tabNamespace
     @State private var selectedTab: TabItem = .home
 
     var body: some View {
-        ZStack {
-            PageBackground()
+        TabView(selection: $selectedTab) {
+            Tab(TabItem.home.title, systemImage: TabItem.home.icon, value: .home) {
+                HomePageView()
+            }
 
-            tabLayer(.home, HomePageView())
-            tabLayer(.inbox, InboxPageView())
-            tabLayer(.explore, ExplorePageView())
-            tabLayer(.profile, ProfilePageView())
+            Tab(TabItem.inbox.title, systemImage: TabItem.inbox.icon, value: .inbox) {
+                InboxPageView()
+            }
+
+            Tab(TabItem.explore.title, systemImage: TabItem.explore.icon, value: .explore) {
+                ExplorePageView()
+            }
+
+            Tab(TabItem.profile.title, systemImage: TabItem.profile.icon, value: .profile) {
+                ProfilePageView()
+            }
+
+            Tab(TabItem.community.title, systemImage: TabItem.community.icon, value: .community) {
+                CommunityPageView()
+            }
         }
-        .safeAreaInset(edge: .bottom) {
-            FloatingTabBar(selectedTab: $selectedTab, namespace: tabNamespace)
-                .padding(.top, 6)
-        }
+        .tint(AppTheme.blue)
         .preferredColorScheme(.dark)
         .sensoryFeedback(.selection, trigger: selectedTab)
-    }
-
-    private func tabLayer<Content: View>(_ tab: TabItem, _ content: Content) -> some View {
-        content
-            .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: 112)
-            }
-            .opacity(selectedTab == tab ? 1 : 0)
-            .allowsHitTesting(selectedTab == tab)
-            .animation(.easeInOut(duration: 0.16), value: selectedTab)
     }
 }
 

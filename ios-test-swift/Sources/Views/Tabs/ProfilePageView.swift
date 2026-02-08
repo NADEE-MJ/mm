@@ -4,15 +4,8 @@ struct ProfilePageView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     HStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(AppTheme.surface.opacity(0.9))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(AppTheme.stroke, lineWidth: 1)
-                            )
-                            .frame(height: 36)
                         Spacer()
                         CircleIconButton(icon: "gearshape") { }
                         CircleIconButton(icon: "square.and.arrow.up") { }
@@ -37,8 +30,24 @@ struct ProfilePageView: View {
                         .font(.body)
                         .foregroundStyle(AppTheme.textPrimary)
 
-                    Text("linkedin.com/in/nadeem-maida-29a4b11a1")
-                        .foregroundStyle(AppTheme.textSecondary)
+                    HStack(spacing: 6) {
+                        Image(systemName: "link")
+                            .font(.caption)
+                            .foregroundStyle(AppTheme.textTertiary)
+                        Text("linkedin.com/in/nadeem-maida-29a4b11a1")
+                            .foregroundStyle(AppTheme.blue)
+                    }
+
+                    HStack(spacing: 16) {
+                        Label("6 followers", systemImage: "person.2")
+                            .font(.subheadline)
+                            .foregroundStyle(AppTheme.textSecondary)
+                        Text("·")
+                            .foregroundStyle(AppTheme.textTertiary)
+                        Text("8 following")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
 
                     FrostedCard {
                         ForEach(Array(DemoData.profileActions.enumerated()), id: \.element.id) { index, action in
@@ -60,6 +69,7 @@ struct ProfilePageView: View {
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 14)
+                                .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
 
@@ -74,7 +84,8 @@ struct ProfilePageView: View {
                 .padding(.bottom, 20)
             }
             .scrollIndicators(.hidden)
-            .background(Color.clear)
+            .scrollBounceBehavior(.basedOnSize)
+            .background { PageBackground() }
             .toolbar(.hidden, for: .navigationBar)
         }
     }
@@ -116,7 +127,7 @@ private struct ProfileActionDetailView: View {
                 .foregroundStyle(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AppTheme.background)
+        .background { PageBackground() }
         .navigationTitle(action.title)
         .navigationBarTitleDisplayMode(.inline)
     }

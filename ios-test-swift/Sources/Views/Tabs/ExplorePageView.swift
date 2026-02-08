@@ -10,10 +10,12 @@ private enum RepoFilter: String, CaseIterable, Identifiable {
 }
 
 struct ExplorePageView: View {
+    @State private var selectedFilter: RepoFilter? = nil
+
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                LazyVStack(alignment: .leading, spacing: 14) {
                     HStack {
                         CircleIconButton(icon: "chevron.left") { }
                         Spacer()
@@ -27,51 +29,63 @@ struct ExplorePageView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(RepoFilter.allCases) { filter in
-                                Text(filter.rawValue)
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(AppTheme.textSecondary)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 8)
-                                    .background(AppTheme.surfaceMuted, in: Capsule())
-                                    .overlay(
-                                        Capsule().stroke(AppTheme.stroke, lineWidth: 1)
-                                    )
+                                Button {
+                                    withAnimation(.spring(.smooth(duration: 0.25))) {
+                                        selectedFilter = selectedFilter == filter ? nil : filter
+                                    }
+                                } label: {
+                                    Text(filter.rawValue)
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(
+                                            selectedFilter == filter
+                                                ? AppTheme.textPrimary
+                                                : AppTheme.textSecondary
+                                        )
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                }
+                                .buttonStyle(.plain)
+                                .glassEffect(
+                                    selectedFilter == filter
+                                        ? .regular.interactive
+                                        : .regular,
+                                    in: Capsule()
+                                )
                             }
                         }
                     }
+                    .scrollClipDisabled()
 
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(DemoData.repositories.enumerated()), id: \.element.id) { index, repo in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(repo.name)
-                                    .font(.headline)
-                                    .foregroundStyle(AppTheme.textPrimary)
-                                Text(repo.description)
-                                    .font(.subheadline)
-                                    .foregroundStyle(AppTheme.textSecondary)
+                    ForEach(Array(DemoData.repositories.enumerated()), id: \.element.id) { index, repo in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(repo.name)
+                                .font(.headline)
+                                .foregroundStyle(AppTheme.textPrimary)
+                            Text(repo.description)
+                                .font(.subheadline)
+                                .foregroundStyle(AppTheme.textSecondary)
 
-                                HStack(spacing: 12) {
-                                    Label("\(repo.stars)", systemImage: "star")
+                            HStack(spacing: 12) {
+                                Label("\(repo.stars)", systemImage: "star")
+                                    .font(.caption)
+                                    .foregroundStyle(AppTheme.textTertiary)
+
+                                HStack(spacing: 6) {
+                                    Circle()
+                                        .fill(Color(hex: repo.languageColorHex))
+                                        .frame(width: 9, height: 9)
+                                    Text(repo.language)
                                         .font(.caption)
-                                        .foregroundStyle(AppTheme.textTertiary)
-
-                                    HStack(spacing: 6) {
-                                        Circle()
-                                            .fill(Color(hex: repo.languageColorHex))
-                                            .frame(width: 9, height: 9)
-                                        Text(repo.language)
-                                            .font(.caption)
-                                            .foregroundStyle(AppTheme.textSecondary)
-                                    }
+                                        .foregroundStyle(AppTheme.textSecondary)
                                 }
                             }
-                            .padding(.vertical, 14)
+                        }
+                        .padding(.vertical, 14)
 
-                            if index < DemoData.repositories.count - 1 {
-                                Rectangle()
-                                    .fill(AppTheme.stroke)
-                                    .frame(height: 1)
-                            }
+                        if index < DemoData.repositories.count - 1 {
+                            Rectangle()
+                                .fill(AppTheme.stroke)
+                                .frame(height: 1)
                         }
                     }
                 }
@@ -80,7 +94,8 @@ struct ExplorePageView: View {
                 .padding(.bottom, 20)
             }
             .scrollIndicators(.hidden)
-            .background(Color.clear)
+            .scrollBounceBehavior(.basedOnSize)
+            .background { PageBackground() }
             .toolbar(.hidden, for: .navigationBar)
         }
     }

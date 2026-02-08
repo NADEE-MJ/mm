@@ -5,30 +5,25 @@ enum TabItem: String, CaseIterable, Hashable {
     case inbox
     case explore
     case profile
+    case community
 
     var title: String {
         switch self {
-        case .home:
-            return "Home"
-        case .inbox:
-            return "Inbox"
-        case .explore:
-            return "Explore"
-        case .profile:
-            return "Profile"
+        case .home: "Home"
+        case .inbox: "Inbox"
+        case .explore: "Explore"
+        case .profile: "Profile"
+        case .community: "Community"
         }
     }
 
     var icon: String {
         switch self {
-        case .home:
-            return "house.fill"
-        case .inbox:
-            return "tray.full.fill"
-        case .explore:
-            return "safari.fill"
-        case .profile:
-            return "person.crop.circle.fill"
+        case .home: "house.fill"
+        case .inbox: "tray.full.fill"
+        case .explore: "safari.fill"
+        case .profile: "person.crop.circle.fill"
+        case .community: "person.2.fill"
         }
     }
 }

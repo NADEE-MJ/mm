@@ -4,7 +4,7 @@ struct InboxPageView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
+                LazyVStack(alignment: .leading, spacing: 14) {
                     header
 
                     Text("Inbox")
@@ -53,7 +53,8 @@ struct InboxPageView: View {
                 .padding(.bottom, 20)
             }
             .scrollIndicators(.hidden)
-            .background(Color.clear)
+            .scrollBounceBehavior(.basedOnSize)
+            .background { PageBackground() }
             .toolbar(.hidden, for: .navigationBar)
         }
     }

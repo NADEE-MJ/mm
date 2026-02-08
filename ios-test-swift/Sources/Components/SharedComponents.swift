@@ -1,5 +1,7 @@
 import SwiftUI
 
+// MARK: - Frosted Card (Liquid Glass)
+
 struct FrostedCard<Content: View>: View {
     @ViewBuilder var content: Content
 
@@ -7,14 +9,11 @@ struct FrostedCard<Content: View>: View {
         VStack(spacing: 0) {
             content
         }
-        .background(AppTheme.surface.opacity(0.88))
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(AppTheme.stroke, lineWidth: 1)
-        )
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
+
+// MARK: - Divider
 
 struct DividerLine: View {
     var body: some View {
@@ -24,6 +23,8 @@ struct DividerLine: View {
             .padding(.leading, 52)
     }
 }
+
+// MARK: - Circle Icon Button (Liquid Glass Interactive)
 
 struct CircleIconButton: View {
     let icon: String
@@ -35,31 +36,21 @@ struct CircleIconButton: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(AppTheme.textPrimary)
                 .frame(width: 38, height: 38)
-                .background(AppTheme.surfaceMuted.opacity(0.95), in: Circle())
-                .overlay(
-                    Circle()
-                        .stroke(AppTheme.stroke, lineWidth: 1)
-                )
         }
         .buttonStyle(.plain)
+        .glassEffect(.regular.interactive, in: .circle)
     }
 }
 
+// MARK: - Page Background (lightweight, no blur)
+
 struct PageBackground: View {
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [AppTheme.background, AppTheme.backgroundAccent],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            Circle()
-                .fill(AppTheme.blue.opacity(0.10))
-                .frame(width: 260, height: 260)
-                .blur(radius: 24)
-                .offset(x: 120, y: -350)
-        }
+        LinearGradient(
+            colors: [AppTheme.background, AppTheme.backgroundAccent],
+            startPoint: .top,
+            endPoint: .bottom
+        )
         .ignoresSafeArea()
     }
 }
