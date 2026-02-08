@@ -188,34 +188,6 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-      - name: Comment on PR with build artifact
-        if: success() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          
-          COMMENT=$(cat <<EOF
-          ## ✅ Mobile Swift Build Complete
-          
-          Your build has finished successfully!
-          
-          | Property | Value |
-          |----------|-------|
-          | Branch | \`${{ github.head_ref }}\` |
-          | IPA | \`${{ env.IPA_NAME }}\` |
-          | Size | ${IPA_SIZE} |
-          | Artifact | mobile-swift-unsigned-ipa |
-          
-          **[📦 Download Build](${WORKFLOW_URL})**
-          
-          Click the link above, scroll to the bottom of the page, and download the artifact from the "Artifacts" section. The IPA will be available for 30 days.
-          EOF
-          )
-          
-          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
-
       - name: Publish PR build release
         if: success() && github.event_name == 'pull_request'
         env:
@@ -257,10 +229,35 @@ jobs:
             --prerelease
           
           echo "RELEASE_URL=$RELEASE_URL" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
           echo "✅ Created PR release: $RELEASE_URL"
+
+      - name: Comment on PR with build artifact
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
           
-          # Update PR comment with release link
-          gh pr comment ${{ github.event.pull_request.number }} --body "📦 **Release created:** [${TAG}](${RELEASE_URL})"
+          COMMENT=$(cat <<EOF
+          ## ✅ Mobile Swift Build Complete
+          
+          Your build has finished successfully!
+          
+          | Property | Value |
+          |----------|-------|
+          | Branch | \`${{ github.head_ref }}\` |
+          | IPA | \`${{ env.IPA_NAME }}\` |
+          | Size | ${IPA_SIZE} |
+          | Release Tag | \`${{ env.RELEASE_TAG }}\` |
+          
+          **[📦 Download from Release](${{ env.RELEASE_URL }})**
+          
+          The IPA is available for download from the release page above. No authentication required!
+          EOF
+          )
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
 
       - name: Publish latest IPA release
         if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')) && github.ref == 'refs/heads/main'
