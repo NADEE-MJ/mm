@@ -133,6 +133,21 @@ jobs:
             -scheme MobileSwift \
             -resolvePackageDependencies
 
+      - name: Verify plist build settings
+        working-directory: mobile-swift
+        run: |
+          set -euo pipefail
+          SETTINGS=$(xcodebuild -project MobileSwift.xcodeproj -scheme MobileSwift -configuration Release -showBuildSettings 2>/dev/null)
+          echo "$SETTINGS" | grep -E "^[[:space:]]*(GENERATE_INFOPLIST_FILE|INFOPLIST_FILE)[[:space:]]=" || true
+          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*GENERATE_INFOPLIST_FILE[[:space:]]*=[[:space:]]*NO$"; then
+            echo "❌ GENERATE_INFOPLIST_FILE must be NO"
+            exit 1
+          fi
+          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*INFOPLIST_FILE[[:space:]]*=[[:space:]]*Sources/Info.plist$"; then
+            echo "❌ INFOPLIST_FILE must be Sources/Info.plist"
+            exit 1
+          fi
+
       - name: Build with xcodebuild
         working-directory: mobile-swift
         run: |
