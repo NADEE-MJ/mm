@@ -67,3 +67,4 @@ Set one repository variable or secret:
 - The IPA is unsigned by design.
 - SideStore/LiveContainer re-signs before install.
 - If API URL is wrong in CI builds, update repo `EXPO_PUBLIC_API_URL` and rebuild.
+- A separate native Swift test app pipeline exists at `.github/workflows/build-ios-swift-test.yml`.

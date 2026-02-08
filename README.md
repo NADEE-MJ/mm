@@ -185,14 +185,27 @@ mm/
 
 ### iOS Build Pipeline (Unsigned IPA)
 
-This repo uses one workflow: `.github/workflows/build-ios-simple.yml`.
+This repo now has two iOS unsigned build workflows:
 
+- Expo app: `.github/workflows/build-ios-simple.yml`
+- Native Swift test app: `.github/workflows/build-ios-swift-test.yml`
+
+Expo app flow:
 1. Set GitHub repository variable or secret `EXPO_PUBLIC_API_URL` (production API URL used by CI builds).
 2. Push to `main` (or run workflow manually).
 3. Workflow builds unsigned `.ipa` on macOS runner.
 4. Download from:
    - Action artifact `ios-unsigned-ipa`, or
    - Release tag `ios-latest` in GitHub Releases (easiest on GitHub mobile app).
+
+Swift test app flow:
+1. Run **Build iOS Swift Test App (Unsigned)** from GitHub Actions.
+2. Optional workflow inputs:
+   - `publish_release` to control rolling release updates.
+   - `artifact_suffix` to append a suffix to the IPA filename.
+3. Download from:
+   - Action artifact `ios-swift-test-unsigned-ipa`, or
+   - Release tag `ios-swift-test-latest` in GitHub Releases.
 
 Install flow:
 - Import IPA into SideStore / LiveContainer.
