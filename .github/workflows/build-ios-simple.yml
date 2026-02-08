@@ -2,8 +2,25 @@ name: Build iOS (Unsigned for Sideloading)
 
 # Single-path iOS build pipeline:
 # Expo prebuild -> xcodebuild (unsigned) -> IPA artifact -> rolling release (ios-latest)
+#
+# Triggers:
+#   - workflow_dispatch: manual run from UI
+#   - pull_request: build check on PRs that touch mobile/
+#   - push to main: automatically build and release when mobile/ changes
 on:
   workflow_dispatch:
+
+  pull_request:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/build-ios-simple.yml"
+
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/build-ios-simple.yml"
 
 concurrency:
   group: ios-build-${{ github.ref }}
@@ -175,7 +192,16 @@ jobs:
           cp -R "${{ env.APP_PATH }}" Payload/
 
           APP_NAME=$(basename "${{ env.APP_PATH }}" .app)
-          IPA_NAME="${APP_NAME}-unsigned.ipa"
+
+          # Build the IPA filename based on trigger type
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Sanitize branch name for use in filename
+            BRANCH_RAW="${{ github.head_ref }}"
+            BRANCH=$(echo "$BRANCH_RAW" | tr -cd '[:alnum:]._-' | cut -c1-60)
+            IPA_NAME="${APP_NAME}-${BRANCH}-unsigned.ipa"
+          else
+            IPA_NAME="${APP_NAME}-unsigned.ipa"
+          fi
 
           zip -r -9 "$IPA_NAME" Payload/
 
@@ -197,7 +223,7 @@ jobs:
 
       # 11) Update rolling GitHub release tag with latest IPA
       - name: Publish latest IPA release
-        if: success() && github.ref == 'refs/heads/main'
+        if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -245,11 +271,37 @@ jobs:
 
       # 13) Write short summary card in Actions UI
       - name: Build summary
-        if: success()
+        if: success() && github.event_name == 'workflow_dispatch'
         run: |
           IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
 
           echo "## iOS Build Successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| IPA | ${{ env.IPA_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Size | $IPA_SIZE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Artifact | ios-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Release | ${{ env.RELEASE_URL }} |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: PR check summary
+        if: success() && github.event_name == 'pull_request'
+        run: |
+          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
+          echo "## ✅ iOS Build Passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Branch | ${{ github.head_ref }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| IPA | ${{ env.IPA_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Size | $IPA_SIZE |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Artifact | ios-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push summary
+        if: success() && github.event_name == 'push'
+        run: |
+          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
+          echo "## ✅ iOS Build & Release Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
