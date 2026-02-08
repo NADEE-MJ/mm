@@ -223,6 +223,10 @@ jobs:
             exit 1
           fi
 
+          # Force-write API_BASE_URL into the built app plist so runtime config is guaranteed.
+          /usr/libexec/PlistBuddy -c "Set :API_BASE_URL $API_BASE_URL" "$BUILT_INFO_PLIST" >/dev/null 2>&1 || \
+            /usr/libexec/PlistBuddy -c "Add :API_BASE_URL string $API_BASE_URL" "$BUILT_INFO_PLIST"
+
           BUILT_API_BASE_URL=$(/usr/bin/plutil -extract API_BASE_URL raw -o - "$BUILT_INFO_PLIST" 2>/dev/null || true)
           if [ -z "${BUILT_API_BASE_URL:-}" ]; then
             BUILT_API_BASE_URL=$(/usr/libexec/PlistBuddy -c "Print :API_BASE_URL" "$BUILT_INFO_PLIST" 2>/dev/null || true)
