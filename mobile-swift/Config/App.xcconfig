@@ -1,4 +1,7 @@
 // Base app config for all build configurations.
 // Local/CI values should be provided by Env.generated.xcconfig.
 API_BASE_URL = __UNSET_API_BASE_URL__
+GENERATE_INFOPLIST_FILE = NO
+INFOPLIST_FILE = Sources/Info.plist
+INFOPLIST_EXPAND_BUILD_SETTINGS = YES
 #include? "Env.generated.xcconfig"

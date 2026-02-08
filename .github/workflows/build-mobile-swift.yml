@@ -139,19 +139,20 @@ jobs:
           set -euo pipefail
           SETTINGS=$(xcodebuild \
             -project MobileSwift.xcodeproj \
-            -scheme MobileSwift \
+            -target MobileSwift \
             -configuration Release \
-            GENERATE_INFOPLIST_FILE=NO \
-            INFOPLIST_FILE=Sources/Info.plist \
-            INFOPLIST_EXPAND_BUILD_SETTINGS=YES \
             -showBuildSettings 2>/dev/null)
-          echo "$SETTINGS" | grep -E "^[[:space:]]*(GENERATE_INFOPLIST_FILE|INFOPLIST_FILE)[[:space:]]=" || true
+          echo "$SETTINGS" | grep -E "^[[:space:]]*(GENERATE_INFOPLIST_FILE|INFOPLIST_FILE|API_BASE_URL)[[:space:]]=" || true
           if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*GENERATE_INFOPLIST_FILE[[:space:]]*=[[:space:]]*NO$"; then
             echo "❌ GENERATE_INFOPLIST_FILE must be NO"
             exit 1
           fi
-          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*INFOPLIST_FILE[[:space:]]*=[[:space:]]*Sources/Info.plist$"; then
+          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*INFOPLIST_FILE[[:space:]]*=[[:space:]]*(Sources/Info.plist|\\$\\(SRCROOT\\)/Sources/Info.plist)$"; then
             echo "❌ INFOPLIST_FILE must be Sources/Info.plist"
+            exit 1
+          fi
+          if echo "$SETTINGS" | grep -qE "^[[:space:]]*API_BASE_URL[[:space:]]*=[[:space:]]*(__UNSET_API_BASE_URL__)?$"; then
+            echo "❌ API_BASE_URL is unresolved in build settings"
             exit 1
           fi
 
@@ -185,9 +186,6 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             IPHONEOS_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
-            GENERATE_INFOPLIST_FILE=NO \
-            INFOPLIST_FILE=Sources/Info.plist \
-            INFOPLIST_EXPAND_BUILD_SETTINGS=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
