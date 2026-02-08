@@ -61,9 +61,13 @@ mobile-swift/
 
 ### Configuration
 
-The app connects to the Movie Manager backend API. The API base URL is configured via build settings:
+The app connects to the Movie Manager backend API. The API base URL is configured via build settings with Info.plist preprocessing enabled.
 
 **Security Note:** The app enforces HTTPS-only connections per Apple's App Transport Security (ATS) policy. All API URLs must use HTTPS.
+
+**How it works:**
+- Info.plist preprocessing (`INFOPLIST_PREPROCESS: YES`) expands `$(API_BASE_URL)` at build time
+- The build setting value gets injected into the compiled app's Info.plist
 
 **For local development:**
 - Default value is `https://localhost:8000/api` (set in `project.yml`)
@@ -74,6 +78,7 @@ The app connects to the Movie Manager backend API. The API base URL is configure
 - Set repository variable or secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
 - Must use HTTPS URL (e.g., `https://your-api.example.com/api`)
 - The workflow automatically injects this value during build
+- The preprocessor expands `$(API_BASE_URL)` to the actual URL
 
 **To change for local builds:**
 Edit `project.yml` and update the `API_BASE_URL` setting:
