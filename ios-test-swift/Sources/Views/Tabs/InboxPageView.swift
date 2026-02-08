@@ -88,11 +88,11 @@ struct InboxPageView: View {
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
-                    .onScrollGeometryChange(for: Bool.self) { geo in
-                        geo.contentOffset.y > 20
-                    } action: { _, isScrolled in
+                    .onScrollGeometryChange(for: CGFloat.self) { geo in
+                        geo.contentOffset.y
+                    } action: { _, offset in
                         withAnimation(.spring(duration: 0.35)) {
-                            scrollState.isMinimized = isScrolled
+                            scrollState.update(offset: offset)
                         }
                     }
                 }

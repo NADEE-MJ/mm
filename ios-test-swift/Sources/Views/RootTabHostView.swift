@@ -30,7 +30,7 @@ struct RootTabHostView: View {
             .environment(scrollState)
             .onChange(of: selectedTab) { _, _ in
                 withAnimation(.spring(duration: 0.3)) {
-                    scrollState.isMinimized = false
+                    scrollState.reset()
                     if isFABExpanded { isFABExpanded = false }
                 }
             }
