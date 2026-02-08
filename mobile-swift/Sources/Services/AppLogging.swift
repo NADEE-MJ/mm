@@ -39,7 +39,7 @@ private enum AppLogLevel: String {
     case error = "ERROR"
 }
 
-final class FileLogStore {
+final class FileLogStore: @unchecked Sendable {
     static let shared = FileLogStore()
 
     private let queue = DispatchQueue(label: "com.moviemanager.mobileswift.filelog")
