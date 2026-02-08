@@ -11,6 +11,8 @@ struct RootTabHostView: View {
     @State private var showAddMovie = false
     @State private var scrollState = ScrollState()
     @State private var sheetScrollState = ScrollState()
+    @State private var searchState = SearchState()
+    @FocusState private var isSearchFocused: Bool
 
     private var isMinimized: Bool { scrollState.isMinimized }
 
@@ -30,12 +32,15 @@ struct RootTabHostView: View {
                 }
             }
             .environment(scrollState)
+            .environment(searchState)
             .tint(AppTheme.blue)
             .preferredColorScheme(.dark)
             .sensoryFeedback(.selection, trigger: selectedTab)
             .onChange(of: selectedTab) { _, _ in
                 withAnimation(.spring(duration: 0.3)) {
                     scrollState.reset()
+                    searchState.reset()
+                    isSearchFocused = false
                     if isFABExpanded { isFABExpanded = false }
                 }
             }
@@ -43,6 +48,17 @@ struct RootTabHostView: View {
             // ── Bottom bar (floating overlay) ──
             VStack {
                 Spacer()
+                
+                // Expandable Search Bar (above tab bar)
+                if searchState.isExpanded {
+                    expandableSearchBar
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .leading).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
+                        .padding(.bottom, 8)
+                }
+                
                 bottomBar
             }
             .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -100,6 +116,7 @@ struct RootTabHostView: View {
         HStack(spacing: 12) {
             tabBarPill
             Spacer()
+            searchButton
             fabMainButton
         }
         .padding(.horizontal, 16)
@@ -207,6 +224,73 @@ struct RootTabHostView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+    
+    // MARK: - Search Button
+    
+    private var searchButton: some View {
+        let size: CGFloat = isMinimized ? 40 : 56
+        return Button {
+            withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
+                searchState.isExpanded.toggle()
+                if searchState.isExpanded {
+                    isSearchFocused = true
+                } else {
+                    searchState.searchText = ""
+                    isSearchFocused = false
+                }
+            }
+        } label: {
+            Image(systemName: searchState.isExpanded ? "xmark" : "magnifyingglass")
+                .font(.system(size: isMinimized ? 16 : 20, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: size, height: size)
+                .background(
+                    searchState.isExpanded ? Color.gray : AppTheme.blue,
+                    in: .circle
+                )
+                .shadow(
+                    color: (searchState.isExpanded ? Color.gray : AppTheme.blue).opacity(0.35),
+                    radius: 8, y: 3
+                )
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .buttonStyle(.plain)
+        .sensoryFeedback(.impact(flexibility: .solid), trigger: searchState.isExpanded)
+    }
+    
+    // MARK: - Expandable Search Bar
+    
+    private var expandableSearchBar: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+                
+                TextField("Search movies...", text: $searchState.searchText)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .focused($isSearchFocused)
+                    .submitLabel(.search)
+                
+                if !searchState.searchText.isEmpty {
+                    Button {
+                        searchState.searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .glassEffect(.regular, in: .capsule)
+        }
+        .padding(.horizontal, 16)
     }
 }
 
