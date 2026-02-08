@@ -64,6 +64,12 @@ if [[ "$API_BASE_URL_VALUE" =~ localhost|127\.0\.0\.1|::1 ]]; then
   exit 1
 fi
 
+if [[ ! "$API_BASE_URL_VALUE" =~ /api/?$ ]]; then
+  echo "❌ ERROR: API_BASE_URL must end with /api"
+  echo "Received: $API_BASE_URL_VALUE"
+  exit 1
+fi
+
 if [[ "$API_BASE_URL_VALUE" == *'$('* || "$API_BASE_URL_VALUE" == *'${'* ]]; then
   echo "❌ ERROR: API_BASE_URL contains unresolved variable syntax."
   echo "Received: $API_BASE_URL_VALUE"

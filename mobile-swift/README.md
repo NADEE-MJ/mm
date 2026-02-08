@@ -67,8 +67,8 @@ The app connects to the Movie Manager backend API. The API base URL is configure
 
 **How it works:**
 - `Config/App.xcconfig` is loaded for Debug/Release and optionally includes `Config/Env.generated.xcconfig`
-- The app uses generated Info.plist mode (`GENERATE_INFOPLIST_FILE = YES`)
-- `INFOPLIST_KEY_API_BASE_URL` writes the final API URL into the compiled app Info.plist
+- The app uses `Sources/Info.plist` (`GENERATE_INFOPLIST_FILE = NO`)
+- `Sources/Info.plist` contains `<string>$(API_BASE_URL)</string>` and build settings expansion writes the final URL
 - The generator script escapes `/` safely for xcconfig so `https://...` is preserved
 
 **For local development:**

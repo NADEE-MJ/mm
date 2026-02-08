@@ -100,6 +100,9 @@ final class AuthManager {
                     logDebug("🔐 [LOGIN] ❌ Raw error: \(dataString)")
                     errorMsg = "Login failed: \(dataString.prefix(100))"
                 }
+                if http.statusCode == 405 {
+                    errorMsg += " — check API_BASE_URL includes '/api' (current: \(baseURL))"
+                }
                 error = errorMsg
                 return false
             }
@@ -207,7 +210,7 @@ final class AuthManager {
 
             logDebug("📝 [REGISTER] HTTP Status: \(http.statusCode)")
 
-            if http.statusCode != 200 {
+            if !(http.statusCode == 200 || http.statusCode == 201) {
                 var errorMsg = "Registration failed (HTTP \(http.statusCode))"
                 if let errResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
                     errorMsg = "\(errResponse.detail) (HTTP \(http.statusCode))"

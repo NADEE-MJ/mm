@@ -100,6 +100,12 @@ jobs:
             exit 1
           fi
 
+          if [[ ! "$API_BASE_URL" =~ /api/?$ ]]; then
+            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL must end with /api"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
           if [[ "$API_BASE_URL" == *'$('* || "$API_BASE_URL" == *'${'* ]]; then
             echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL contains unresolved variable syntax"
             echo "❌ Received: $API_BASE_URL"
@@ -142,9 +148,13 @@ jobs:
             -target MobileSwift \
             -configuration Release \
             -showBuildSettings 2>/dev/null)
-          echo "$SETTINGS" | grep -E "^[[:space:]]*(GENERATE_INFOPLIST_FILE|API_BASE_URL|INFOPLIST_KEY_API_BASE_URL)[[:space:]]=" || true
-          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*GENERATE_INFOPLIST_FILE[[:space:]]*=[[:space:]]*YES$"; then
-            echo "❌ GENERATE_INFOPLIST_FILE must be YES"
+          echo "$SETTINGS" | grep -E "^[[:space:]]*(GENERATE_INFOPLIST_FILE|INFOPLIST_FILE|API_BASE_URL)[[:space:]]=" || true
+          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*GENERATE_INFOPLIST_FILE[[:space:]]*=[[:space:]]*NO$"; then
+            echo "❌ GENERATE_INFOPLIST_FILE must be NO"
+            exit 1
+          fi
+          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*INFOPLIST_FILE[[:space:]]*=[[:space:]]*.*Sources/Info\\.plist$"; then
+            echo "❌ INFOPLIST_FILE must point to Sources/Info.plist"
             exit 1
           fi
           if echo "$SETTINGS" | grep -qE "^[[:space:]]*API_BASE_URL[[:space:]]*=[[:space:]]*(__UNSET_API_BASE_URL__)?$"; then
@@ -153,10 +163,6 @@ jobs:
           fi
           if echo "$SETTINGS" | grep -qE "^[[:space:]]*API_BASE_URL[[:space:]]*=[[:space:]]*https:$"; then
             echo "❌ API_BASE_URL resolved to https: only (likely bad xcconfig escaping)"
-            exit 1
-          fi
-          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*INFOPLIST_KEY_API_BASE_URL[[:space:]]*="; then
-            echo "❌ INFOPLIST_KEY_API_BASE_URL is not configured"
             exit 1
           fi
 

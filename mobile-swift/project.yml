@@ -16,6 +16,8 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "26.0"
+    info:
+      path: Sources/Info.plist
     sources:
       - Sources
     configFiles:
@@ -34,6 +36,9 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: 1.0
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Sources/Info.plist
+        INFOPLIST_EXPAND_BUILD_SETTINGS: YES
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
