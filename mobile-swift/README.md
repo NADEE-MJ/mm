@@ -61,33 +61,33 @@ mobile-swift/
 
 ### Configuration
 
-The app connects to the Movie Manager backend API. The API base URL is configured via build settings with Info.plist preprocessing enabled.
+The app connects to the Movie Manager backend API. The API base URL is configured via build settings and expanded into Info.plist at build time.
 
 **Security Note:** The app enforces HTTPS-only connections per Apple's App Transport Security (ATS) policy. All API URLs must use HTTPS.
 
 **How it works:**
-- Info.plist preprocessing (`INFOPLIST_PREPROCESS: YES`) expands `$(API_BASE_URL)` at build time
+- Info.plist build setting expansion (`INFOPLIST_EXPAND_BUILD_SETTINGS: YES`) resolves `$(API_BASE_URL)` at build time
+- `Config/App.xcconfig` is loaded for Debug/Release and optionally includes `Config/Env.generated.xcconfig`
 - The build setting value gets injected into the compiled app's Info.plist
 
 **For local development:**
-- Set `API_BASE_URL` to a real HTTPS backend URL before building
-- The project default is intentionally unset to prevent accidental localhost builds
+- Create `mobile-swift/.env` with one of:
+  - `API_BASE_URL=https://your-api.example.com/api`
+  - `MOBILE_SWIFT_API_BASE_URL=https://your-api.example.com/api`
+- Generate xcconfig before building:
+  ```bash
+  cd mobile-swift
+  ./scripts/generate-env-xcconfig.sh
+  ```
+- `Config/Env.generated.xcconfig` is generated and ignored by git
 - Ensure your backend server supports HTTPS
 
 **For CI/CD builds:**
 - **REQUIRED**: Set repository secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
 - Must use HTTPS URL (e.g., `https://your-api.example.com/api`)
 - The workflow validates this is set and **fails early** if missing/invalid (no fallback)
-- The workflow automatically injects this value during build
-- The preprocessor expands `$(API_BASE_URL)` to the actual URL
-
-**To change for local builds:**
-Edit `project.yml` and update the `API_BASE_URL` setting:
-```yaml
-settings:
-  base:
-    API_BASE_URL: "https://your-api-url:8000/api"
-```
+- The workflow generates `Config/Env.generated.xcconfig` from this secret
+- Build settings expansion resolves `$(API_BASE_URL)` to the actual URL
 
 Then regenerate the Xcode project:
 ```bash

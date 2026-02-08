@@ -109,6 +109,19 @@ jobs:
           echo "✅ API base URL validated: $API_BASE_URL"
           echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
 
+      - name: Generate CI xcconfig from secret
+        working-directory: mobile-swift
+        env:
+          API_BASE_URL: ${{ env.API_BASE_URL }}
+        run: |
+          set -euo pipefail
+          ./scripts/generate-env-xcconfig.sh
+          if [ ! -f Config/Env.generated.xcconfig ]; then
+            echo "❌ Missing Config/Env.generated.xcconfig"
+            exit 1
+          fi
+          echo "✅ Generated Config/Env.generated.xcconfig"
+
       - name: Generate Xcode project
         working-directory: mobile-swift
         run: xcodegen generate
@@ -130,6 +143,11 @@ jobs:
             exit 1
           fi
 
+          if [ ! -f "Config/Env.generated.xcconfig" ]; then
+            echo "❌ Missing Config/Env.generated.xcconfig"
+            exit 1
+          fi
+
           DEPLOYMENT_TARGET_RAW="${{ github.event.inputs.deployment_target }}"
           DEPLOYMENT_TARGET=$(echo "$DEPLOYMENT_TARGET_RAW" | tr -cd '0-9.')
           if [ -z "$DEPLOYMENT_TARGET" ]; then
@@ -145,7 +163,6 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             IPHONEOS_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
-            API_BASE_URL="$API_BASE_URL" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
@@ -169,17 +186,21 @@ jobs:
             exit 1
           fi
 
-          BUILT_API_BASE_URL=$(/usr/libexec/PlistBuddy -c "Print :API_BASE_URL" "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          BUILT_API_BASE_URL=$(/usr/bin/plutil -extract API_BASE_URL raw -o - "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          if [ -z "${BUILT_API_BASE_URL:-}" ]; then
+            BUILT_API_BASE_URL=$(/usr/libexec/PlistBuddy -c "Print :API_BASE_URL" "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          fi
           BUILT_API_BASE_URL=$(echo "${BUILT_API_BASE_URL:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
           if [ -z "$BUILT_API_BASE_URL" ]; then
             echo "❌ Built app API_BASE_URL is empty or missing in Info.plist"
+            echo "ℹ️ Built Info.plist snapshot:"
+            /usr/bin/plutil -p "$BUILT_INFO_PLIST" | sed -n '1,120p' || true
             exit 1
           fi
 
           if [ "$BUILT_API_BASE_URL" != "$API_BASE_URL" ]; then
             echo "❌ Built app API_BASE_URL does not match pipeline secret"
-            echo "❌ Expected: $API_BASE_URL"
-            echo "❌ Actual:   $BUILT_API_BASE_URL"
+            echo "❌ Actual built value: $BUILT_API_BASE_URL"
             exit 1
           fi
 
