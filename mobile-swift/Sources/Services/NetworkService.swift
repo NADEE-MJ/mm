@@ -178,7 +178,7 @@ final class NetworkService {
 
     private init() {
         let infoURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        baseURL = infoURL ?? "http://localhost:8000/api"
+        baseURL = infoURL ?? "https://localhost:8000/api"
     }
 
     // MARK: - Movies

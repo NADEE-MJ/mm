@@ -22,7 +22,7 @@ final class AuthManager {
 
     private init() {
         let infoURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        baseURL = infoURL ?? "http://localhost:8000/api"
+        baseURL = infoURL ?? "https://localhost:8000/api"
 
         // Load saved auth from Keychain
         if let saved = KeychainHelper.load(key: "auth_token") {
