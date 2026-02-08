@@ -335,12 +335,15 @@ struct DevToolsView: View {
     @State private var ws = WebSocketManager.shared
     @State private var selectedSection = 0
     @State private var wsInput = ""
+    @State private var loggingEnabled = DebugSettings.loggingEnabled
+    @State private var logURL = FileLogStore.shared.exportURL()
 
     var body: some View {
         VStack(spacing: 0) {
             Picker("Section", selection: $selectedSection) {
                 Label("SQLite", systemImage: "cylinder.split.1x2").tag(0)
                 Label("WebSocket", systemImage: "bolt.horizontal").tag(1)
+                Label("Logs", systemImage: "text.alignleft").tag(2)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
@@ -349,12 +352,17 @@ struct DevToolsView: View {
             switch selectedSection {
             case 0: sqliteSection
             case 1: webSocketSection
+            case 2: logsSection
             default: EmptyView()
             }
         }
         .background { PageBackground() }
         .navigationTitle("Developer Labs")
         .toolbarTitleDisplayMode(.inline)
+        .onAppear {
+            loggingEnabled = DebugSettings.loggingEnabled
+            logURL = FileLogStore.shared.exportURL()
+        }
     }
 
     // MARK: - SQLite Section
@@ -499,6 +507,70 @@ struct DevToolsView: View {
                 .background(.ultraThinMaterial)
             }
         }
+    }
+
+    // MARK: - Logs Section
+
+    private var logsSection: some View {
+        List {
+            Section("Console") {
+                Text("Live logs are written via os.Logger and can be viewed with idevicesyslog.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.textSecondary)
+                Text("idevicesyslog | grep -i \"\(Bundle.main.bundleIdentifier ?? "com.moviemanager.mobileswift")\"")
+                    .font(.system(.footnote, design: .monospaced))
+                    .textSelection(.enabled)
+            }
+
+            Section("Logging") {
+                #if DEBUG
+                Toggle("Enable verbose logging", isOn: $loggingEnabled)
+                    .onChange(of: loggingEnabled) { _, newValue in
+                        DebugSettings.loggingEnabled = newValue
+                        if newValue {
+                            AppLog.info("🧪 [Debug] Verbose logging enabled", category: .debug)
+                        } else {
+                            AppLog.warning("🧪 [Debug] Verbose logging disabled", category: .debug)
+                        }
+                    }
+
+                Button {
+                    AppLog.debug("🧪 [Debug] Manual test log entry", category: .debug)
+                    logURL = FileLogStore.shared.exportURL()
+                } label: {
+                    Label("Write Test Log Entry", systemImage: "pencil.and.list.clipboard")
+                }
+                #else
+                Text("Verbose logging controls are available in Debug builds.")
+                    .font(.footnote)
+                    .foregroundStyle(AppTheme.textSecondary)
+                #endif
+            }
+
+            Section("Export") {
+                HStack {
+                    Text("Log File")
+                    Spacer()
+                    Text(logURL.lastPathComponent)
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.textSecondary)
+                }
+
+                ShareLink(item: logURL) {
+                    Label("Export Logs", systemImage: "square.and.arrow.up")
+                }
+
+                Button(role: .destructive) {
+                    FileLogStore.shared.clear()
+                    AppLog.warning("🧪 [Debug] Log file cleared", category: .debug)
+                    logURL = FileLogStore.shared.exportURL()
+                } label: {
+                    Label("Clear Log File", systemImage: "trash")
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
     }
 }
 

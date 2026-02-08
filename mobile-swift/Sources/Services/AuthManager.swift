@@ -21,16 +21,21 @@ final class AuthManager {
     private let baseURL: String
 
     private init() {
-        let infoURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
-        baseURL = infoURL ?? "http://localhost:8000/api"
+        baseURL = AppConfiguration.apiBaseURLString
+        
+        // Debug: Log the configured API base URL
+        logDebug("🔧 [AuthManager] Initialized with baseURL: \(baseURL)")
+        logDebug("🔧 [AuthManager] Info.plist API_BASE_URL: \(baseURL)")
 
         // Load saved auth from Keychain
         if let saved = KeychainHelper.load(key: "auth_token") {
             token = saved
+            logDebug("🔧 [AuthManager] Loaded saved token from Keychain")
         }
         if let userData = KeychainHelper.loadData(key: "auth_user"),
            let decoded = try? JSONDecoder().decode(AuthUser.self, from: userData) {
             user = decoded
+            logDebug("🔧 [AuthManager] Loaded saved user from Keychain: \(decoded.email)")
         }
     }
 
@@ -42,8 +47,17 @@ final class AuthManager {
         defer { isLoading = false }
 
         let body = LoginRequest(email: email, password: password)
-        guard let url = URL(string: "\(baseURL)/auth/login") else {
-            error = "Invalid URL"
+        let urlString = "\(baseURL)/auth/login"
+        
+        logDebug("\n🔐 [LOGIN] Starting login attempt")
+        logDebug("🔐 [LOGIN] Base URL: \(baseURL)")
+        logDebug("🔐 [LOGIN] Full URL: \(urlString)")
+        logDebug("🔐 [LOGIN] Email: \(email)")
+        
+        guard let url = URL(string: urlString) else {
+            let errorMsg = "❌ Invalid URL: \(urlString)"
+            logDebug("🔐 [LOGIN] \(errorMsg)")
+            error = "Invalid URL - Check: \(urlString)"
             return false
         }
 
@@ -51,33 +65,63 @@ final class AuthManager {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONEncoder().encode(body)
+        
+        logDebug("🔐 [LOGIN] Request method: POST")
+        logDebug("🔐 [LOGIN] Request headers: \(request.allHTTPHeaderFields ?? [:])")
 
         do {
+            logDebug("🔐 [LOGIN] Sending request...")
+            let startTime = Date()
             let (data, response) = try await session.data(for: request)
+            let duration = Date().timeIntervalSince(startTime)
+            
+            logDebug("🔐 [LOGIN] Response received in \(String(format: "%.2f", duration))s")
+            
             guard let http = response as? HTTPURLResponse else {
-                error = "Invalid response"
+                let errorMsg = "❌ Invalid response type"
+                logDebug("🔐 [LOGIN] \(errorMsg)")
+                error = "Invalid response - Not HTTP response"
                 return false
             }
 
+            logDebug("🔐 [LOGIN] HTTP Status: \(http.statusCode)")
+            logDebug("🔐 [LOGIN] Response headers: \(http.allHeaderFields)")
+            
+            if let dataString = String(data: data, encoding: .utf8) {
+                logDebug("🔐 [LOGIN] Response body: \(dataString)")
+            }
+
             if http.statusCode != 200 {
+                var errorMsg = "Login failed (HTTP \(http.statusCode))"
                 if let errResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                    error = errResponse.detail
-                } else {
-                    error = "Login failed"
+                    errorMsg = "\(errResponse.detail) (HTTP \(http.statusCode))"
+                    logDebug("🔐 [LOGIN] ❌ Server error: \(errResponse.detail)")
+                } else if let dataString = String(data: data, encoding: .utf8) {
+                    logDebug("🔐 [LOGIN] ❌ Raw error: \(dataString)")
+                    errorMsg = "Login failed: \(dataString.prefix(100))"
                 }
+                error = errorMsg
                 return false
             }
 
             guard let tokenResponse = try? JSONDecoder().decode(TokenResponse.self, from: data) else {
-                error = "Invalid response format"
+                let errorMsg = "❌ Invalid response format - couldn't decode token"
+                logDebug("🔐 [LOGIN] \(errorMsg)")
+                error = "Invalid response format from server"
                 return false
             }
 
+            logDebug("🔐 [LOGIN] ✅ Token received successfully")
+
             // Fetch user info with the new token
             guard let fetchedUser = await fetchMe(token: tokenResponse.accessToken) else {
-                error = "Failed to get user info"
+                let errorMsg = "❌ Failed to fetch user info"
+                logDebug("🔐 [LOGIN] \(errorMsg)")
+                error = "Failed to get user info from server"
                 return false
             }
+
+            logDebug("🔐 [LOGIN] ✅ User info retrieved: \(fetchedUser.email)")
 
             // Save to Keychain
             token = tokenResponse.accessToken
@@ -87,9 +131,39 @@ final class AuthManager {
                 KeychainHelper.saveData(key: "auth_user", data: userData)
             }
 
+            logDebug("🔐 [LOGIN] ✅ Login successful!\n")
             return true
+        } catch let urlError as URLError {
+            let errorMsg = "Network error: \(urlError.localizedDescription) (Code: \(urlError.code.rawValue))"
+            logDebug("🔐 [LOGIN] ❌ URLError: \(errorMsg)")
+            logDebug("🔐 [LOGIN] ❌ URLError details: \(urlError)")
+            
+            // Provide more specific error messages
+            var detailedError = errorMsg
+            switch urlError.code {
+            case .notConnectedToInternet:
+                detailedError = "No internet connection"
+            case .cannotFindHost:
+                detailedError = "Cannot find host: \(urlString) - Check DNS/URL"
+            case .cannotConnectToHost:
+                detailedError = "Cannot connect to: \(urlString) - Server down?"
+            case .timedOut:
+                detailedError = "Connection timed out to: \(urlString)"
+            case .secureConnectionFailed:
+                detailedError = "HTTPS/SSL failed for: \(urlString) - Check certificate"
+            case .serverCertificateUntrusted:
+                detailedError = "Server certificate not trusted: \(urlString)"
+            default:
+                detailedError = "\(errorMsg)\nURL: \(urlString)"
+            }
+            
+            self.error = detailedError
+            return false
         } catch {
-            self.error = error.localizedDescription
+            let errorMsg = "Unexpected error: \(error.localizedDescription)"
+            logDebug("🔐 [LOGIN] ❌ \(errorMsg)")
+            logDebug("🔐 [LOGIN] ❌ Error details: \(error)")
+            self.error = "\(errorMsg)\nURL: \(urlString)"
             return false
         }
     }
@@ -102,8 +176,17 @@ final class AuthManager {
         defer { isLoading = false }
 
         let body = RegisterRequest(email: email, username: username, password: password)
-        guard let url = URL(string: "\(baseURL)/auth/register") else {
-            error = "Invalid URL"
+        let urlString = "\(baseURL)/auth/register"
+        
+        logDebug("\n📝 [REGISTER] Starting registration attempt")
+        logDebug("📝 [REGISTER] Base URL: \(baseURL)")
+        logDebug("📝 [REGISTER] Full URL: \(urlString)")
+        logDebug("📝 [REGISTER] Email: \(email), Username: \(username)")
+        
+        guard let url = URL(string: urlString) else {
+            let errorMsg = "❌ Invalid URL: \(urlString)"
+            logDebug("📝 [REGISTER] \(errorMsg)")
+            error = "Invalid URL - Check: \(urlString)"
             return false
         }
 
@@ -113,26 +196,43 @@ final class AuthManager {
         request.httpBody = try? JSONEncoder().encode(body)
 
         do {
+            logDebug("📝 [REGISTER] Sending request...")
             let (data, response) = try await session.data(for: request)
+            
             guard let http = response as? HTTPURLResponse else {
+                logDebug("📝 [REGISTER] ❌ Invalid response type")
                 error = "Invalid response"
                 return false
             }
 
+            logDebug("📝 [REGISTER] HTTP Status: \(http.statusCode)")
+
             if http.statusCode != 200 {
+                var errorMsg = "Registration failed (HTTP \(http.statusCode))"
                 if let errResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                    error = errResponse.detail
-                } else {
-                    error = "Registration failed"
+                    errorMsg = "\(errResponse.detail) (HTTP \(http.statusCode))"
+                    logDebug("📝 [REGISTER] ❌ Server error: \(errResponse.detail)")
+                } else if let dataString = String(data: data, encoding: .utf8) {
+                    logDebug("📝 [REGISTER] ❌ Raw error: \(dataString)")
                 }
+                error = errorMsg
                 return false
             }
 
+            logDebug("📝 [REGISTER] ✅ Registration successful, now logging in...")
+            
             // Auto-login after registration
             isLoading = false
             return await login(email: email, password: password)
+        } catch let urlError as URLError {
+            let errorMsg = "Network error: \(urlError.localizedDescription)"
+            logDebug("📝 [REGISTER] ❌ URLError: \(errorMsg)")
+            self.error = "\(errorMsg)\nURL: \(urlString)"
+            return false
         } catch {
-            self.error = error.localizedDescription
+            let errorMsg = "Unexpected error: \(error.localizedDescription)"
+            logDebug("📝 [REGISTER] ❌ \(errorMsg)")
+            self.error = "\(errorMsg)\nURL: \(urlString)"
             return false
         }
     }
@@ -166,15 +266,55 @@ final class AuthManager {
     // MARK: - Helpers
 
     private func fetchMe(token: String) async -> AuthUser? {
-        guard let url = URL(string: "\(baseURL)/auth/me") else { return nil }
+        let urlString = "\(baseURL)/auth/me"
+        logDebug("👤 [FETCH_ME] Fetching user info from: \(urlString)")
+        
+        guard let url = URL(string: urlString) else {
+            logDebug("👤 [FETCH_ME] ❌ Invalid URL")
+            return nil
+        }
+        
         var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
         do {
             let (data, response) = try await session.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-            return try? JSONDecoder().decode(AuthUser.self, from: data)
-        } catch {
+            guard let http = response as? HTTPURLResponse else {
+                logDebug("👤 [FETCH_ME] ❌ Invalid response type")
+                return nil
+            }
+            
+            logDebug("👤 [FETCH_ME] HTTP Status: \(http.statusCode)")
+            
+            if http.statusCode != 200 {
+                if let dataString = String(data: data, encoding: .utf8) {
+                    logDebug("👤 [FETCH_ME] ❌ Error response: \(dataString)")
+                }
+                return nil
+            }
+            
+            let user = try? JSONDecoder().decode(AuthUser.self, from: data)
+            if let user = user {
+                logDebug("👤 [FETCH_ME] ✅ Successfully fetched user: \(user.email)")
+            } else {
+                logDebug("👤 [FETCH_ME] ❌ Failed to decode user data")
+            }
+            return user
+        } catch let urlError as URLError {
+            logDebug("👤 [FETCH_ME] ❌ URLError: \(urlError.localizedDescription)")
             return nil
+        } catch {
+            logDebug("👤 [FETCH_ME] ❌ Error: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func logDebug(_ message: @autoclosure () -> String) {
+        let value = message()
+        if value.contains("❌") {
+            AppLog.error(value, category: .auth)
+        } else {
+            AppLog.debug(value, category: .auth)
         }
     }
 }

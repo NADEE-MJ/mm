@@ -62,7 +62,7 @@ final class DatabaseManager {
             dbQueue = try DatabaseQueue(path: fileURL.path)
             try migrate()
             loadCache()
-            print("[GRDB] Database opened at \(fileURL.path)")
+            logDebug("[GRDB] Database opened at \(fileURL.path)")
         } catch {
             fatalError("[GRDB] Failed to open database: \(error)")
         }
@@ -113,7 +113,7 @@ final class DatabaseManager {
             }
             loadCache()
         } catch {
-            print("[GRDB] Insert error: \(error)")
+            logDebug("[GRDB] Insert error: \(error)")
         }
     }
     
@@ -128,7 +128,7 @@ final class DatabaseManager {
             }
             loadCache()
         } catch {
-            print("[GRDB] Insert error: \(error)")
+            logDebug("[GRDB] Insert error: \(error)")
         }
     }
 
@@ -140,7 +140,7 @@ final class DatabaseManager {
             }
             loadCache()
         } catch {
-            print("[GRDB] Clear error: \(error)")
+            logDebug("[GRDB] Clear error: \(error)")
         }
     }
 
@@ -157,10 +157,19 @@ final class DatabaseManager {
                     .fetchAll(db)
             }
         } catch {
-            print("[GRDB] Fetch error: \(error)")
+            logDebug("[GRDB] Fetch error: \(error)")
         }
     }
 
     var movieCount: Int { cachedMovies.count }
     var peopleCount: Int { cachedPeople.count }
+
+    private func logDebug(_ message: @autoclosure () -> String) {
+        let value = message()
+        if value.localizedCaseInsensitiveContains("error") {
+            AppLog.error(value, category: .database)
+        } else {
+            AppLog.debug(value, category: .database)
+        }
+    }
 }
