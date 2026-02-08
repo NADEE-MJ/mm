@@ -5,7 +5,6 @@ enum TabItem: String, CaseIterable, Hashable {
     case inbox
     case explore
     case profile
-    case community
 
     var title: String {
         switch self {
@@ -13,7 +12,6 @@ enum TabItem: String, CaseIterable, Hashable {
         case .inbox: "Inbox"
         case .explore: "Explore"
         case .profile: "Profile"
-        case .community: "Community"
         }
     }
 
@@ -23,7 +21,6 @@ enum TabItem: String, CaseIterable, Hashable {
         case .inbox: "tray.full.fill"
         case .explore: "safari.fill"
         case .profile: "person.crop.circle.fill"
-        case .community: "person.2.fill"
         }
     }
 }
