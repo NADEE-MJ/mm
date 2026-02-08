@@ -63,12 +63,16 @@ mobile-swift/
 
 The app connects to the Movie Manager backend API. The API base URL is configured via build settings:
 
+**Security Note:** The app enforces HTTPS-only connections per Apple's App Transport Security (ATS) policy. All API URLs must use HTTPS.
+
 **For local development:**
-- Default value is `http://localhost:8000/api` (set in `project.yml`)
+- Default value is `https://localhost:8000/api` (set in `project.yml`)
+- Ensure your local backend server supports HTTPS
 - This works for Xcode builds without any changes
 
 **For CI/CD builds:**
 - Set repository variable or secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
+- Must use HTTPS URL (e.g., `https://your-api.example.com/api`)
 - The workflow automatically injects this value during build
 
 **To change for local builds:**
@@ -76,7 +80,7 @@ Edit `project.yml` and update the `API_BASE_URL` setting:
 ```yaml
 settings:
   base:
-    API_BASE_URL: "http://your-api-url:8000/api"
+    API_BASE_URL: "https://your-api-url:8000/api"
 ```
 
 Then regenerate the Xcode project:

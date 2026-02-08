@@ -80,8 +80,8 @@ jobs:
           set -euo pipefail
           if [ -z "$API_BASE_URL" ]; then
             echo "⚠️  Missing MOBILE_SWIFT_API_BASE_URL"
-            echo "Using default localhost:8000/api. Set repository variable or secret MOBILE_SWIFT_API_BASE_URL to configure."
-            API_BASE_URL="http://localhost:8000/api"
+            echo "Using default https://localhost:8000/api. Set repository variable or secret MOBILE_SWIFT_API_BASE_URL to configure."
+            API_BASE_URL="https://localhost:8000/api"
           fi
           
           echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
