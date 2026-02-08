@@ -75,7 +75,7 @@ struct RootTabHostView: View {
 // MARK: - Glass Effect Modifier
 
 extension View {
-    func glassEffect<S: Shape>(_ prominence: ShapeStyle = .regularMaterial, in shape: S) -> some View {
+    func glassEffect<S: Shape>(in shape: S) -> some View {
         self
             .background(AppTheme.surface, in: shape)
             .overlay {
