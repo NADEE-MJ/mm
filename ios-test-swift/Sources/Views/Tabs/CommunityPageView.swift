@@ -83,7 +83,19 @@ struct CommunityPageView: View {
         .environment(\.editMode, $editMode)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                EditButton()
+                Button {
+                    withAnimation {
+                        if editMode == .active {
+                            editMode = .inactive
+                            selectedIds.removeAll()
+                        } else {
+                            editMode = .active
+                        }
+                    }
+                } label: {
+                    Text(editMode == .active ? "Done" : "Select")
+                        .fontWeight(editMode == .active ? .semibold : .regular)
+                }
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button { showingAddMember = true } label: {
@@ -92,15 +104,16 @@ struct CommunityPageView: View {
             }
 
             // Bulk actions when selecting
-            if editMode == .active && !selectedIds.isEmpty {
+            if editMode == .active {
                 ToolbarItem(placement: .bottomBar) {
                     HStack {
                         Button("Remove Selected", role: .destructive) {
                             showBulkDelete = true
                         }
                         .foregroundStyle(.red)
+                        .disabled(selectedIds.isEmpty)
                         Spacer()
-                        Text("\(selectedIds.count) selected")
+                        Text(selectedIds.isEmpty ? "Tap rows to select" : "\(selectedIds.count) selected")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

@@ -1,4 +1,5 @@
 import Observation
+import SwiftUI
 
 @Observable
 class ScrollState {
