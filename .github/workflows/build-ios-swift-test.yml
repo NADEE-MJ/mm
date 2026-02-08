@@ -39,13 +39,11 @@ on:
     branches: [main]
     paths:
       - "ios-test-swift/**"
-      - ".github/workflows/build-ios-swift-test.yml"
 
   push:
     branches: [main]
     paths:
       - "ios-test-swift/**"
-      - ".github/workflows/build-ios-swift-test.yml"
 
 concurrency:
   group: ios-swift-test-build-${{ github.ref }}

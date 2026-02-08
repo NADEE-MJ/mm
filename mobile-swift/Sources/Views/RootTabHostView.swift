@@ -68,18 +68,18 @@ struct RootTabHostView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .frame(height: 56)
-        .glassEffect(.regular, in: .capsule)
+        .glassEffect(in: .capsule)
     }
 }
 
 // MARK: - Glass Effect Modifier
 
 extension View {
-    func glassEffect(_ prominence: MaterialProminence, in shape: some InsertableShape) -> some View {
+    func glassEffect<S: Shape>(_ prominence: ShapeStyle = .regularMaterial, in shape: S) -> some View {
         self
             .background(AppTheme.surface, in: shape)
             .overlay {
-                shape.strokeBorder(AppTheme.stroke, lineWidth: 1)
+                shape.stroke(AppTheme.stroke, lineWidth: 1)
             }
     }
 }
