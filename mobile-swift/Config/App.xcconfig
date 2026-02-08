@@ -4,4 +4,9 @@ API_BASE_URL = __UNSET_API_BASE_URL__
 GENERATE_INFOPLIST_FILE = NO
 INFOPLIST_FILE = Sources/Info.plist
 INFOPLIST_EXPAND_BUILD_SETTINGS = YES
+INFOPLIST_KEY_API_BASE_URL = $(API_BASE_URL)
+INFOPLIST_KEY_UIRequiresFullScreen = YES
+INFOPLIST_KEY_NSFaceIDUsageDescription = Authenticate to unlock the app
+INFOPLIST_KEY_UIFileSharingEnabled = YES
+INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES
 #include? "Env.generated.xcconfig"

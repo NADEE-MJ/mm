@@ -68,7 +68,7 @@ The app connects to the Movie Manager backend API. The API base URL is configure
 **How it works:**
 - Info.plist build setting expansion (`INFOPLIST_EXPAND_BUILD_SETTINGS: YES`) resolves `$(API_BASE_URL)` at build time
 - `Config/App.xcconfig` is loaded for Debug/Release and optionally includes `Config/Env.generated.xcconfig`
-- The build setting value gets injected into the compiled app's Info.plist
+- `INFOPLIST_KEY_API_BASE_URL` ensures the key is written to the compiled app Info.plist
 
 **For local development:**
 - Create `mobile-swift/.env` with one of:
