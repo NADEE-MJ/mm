@@ -179,6 +179,10 @@ final class NetworkService {
     private init() {
         let infoURL = Bundle.main.object(forInfoDictionaryKey: "API_BASE_URL") as? String
         baseURL = infoURL ?? "https://localhost:8000/api"
+        
+        // Debug: Log the configured API base URL
+        print("🌐 [NetworkService] Initialized with baseURL: \(baseURL)")
+        print("🌐 [NetworkService] Info.plist API_BASE_URL: \(infoURL ?? "nil (using fallback)")")
     }
 
     // MARK: - Movies
