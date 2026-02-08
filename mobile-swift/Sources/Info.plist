@@ -29,7 +29,12 @@
   <dict/>
   <key>NSFaceIDUsageDescription</key>
   <string>Authenticate to unlock the app</string>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
   <key>API_BASE_URL</key>
-  <string>$(API_BASE_URL)</string>
+  <string>http://localhost:8000/api</string>
 </dict>
 </plist>
