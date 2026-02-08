@@ -208,7 +208,7 @@ jobs:
           | Size | ${IPA_SIZE} |
           | Artifact | mobile-swift-unsigned-ipa |
           
-          **[📦 Download Build]($WORKFLOW_URL)**
+          **[📦 Download Build](${WORKFLOW_URL})**
           
           Click the link above, scroll to the bottom of the page, and download the artifact from the "Artifacts" section. The IPA will be available for 30 days.
           EOF
