@@ -129,6 +129,6 @@ private struct ProfileActionDetailView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { PageBackground() }
         .navigationTitle(action.title)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleDisplayMode(.inline)
     }
 }

@@ -165,6 +165,6 @@ struct DetailStubView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { PageBackground() }
         .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
+        .toolbarTitleDisplayMode(.inline)
     }
 }
