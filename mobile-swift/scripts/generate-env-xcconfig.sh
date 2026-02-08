@@ -70,11 +70,13 @@ if [[ "$API_BASE_URL_VALUE" == *'$('* || "$API_BASE_URL_VALUE" == *'${'* ]]; the
   exit 1
 fi
 
+API_BASE_URL_XCCONFIG_VALUE="$(printf '%s' "$API_BASE_URL_VALUE" | sed 's,/,$(FORWARD_SLASH),g')"
+
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
 cat > "$OUTPUT_PATH" <<EOF_XCCONFIG
 // Generated file. Do not commit secrets.
-API_BASE_URL = $API_BASE_URL_VALUE
+API_BASE_URL = $API_BASE_URL_XCCONFIG_VALUE
 EOF_XCCONFIG
 
 echo "✅ Generated xcconfig: $OUTPUT_PATH"

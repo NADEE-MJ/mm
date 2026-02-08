@@ -66,9 +66,10 @@ The app connects to the Movie Manager backend API. The API base URL is configure
 **Security Note:** The app enforces HTTPS-only connections per Apple's App Transport Security (ATS) policy. All API URLs must use HTTPS.
 
 **How it works:**
-- Info.plist build setting expansion (`INFOPLIST_EXPAND_BUILD_SETTINGS: YES`) resolves `$(API_BASE_URL)` at build time
 - `Config/App.xcconfig` is loaded for Debug/Release and optionally includes `Config/Env.generated.xcconfig`
-- `INFOPLIST_KEY_API_BASE_URL` ensures the key is written to the compiled app Info.plist
+- The app uses generated Info.plist mode (`GENERATE_INFOPLIST_FILE = YES`)
+- `INFOPLIST_KEY_API_BASE_URL` writes the final API URL into the compiled app Info.plist
+- The generator script escapes `/` safely for xcconfig so `https://...` is preserved
 
 **For local development:**
 - Create `mobile-swift/.env` with one of:
@@ -87,7 +88,7 @@ The app connects to the Movie Manager backend API. The API base URL is configure
 - Must use HTTPS URL (e.g., `https://your-api.example.com/api`)
 - The workflow validates this is set and **fails early** if missing/invalid (no fallback)
 - The workflow generates `Config/Env.generated.xcconfig` from this secret
-- Build settings expansion resolves `$(API_BASE_URL)` to the actual URL
+- The build verifies the compiled app Info.plist contains the exact secret URL
 
 Then regenerate the Xcode project:
 ```bash

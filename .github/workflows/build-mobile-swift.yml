@@ -142,17 +142,17 @@ jobs:
             -target MobileSwift \
             -configuration Release \
             -showBuildSettings 2>/dev/null)
-          echo "$SETTINGS" | grep -E "^[[:space:]]*(GENERATE_INFOPLIST_FILE|INFOPLIST_FILE|API_BASE_URL|INFOPLIST_KEY_API_BASE_URL)[[:space:]]=" || true
-          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*GENERATE_INFOPLIST_FILE[[:space:]]*=[[:space:]]*NO$"; then
-            echo "❌ GENERATE_INFOPLIST_FILE must be NO"
-            exit 1
-          fi
-          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*INFOPLIST_FILE[[:space:]]*=[[:space:]]*(Sources/Info.plist|\\$\\(SRCROOT\\)/Sources/Info.plist)$"; then
-            echo "❌ INFOPLIST_FILE must be Sources/Info.plist"
+          echo "$SETTINGS" | grep -E "^[[:space:]]*(GENERATE_INFOPLIST_FILE|API_BASE_URL|INFOPLIST_KEY_API_BASE_URL)[[:space:]]=" || true
+          if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*GENERATE_INFOPLIST_FILE[[:space:]]*=[[:space:]]*YES$"; then
+            echo "❌ GENERATE_INFOPLIST_FILE must be YES"
             exit 1
           fi
           if echo "$SETTINGS" | grep -qE "^[[:space:]]*API_BASE_URL[[:space:]]*=[[:space:]]*(__UNSET_API_BASE_URL__)?$"; then
             echo "❌ API_BASE_URL is unresolved in build settings"
+            exit 1
+          fi
+          if echo "$SETTINGS" | grep -qE "^[[:space:]]*API_BASE_URL[[:space:]]*=[[:space:]]*https:$"; then
+            echo "❌ API_BASE_URL resolved to https: only (likely bad xcconfig escaping)"
             exit 1
           fi
           if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*INFOPLIST_KEY_API_BASE_URL[[:space:]]*="; then

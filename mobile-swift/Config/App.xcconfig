@@ -1,10 +1,10 @@
 // Base app config for all build configurations.
 // Local/CI values should be provided by Env.generated.xcconfig.
 API_BASE_URL = __UNSET_API_BASE_URL__
-GENERATE_INFOPLIST_FILE = NO
-INFOPLIST_FILE = Sources/Info.plist
-INFOPLIST_EXPAND_BUILD_SETTINGS = YES
+FORWARD_SLASH = /
+GENERATE_INFOPLIST_FILE = YES
 INFOPLIST_KEY_API_BASE_URL = $(API_BASE_URL)
+INFOPLIST_KEY_LSRequiresIPhoneOS = YES
 INFOPLIST_KEY_UIRequiresFullScreen = YES
 INFOPLIST_KEY_NSFaceIDUsageDescription = Authenticate to unlock the app
 INFOPLIST_KEY_UIFileSharingEnabled = YES
