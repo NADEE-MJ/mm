@@ -250,6 +250,52 @@ jobs:
           
           gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
 
+      - name: Publish PR build release
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          
+          # Sanitize branch name for tag
+          BRANCH_RAW="${{ github.head_ref }}"
+          BRANCH=$(echo "$BRANCH_RAW" | tr -cd '[:alnum:]._-' | cut -c1-50)
+          
+          # Get current date
+          DATE=$(date +%Y%m%d-%H%M%S)
+          
+          TAG="pr-ios-${BRANCH}-${DATE}"
+          RELEASE_TITLE="iOS PR Build: ${BRANCH}"
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
+          
+          # Create tag
+          gh api -X POST "repos/${{ github.repository }}/git/refs" \
+            -f ref="refs/tags/${TAG}" \
+            -f sha="${{ github.sha }}"
+          
+          NOTES=$(cat <<EOF_NOTES
+          PR build for branch \`${BRANCH}\` from commit ${{ github.sha }}.
+          
+          **Branch:** ${{ github.head_ref }}
+          **PR:** #${{ github.event.pull_request.number }}
+          **Date:** ${DATE}
+          
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF_NOTES
+          )
+          
+          # Create release
+          gh release create "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" \
+            --title "$RELEASE_TITLE" \
+            --notes "$NOTES" \
+            --prerelease
+          
+          echo "RELEASE_URL=$RELEASE_URL" >> "$GITHUB_ENV"
+          echo "✅ Created PR release: $RELEASE_URL"
+          
+          # Update PR comment with release link
+          gh pr comment ${{ github.event.pull_request.number }} --body "📦 **Release created:** [${TAG}](${RELEASE_URL})"
+
       # 11) Update rolling GitHub release tag with latest IPA
       - name: Publish latest IPA release
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
