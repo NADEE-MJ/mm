@@ -202,7 +202,7 @@ Swift test app flow:
 1. Run **Build iOS Swift Test App (Unsigned)** from GitHub Actions.
 2. Optional workflow inputs:
    - `runner_image` (`macos-latest` default, `macos-15` fallback, `macos-26` if available).
-   - `deployment_target` (default `17.0`) for the iOS build setting.
+   - `deployment_target` (default `26.0`) for the iOS build setting.
    - `publish_release` to control rolling release updates.
    - `artifact_suffix` to append a suffix to the IPA filename.
 3. Download from:

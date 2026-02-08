@@ -5,15 +5,17 @@ struct RootTabHostView: View {
     @State private var selectedTab: TabItem = .home
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             PageBackground()
 
             tabLayer(.home, HomePageView())
             tabLayer(.inbox, InboxPageView())
             tabLayer(.explore, ExplorePageView())
             tabLayer(.profile, ProfilePageView())
-
+        }
+        .safeAreaInset(edge: .bottom) {
             FloatingTabBar(selectedTab: $selectedTab, namespace: tabNamespace)
+                .padding(.top, 6)
         }
         .preferredColorScheme(.dark)
         .sensoryFeedback(.selection, trigger: selectedTab)
@@ -26,7 +28,6 @@ struct RootTabHostView: View {
             }
             .opacity(selectedTab == tab ? 1 : 0)
             .allowsHitTesting(selectedTab == tab)
-            .zIndex(selectedTab == tab ? 1 : 0)
             .animation(.easeInOut(duration: 0.16), value: selectedTab)
     }
 }

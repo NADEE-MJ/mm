@@ -15,9 +15,9 @@ on:
           - macos-15
           - macos-26
       deployment_target:
-        description: "iOS deployment target for build setting (e.g. 17.0, 18.0)"
+        description: "iOS deployment target for build setting (e.g. 26.0)"
         required: true
-        default: "17.0"
+        default: "26.0"
         type: string
       publish_release:
         description: "Publish/update ios-swift-test-latest release"
@@ -67,7 +67,7 @@ jobs:
           DEPLOYMENT_TARGET_RAW="${{ github.event.inputs.deployment_target }}"
           DEPLOYMENT_TARGET=$(echo "$DEPLOYMENT_TARGET_RAW" | tr -cd '0-9.')
           if [ -z "$DEPLOYMENT_TARGET" ]; then
-            DEPLOYMENT_TARGET="17.0"
+            DEPLOYMENT_TARGET="26.0"
           fi
           echo "Using IPHONEOS_DEPLOYMENT_TARGET=$DEPLOYMENT_TARGET"
 

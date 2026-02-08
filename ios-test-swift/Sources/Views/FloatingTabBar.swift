@@ -40,7 +40,11 @@ struct FloatingTabBar: View {
                 }
             }
             .padding(6)
-            .background(.ultraThinMaterial, in: Capsule())
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(Capsule().fill(Color.white.opacity(0.06)))
+            )
             .overlay(
                 Capsule()
                     .stroke(AppTheme.strongStroke, lineWidth: 1)

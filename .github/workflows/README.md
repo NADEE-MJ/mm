@@ -50,7 +50,7 @@ Trigger:
 
 - Manual run via **Actions > Build iOS Swift Test App (Unsigned) > Run workflow**
 - Optional input `runner_image` (`macos-latest` default, `macos-15` fallback, `macos-26` if available in GitHub Actions).
-- Optional input `deployment_target` (default `17.0`) to override `IPHONEOS_DEPLOYMENT_TARGET` for a run.
+- Optional input `deployment_target` (default `26.0`) to override `IPHONEOS_DEPLOYMENT_TARGET` for a run.
 - Optional input `publish_release` to skip rolling release updates for a specific run.
 - Optional input `artifact_suffix` to customize the IPA filename.
 
