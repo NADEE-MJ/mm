@@ -1,65 +1,122 @@
 import SwiftUI
 
 // MARK: - People Page
-// Displays list of people and their trust status
+// Recommender management with stats, trust badges, swipe actions,
+// search, detail view, and add person sheet.
 
 struct PeoplePageView: View {
     @State private var people: [Person] = []
     @State private var searchText = ""
+    @State private var showAddPerson = false
+    @State private var filterTrusted: Bool?
     @Environment(ScrollState.self) private var scrollState
 
     private var filteredPeople: [Person] {
-        if searchText.isEmpty {
-            return people
+        var result = people
+        if !searchText.isEmpty {
+            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
         }
-        return people.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        if let trusted = filterTrusted {
+            result = result.filter { $0.isTrusted == trusted }
+        }
+        return result
+    }
+
+    private var trustedCount: Int {
+        people.filter(\.isTrusted).count
     }
 
     var body: some View {
         NavigationStack {
             List {
-                ForEach(filteredPeople) { person in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(person.name)
-                                .font(.headline)
-                                .foregroundStyle(AppTheme.textPrimary)
-                            
-                            Text("\(person.movieCount) movie\(person.movieCount == 1 ? "" : "s")")
-                                .font(.caption)
-                                .foregroundStyle(AppTheme.textSecondary)
-                        }
-                        
-                        Spacer()
-                        
-                        // Trust toggle
-                        Button {
-                            Task {
-                                await NetworkService.shared.updatePerson(
-                                    name: person.name,
-                                    isTrusted: !person.isTrusted
-                                )
-                                await loadPeople()
+                // Filter chips
+                Section {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            FilterChip(title: "All (\(people.count))", isSelected: filterTrusted == nil) {
+                                withAnimation { filterTrusted = nil }
                             }
-                        } label: {
-                            Image(systemName: person.isTrusted ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(person.isTrusted ? .green : AppTheme.textTertiary)
-                                .font(.title3)
+                            FilterChip(title: "Trusted (\(trustedCount))", isSelected: filterTrusted == true) {
+                                withAnimation { filterTrusted = filterTrusted == true ? nil : true }
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 4)
+                    .scrollIndicators(.hidden)
+                    .scrollClipDisabled()
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                }
+
+                // People list
+                Section("\(filteredPeople.count) people") {
+                    if filteredPeople.isEmpty {
+                        ContentUnavailableView(
+                            "No People",
+                            systemImage: "person.2.slash",
+                            description: Text("Add recommenders to track who suggests movies.")
+                        )
+                    } else {
+                        ForEach(filteredPeople) { person in
+                            NavigationLink {
+                                PersonDetailView(person: person) {
+                                    await loadPeople()
+                                }
+                            } label: {
+                                PersonRow(person: person)
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                Button {
+                                    Task {
+                                        await NetworkService.shared.updatePerson(
+                                            name: person.name,
+                                            isTrusted: !person.isTrusted
+                                        )
+                                        await loadPeople()
+                                    }
+                                } label: {
+                                    Label(
+                                        person.isTrusted ? "Untrust" : "Trust",
+                                        systemImage: person.isTrusted ? "star.slash.fill" : "star.fill"
+                                    )
+                                }
+                                .tint(person.isTrusted ? .orange : .green)
+                            }
+                        }
+                    }
                 }
             }
-            .listStyle(.plain)
-            .background(AppTheme.background)
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
+            .onScrollGeometryChange(for: CGFloat.self) { geo in
+                geo.contentOffset.y
+            } action: { _, offset in
+                withAnimation(.spring(duration: 0.35)) {
+                    scrollState.update(offset: offset)
+                }
+            }
+            .background { PageBackground() }
             .navigationTitle("People")
-            .searchable(text: $searchText, prompt: "Search people")
+            .searchable(text: $searchText, prompt: "Search people...")
             .refreshable {
                 await loadPeople()
             }
             .task {
                 await loadPeople()
+            }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showAddPerson = true } label: {
+                        Image(systemName: "person.badge.plus")
+                    }
+                }
+            }
+            .sheet(isPresented: $showAddPerson) {
+                AddPersonSheet {
+                    await loadPeople()
+                }
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
             }
         }
     }
@@ -67,6 +124,216 @@ struct PeoplePageView: View {
     private func loadPeople() async {
         await NetworkService.shared.fetchPeople()
         people = NetworkService.shared.people
+    }
+}
+
+// MARK: - Person Row
+
+private struct PersonRow: View {
+    let person: Person
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Avatar
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: person.isTrusted ? [.blue, .purple] : [AppTheme.surface, AppTheme.surfaceMuted],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 40, height: 40)
+                .overlay(
+                    Text(String(person.name.prefix(1)).uppercased())
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(person.name)
+                        .font(.headline)
+                        .foregroundStyle(AppTheme.textPrimary)
+
+                    if person.isTrusted {
+                        Image(systemName: "star.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.yellow)
+                    }
+                }
+
+                Text("\(person.movieCount) movie\(person.movieCount == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundStyle(AppTheme.textSecondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(AppTheme.textTertiary)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Person Detail View
+
+private struct PersonDetailView: View {
+    let person: Person
+    let onUpdate: () async -> Void
+    @State private var isTrusted: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    init(person: Person, onUpdate: @escaping () async -> Void) {
+        self.person = person
+        self.onUpdate = onUpdate
+        _isTrusted = State(initialValue: person.isTrusted)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                // Header
+                HStack(spacing: 14) {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: isTrusted ? [.blue, .purple, .pink] : [AppTheme.surface, AppTheme.surfaceMuted],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 72, height: 72)
+                        .overlay(
+                            Text(String(person.name.prefix(1)).uppercased())
+                                .font(.title2.bold())
+                                .foregroundStyle(.white)
+                        )
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text(person.name)
+                                .font(.title2.bold())
+                                .foregroundStyle(AppTheme.textPrimary)
+
+                            if isTrusted {
+                                HStack(spacing: 3) {
+                                    Image(systemName: "star.fill")
+                                        .font(.caption)
+                                    Text("Trusted")
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .foregroundStyle(.yellow)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(.yellow.opacity(0.15), in: .capsule)
+                            }
+                        }
+
+                        Text("\(person.movieCount) recommendations")
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    Spacer()
+                }
+
+                // Stats
+                FrostedCard {
+                    HStack(spacing: 0) {
+                        statCell(value: "\(person.movieCount)", label: "Movies", icon: "film.fill")
+                        statCell(value: isTrusted ? "Yes" : "No", label: "Trusted", icon: "star.fill")
+                    }
+                    .padding(.vertical, 12)
+                }
+
+                // Trust toggle
+                FrostedCard {
+                    Toggle(isOn: $isTrusted) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "star.fill")
+                                .foregroundStyle(isTrusted ? .yellow : AppTheme.textTertiary)
+                                .frame(width: 22)
+                            Text("Trusted Recommender")
+                                .foregroundStyle(AppTheme.textPrimary)
+                        }
+                    }
+                    .padding(14)
+                    .tint(AppTheme.blue)
+                    .onChange(of: isTrusted) { _, newValue in
+                        Task {
+                            await NetworkService.shared.updatePerson(
+                                name: person.name,
+                                isTrusted: newValue
+                            )
+                            await onUpdate()
+                        }
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .background { PageBackground() }
+        .navigationTitle(person.name)
+        .toolbarTitleDisplayMode(.inline)
+    }
+
+    private func statCell(value: String, label: String, icon: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon).foregroundStyle(AppTheme.blue)
+            Text(value).font(.headline)
+            Text(label).font(.caption).foregroundStyle(AppTheme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Add Person Sheet
+
+private struct AddPersonSheet: View {
+    let onAdded: () async -> Void
+    @State private var name = ""
+    @State private var isTrusted = false
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Details") {
+                    TextField("Name", text: $name)
+                    Toggle("Trusted Recommender", isOn: $isTrusted)
+                }
+
+                Section("Preview") {
+                    PersonRow(person: Person(
+                        name: name.isEmpty ? "New Person" : name,
+                        isTrusted: isTrusted,
+                        movieCount: 0
+                    ))
+                }
+            }
+            .navigationTitle("Add Recommender")
+            .toolbarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        Task {
+                            await NetworkService.shared.updatePerson(
+                                name: name,
+                                isTrusted: isTrusted
+                            )
+                            await onAdded()
+                            dismiss()
+                        }
+                    }
+                    .bold()
+                    .disabled(name.isEmpty)
+                }
+            }
+        }
     }
 }
 
