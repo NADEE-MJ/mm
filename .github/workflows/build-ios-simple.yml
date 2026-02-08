@@ -36,6 +36,7 @@ jobs:
 
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       # 1) Fetch repository source
@@ -221,6 +222,77 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
+      - name: Publish PR build release
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          
+          # Sanitize branch name for tag
+          BRANCH_RAW="${{ github.head_ref }}"
+          BRANCH=$(echo "$BRANCH_RAW" | tr -cd '[:alnum:]._-' | cut -c1-50)
+          
+          # Get current date
+          DATE=$(date +%Y%m%d-%H%M%S)
+          
+          TAG="pr-ios-${BRANCH}-${DATE}"
+          RELEASE_TITLE="iOS PR Build: ${BRANCH}"
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
+          
+          # Create tag
+          gh api -X POST "repos/${{ github.repository }}/git/refs" \
+            -f ref="refs/tags/${TAG}" \
+            -f sha="${{ github.sha }}"
+          
+          NOTES=$(cat <<EOF_NOTES
+          PR build for branch \`${BRANCH}\` from commit ${{ github.sha }}.
+          
+          **Branch:** ${{ github.head_ref }}
+          **PR:** #${{ github.event.pull_request.number }}
+          **Date:** ${DATE}
+          
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF_NOTES
+          )
+          
+          # Create release
+          gh release create "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" \
+            --title "$RELEASE_TITLE" \
+            --notes "$NOTES" \
+            --prerelease
+          
+          echo "RELEASE_URL=$RELEASE_URL" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "✅ Created PR release: $RELEASE_URL"
+
+      - name: Comment on PR with build artifact
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
+          
+          COMMENT=$(cat <<EOF
+          ## ✅ iOS Build Complete
+          
+          Your build has finished successfully!
+          
+          | Property | Value |
+          |----------|-------|
+          | Branch | \`${{ github.head_ref }}\` |
+          | IPA | \`${{ env.IPA_NAME }}\` |
+          | Size | ${IPA_SIZE} |
+          | Release Tag | \`${{ env.RELEASE_TAG }}\` |
+          
+          **[📦 Download from Release](${{ env.RELEASE_URL }})**
+          
+          The IPA is available for download from the release page above. No authentication required!
+          EOF
+          )
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
+
       # 11) Update rolling GitHub release tag with latest IPA
       - name: Publish latest IPA release
         if: success() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
@@ -268,6 +340,44 @@ jobs:
           path: mobile/ios/build.log
           retention-days: 7
           if-no-files-found: warn
+
+      - name: Comment on PR with failure details
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          # Extract last 50 lines of build log if it exists
+          if [ -f mobile/ios/build.log ]; then
+            BUILD_LOG_EXCERPT=$(tail -50 mobile/ios/build.log | sed 's/```/`~`/g')
+          else
+            BUILD_LOG_EXCERPT="Build log not available"
+          fi
+          
+          COMMENT=$(cat <<EOF
+          ## ❌ iOS Build Failed
+          
+          @copilot The build has failed on this PR. Please investigate and fix the issue.
+          
+          | Property | Value |
+          |----------|-------|
+          | Branch | \`${{ github.head_ref }}\` |
+          | Workflow | iOS Build (Expo/React Native) |
+          | Commit | \`${{ github.sha }}\` |
+          
+          **[📋 View Full Logs](${WORKFLOW_URL})**
+          
+          ### Build Log Excerpt (last 50 lines):
+          \`\`\`
+          ${BUILD_LOG_EXCERPT}
+          \`\`\`
+          
+          The full build log is available as an artifact on the workflow run page (retained for 7 days).
+          EOF
+          )
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
 
       # 13) Write short summary card in Actions UI
       - name: Build summary
