@@ -25,8 +25,9 @@ final class NetworkService {
         // Load API base URL from Info.plist, default to localhost
         if let infoDict = Bundle.main.infoDictionary,
            let apiBaseURL = infoDict["API_BASE_URL"] as? String, !apiBaseURL.isEmpty {
-            // Append /api to the base URL
-            self.baseURL = apiBaseURL.hasSuffix("/") ? "\(apiBaseURL)api" : "\(apiBaseURL)/api"
+            // Append /api to the base URL, handling trailing slash
+            let trimmedURL = apiBaseURL.hasSuffix("/") ? String(apiBaseURL.dropLast()) : apiBaseURL
+            self.baseURL = "\(trimmedURL)/api"
         } else {
             self.baseURL = "http://localhost:8000/api"
         }
