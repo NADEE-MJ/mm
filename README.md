@@ -71,6 +71,21 @@ mm/
 │   ├── .env.example         # EXPO_PUBLIC_API_URL template
 │   └── README.md            # Mobile-specific setup
 │
+├── mobile-swift/
+│   ├── Sources/             # Swift source code
+│   │   ├── MobileSwiftApp.swift  # App entry point
+│   │   ├── Models/          # Data models
+│   │   ├── Services/        # Network, database, WebSocket
+│   │   ├── Views/           # SwiftUI views
+│   │   └── Theme/           # App theming
+│   ├── project.yml          # XcodeGen configuration
+│   └── README.md            # Mobile Swift setup
+│
+├── ios-test-swift/
+│   ├── Sources/             # Swift test app (UI demo)
+│   ├── project.yml          # XcodeGen configuration
+│   └── README.md            # Test app documentation
+│
 └── README.md
 ```
 
@@ -415,6 +430,42 @@ uv run pytest  # (tests not included in MVP)
 ## License
 
 MIT License - see LICENSE file
+
+## CI/CD Pipelines
+
+The repository includes automated build pipelines for all iOS apps that build unsigned IPAs for sideloading:
+
+### Mobile Swift App (`mobile-swift/`)
+- **Workflow**: `.github/workflows/build-mobile-swift.yml`
+- **Triggers**: 
+  - Manual dispatch from GitHub Actions UI
+  - Pull requests when `mobile-swift/**` changes
+  - Push to main when `mobile-swift/**` changes
+- **Outputs**: 
+  - Artifact: `mobile-swift-unsigned-ipa`
+  - Release: `mobile-swift-latest` tag
+
+### Mobile React Native App (`mobile/`)
+- **Workflow**: `.github/workflows/build-ios-simple.yml`
+- **Triggers**:
+  - Manual dispatch from GitHub Actions UI
+  - Pull requests when `mobile/**` changes
+  - Push to main when `mobile/**` changes
+- **Outputs**:
+  - Artifact: `ios-unsigned-ipa`
+  - Release: `ios-latest` tag
+
+### iOS Test Swift App (`ios-test-swift/`)
+- **Workflow**: `.github/workflows/build-ios-swift-test.yml`
+- **Triggers**:
+  - Manual dispatch from GitHub Actions UI
+  - Pull requests when `ios-test-swift/**` changes
+  - Push to main when `ios-test-swift/**` changes
+- **Outputs**:
+  - Artifact: `ios-swift-test-unsigned-ipa`
+  - Release: `ios-swift-test-latest` tag
+
+All pipelines use path-based filtering to ensure they only run when their respective folders change, reducing unnecessary builds and CI costs.
 
 ## Credits
 
