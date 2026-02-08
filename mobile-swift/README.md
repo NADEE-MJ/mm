@@ -61,10 +61,27 @@ mobile-swift/
 
 ### Configuration
 
-The app connects to the Movie Manager backend API. Update the `baseURL` in `Sources/Services/NetworkService.swift`:
+The app connects to the Movie Manager backend API. The API base URL is configured via build settings:
 
-```swift
-private let baseURL = "http://your-api-url:8000/api"
+**For local development:**
+- Default value is `http://localhost:8000/api` (set in `project.yml`)
+- This works for Xcode builds without any changes
+
+**For CI/CD builds:**
+- Set repository variable or secret `MOBILE_SWIFT_API_BASE_URL` in GitHub
+- The workflow automatically injects this value during build
+
+**To change for local builds:**
+Edit `project.yml` and update the `API_BASE_URL` setting:
+```yaml
+settings:
+  base:
+    API_BASE_URL: "http://your-api-url:8000/api"
+```
+
+Then regenerate the Xcode project:
+```bash
+xcodegen generate
 ```
 
 ## CI/CD Pipeline

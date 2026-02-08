@@ -35,6 +35,6 @@
     <true/>
   </dict>
   <key>API_BASE_URL</key>
-  <string>http://localhost:8000/api</string>
+  <string>$(API_BASE_URL)</string>
 </dict>
 </plist>
