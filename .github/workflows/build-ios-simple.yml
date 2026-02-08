@@ -298,6 +298,44 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
+      - name: Comment on PR with failure details
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          # Extract last 50 lines of build log if it exists
+          if [ -f mobile/ios/build.log ]; then
+            BUILD_LOG_EXCERPT=$(tail -50 mobile/ios/build.log | sed 's/```/`~`/g')
+          else
+            BUILD_LOG_EXCERPT="Build log not available"
+          fi
+          
+          COMMENT=$(cat <<EOF
+          ## ❌ iOS Build Failed
+          
+          @copilot The build has failed on this PR. Please investigate and fix the issue.
+          
+          | Property | Value |
+          |----------|-------|
+          | Branch | \`${{ github.head_ref }}\` |
+          | Workflow | iOS Build (Expo/React Native) |
+          | Commit | \`${{ github.sha }}\` |
+          
+          **[📋 View Full Logs](${WORKFLOW_URL})**
+          
+          ### Build Log Excerpt (last 50 lines):
+          \`\`\`
+          ${BUILD_LOG_EXCERPT}
+          \`\`\`
+          
+          The full build log is available as an artifact on the workflow run page (retained for 7 days).
+          EOF
+          )
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
+
       # 13) Write short summary card in Actions UI
       - name: Build summary
         if: success() && github.event_name == 'workflow_dispatch'
