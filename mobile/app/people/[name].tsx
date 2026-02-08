@@ -11,7 +11,7 @@ import GroupedListItem from '../../src/components/ui/GroupedListItem';
 import { COLORS } from '../../src/utils/constants';
 import { getMovieTitle, getMovieYear, getPosterUrl } from '../../src/utils/movieData';
 
-const COLOR_OPTIONS = ['#DBA506', '#0a84ff', '#34c759', '#ff9500', '#5856d6', '#ff2d55', '#00b4d8', '#ffd60a', '#8e8e93'];
+const COLOR_OPTIONS = ['#0a84ff', '#34c759', '#ff9500', '#5856d6', '#ff2d55', '#00b4d8', '#ffd60a', '#8e8e93'];
 const EMOJI_OPTIONS = ['🍿', '🎬', '🎯', '🔥', '🌟', '💡', '🤝', '🎲', '🧠', '📽️'];
 
 function Stat({ label, value }: { label: string; value: number }) {
