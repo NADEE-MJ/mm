@@ -192,7 +192,16 @@ jobs:
           cp -R "${{ env.APP_PATH }}" Payload/
 
           APP_NAME=$(basename "${{ env.APP_PATH }}" .app)
-          IPA_NAME="${APP_NAME}-unsigned.ipa"
+
+          # Build the IPA filename based on trigger type
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Sanitize branch name for use in filename
+            BRANCH_RAW="${{ github.head_ref }}"
+            BRANCH=$(echo "$BRANCH_RAW" | tr -cd '[:alnum:]._-' | cut -c1-60)
+            IPA_NAME="${APP_NAME}-${BRANCH}-unsigned.ipa"
+          else
+            IPA_NAME="${APP_NAME}-unsigned.ipa"
+          fi
 
           zip -r -9 "$IPA_NAME" Payload/
 
