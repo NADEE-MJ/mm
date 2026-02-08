@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Data Models
 
-struct Movie: Identifiable, Hashable, Codable {
+struct Movie: Identifiable, Hashable, Decodable {
     let id: Int
     let imdbId: String
     let tmdbId: Int?
@@ -60,8 +60,13 @@ struct Movie: Identifiable, Hashable, Codable {
             releaseDate = tmdbData?.year ?? omdbData?.yearString
             voteAverage = tmdbData?.voteAverage ?? omdbData?.imdbRating
             status = Self.mapBackendStatusToApp(backendStatus)
-            myRating = backendMovie.watchHistory?.myRating.map { Int(round($0)) }
-            dateWatched = backendMovie.watchHistory?.dateWatched.map(Self.formatUnixTimestamp)
+            if let watchHistory = backendMovie.watchHistory {
+                myRating = Int(round(watchHistory.myRating))
+                dateWatched = Self.formatUnixTimestamp(watchHistory.dateWatched)
+            } else {
+                myRating = nil
+                dateWatched = nil
+            }
             recommendations = mappedRecommendations
             return
         }
@@ -141,7 +146,7 @@ struct Movie: Identifiable, Hashable, Codable {
     }
 }
 
-struct Recommendation: Hashable, Codable {
+struct Recommendation: Hashable, Decodable {
     let recommender: String
     let dateRecommended: String
 
@@ -153,9 +158,11 @@ struct Recommendation: Hashable, Codable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        recommender =
-            (try? c.decode(String.self, forKey: .recommender))
-            ?? (try c.decode(String.self, forKey: .person))
+        if let recommenderValue = try? c.decode(String.self, forKey: .recommender) {
+            recommender = recommenderValue
+        } else {
+            recommender = try c.decode(String.self, forKey: .person)
+        }
 
         if let dateString = try? c.decode(String.self, forKey: .dateRecommended) {
             dateRecommended = dateString
@@ -201,7 +208,7 @@ struct Person: Identifiable, Hashable, Codable {
     }
 }
 
-struct TMDBMovie: Identifiable, Hashable, Codable {
+struct TMDBMovie: Identifiable, Hashable, Decodable {
     let id: Int
     let title: String
     let posterPath: String?
@@ -233,9 +240,9 @@ struct TMDBMovie: Identifiable, Hashable, Codable {
         id = try c.decode(Int.self, forKey: .id)
         title = (try? c.decode(String.self, forKey: .title)) ?? "Untitled"
 
-        if let poster = try? c.decodeIfPresent(String.self, forKey: .poster), let poster {
+        if let poster = try? c.decode(String.self, forKey: .poster) {
             posterPath = poster
-        } else if let posterSmall = try? c.decodeIfPresent(String.self, forKey: .posterSmall), let posterSmall {
+        } else if let posterSmall = try? c.decode(String.self, forKey: .posterSmall) {
             posterPath = posterSmall
         } else {
             posterPath = try c.decodeIfPresent(String.self, forKey: .posterPath)
@@ -243,17 +250,17 @@ struct TMDBMovie: Identifiable, Hashable, Codable {
 
         overview = try c.decodeIfPresent(String.self, forKey: .overview)
 
-        if let release = try? c.decodeIfPresent(String.self, forKey: .releaseDate), let release {
+        if let release = try? c.decode(String.self, forKey: .releaseDate) {
             releaseDate = release
-        } else if let yearString = try? c.decodeIfPresent(String.self, forKey: .year), let yearString {
+        } else if let yearString = try? c.decode(String.self, forKey: .year) {
             releaseDate = yearString
-        } else if let yearInt = try? c.decodeIfPresent(Int.self, forKey: .year), let yearInt {
+        } else if let yearInt = try? c.decode(Int.self, forKey: .year) {
             releaseDate = String(yearInt)
         } else {
             releaseDate = nil
         }
 
-        if let vote = try? c.decodeIfPresent(Double.self, forKey: .voteAverage), let vote {
+        if let vote = try? c.decode(Double.self, forKey: .voteAverage) {
             voteAverage = vote
         } else {
             voteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverageCamel)
@@ -270,7 +277,7 @@ struct TMDBMovie: Identifiable, Hashable, Codable {
     }
 }
 
-private struct TMDBSearchResponse: Codable {
+private struct TMDBSearchResponse: Decodable {
     let results: [TMDBMovie]
 }
 
@@ -316,8 +323,11 @@ private struct TMDBDetailPayload: Codable {
         case posterPath = "poster_path"
         case plot
         case voteAverage
-        case voteAverageSnake = "vote_average"
         case voteCount
+    }
+
+    private enum AlternateDecodingKeys: String, CodingKey {
+        case voteAverageSnake = "vote_average"
         case voteCountSnake = "vote_count"
     }
 
@@ -327,9 +337,9 @@ private struct TMDBDetailPayload: Codable {
         imdbId = try c.decodeIfPresent(String.self, forKey: .imdbId)
         title = try c.decodeIfPresent(String.self, forKey: .title)
 
-        if let yearString = try? c.decodeIfPresent(String.self, forKey: .year), let yearString {
+        if let yearString = try? c.decode(String.self, forKey: .year) {
             year = yearString
-        } else if let yearInt = try? c.decodeIfPresent(Int.self, forKey: .year), let yearInt {
+        } else if let yearInt = try? c.decode(Int.self, forKey: .year) {
             year = String(yearInt)
         } else {
             year = nil
@@ -339,12 +349,21 @@ private struct TMDBDetailPayload: Codable {
         posterSmall = try c.decodeIfPresent(String.self, forKey: .posterSmall)
         posterPath = try c.decodeIfPresent(String.self, forKey: .posterPath)
         plot = try c.decodeIfPresent(String.self, forKey: .plot)
-        voteAverage =
-            (try? c.decodeIfPresent(Double.self, forKey: .voteAverage))
-            ?? (try? c.decodeIfPresent(Double.self, forKey: .voteAverageSnake))
-        voteCount =
-            (try? c.decodeIfPresent(Int.self, forKey: .voteCount))
-            ?? (try? c.decodeIfPresent(Int.self, forKey: .voteCountSnake))
+        var decodedVoteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverage)
+        var decodedVoteCount = try c.decodeIfPresent(Int.self, forKey: .voteCount)
+
+        if decodedVoteAverage == nil || decodedVoteCount == nil {
+            let alt = try decoder.container(keyedBy: AlternateDecodingKeys.self)
+            if decodedVoteAverage == nil {
+                decodedVoteAverage = try alt.decodeIfPresent(Double.self, forKey: .voteAverageSnake)
+            }
+            if decodedVoteCount == nil {
+                decodedVoteCount = try alt.decodeIfPresent(Int.self, forKey: .voteCountSnake)
+            }
+        }
+
+        voteAverage = decodedVoteAverage
+        voteCount = decodedVoteCount
     }
 
     init(
