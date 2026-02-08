@@ -56,7 +56,7 @@ struct ExplorePageView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-                .padding(.bottom, 20)
+                .padding(.bottom, 100)
             }
             .scrollIndicators(.hidden)
             .scrollBounceBehavior(.basedOnSize)

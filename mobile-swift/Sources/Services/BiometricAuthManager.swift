@@ -3,7 +3,7 @@ import SwiftUI
 
 // MARK: - Biometric Auth Manager
 // Uses LAContext to authenticate via Face ID / Touch ID / Optic ID.
-// The app stays blurred until authentication succeeds.
+// Can be enabled/disabled via Settings. On by default.
 
 @MainActor
 @Observable
@@ -13,11 +13,21 @@ final class BiometricAuthManager {
 
     private(set) var biometryType: LABiometryType = .none
 
+    // Face ID enabled by default, toggleable in Settings
+    @ObservationIgnored
+    @AppStorage("faceIDEnabled") var isBiometricEnabled = true
+
     init() {
         let context = LAContext()
         var error: NSError?
         if context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) {
             biometryType = context.biometryType
+        }
+
+        // If biometric is disabled, auto-unlock
+        if !UserDefaults.standard.bool(forKey: "faceIDEnabled"),
+           UserDefaults.standard.object(forKey: "faceIDEnabled") != nil {
+            isUnlocked = true
         }
     }
 
@@ -39,12 +49,22 @@ final class BiometricAuthManager {
         }
     }
 
+    var isBiometricAvailable: Bool {
+        let context = LAContext()
+        var error: NSError?
+        return context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    }
+
     func authenticate() {
+        guard isBiometricEnabled else {
+            isUnlocked = true
+            return
+        }
+
         let context = LAContext()
         context.localizedCancelTitle = "Use Passcode"
 
         var error: NSError?
-        // Try biometrics first, fall back to device passcode
         let policy: LAPolicy = context.canEvaluatePolicy(
             .deviceOwnerAuthenticationWithBiometrics, error: &error
         ) ? .deviceOwnerAuthenticationWithBiometrics : .deviceOwnerAuthentication
@@ -60,6 +80,13 @@ final class BiometricAuthManager {
                     self.authError = authenticationError?.localizedDescription
                 }
             }
+        }
+    }
+
+    func setBiometricEnabled(_ enabled: Bool) {
+        isBiometricEnabled = enabled
+        if !enabled {
+            isUnlocked = true
         }
     }
 }

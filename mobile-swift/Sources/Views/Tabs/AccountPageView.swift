@@ -5,11 +5,13 @@ import SwiftUI
 // Matches the test app's Profile page style with FrostedCards.
 
 struct AccountPageView: View {
+    @State private var authManager = AuthManager.shared
     @State private var dbManager = DatabaseManager.shared
     @State private var ws = WebSocketManager.shared
     @State private var movies: [Movie] = []
     @State private var people: [Person] = []
     @State private var showClearCacheAlert = false
+    @State private var showLogoutAlert = false
     @Environment(ScrollState.self) private var scrollState
 
     var body: some View {
@@ -30,7 +32,7 @@ struct AccountPageView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
-                .padding(.bottom, 20)
+                .padding(.bottom, 100)
             }
             .scrollIndicators(.hidden)
             .onScrollGeometryChange(for: CGFloat.self) { geo in
@@ -53,6 +55,14 @@ struct AccountPageView: View {
             } message: {
                 Text("This removes all locally cached movies and people.")
             }
+            .alert("Sign Out?", isPresented: $showLogoutAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Sign Out", role: .destructive) {
+                    authManager.logout()
+                }
+            } message: {
+                Text("You will need to sign in again to access your data.")
+            }
         }
     }
 
@@ -71,16 +81,16 @@ struct AccountPageView: View {
                     )
                     .frame(width: 56, height: 56)
                     .overlay(
-                        Text("NM")
+                        Text(userInitials)
                             .font(.headline)
                             .foregroundStyle(.white)
                     )
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Movie Manager")
+                    Text(authManager.user?.username ?? "Movie Manager")
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(AppTheme.textPrimary)
-                    Text("NADEE-MJ")
+                    Text(authManager.user?.email ?? "")
                         .font(.subheadline)
                         .foregroundStyle(AppTheme.textSecondary)
                 }
@@ -89,6 +99,11 @@ struct AccountPageView: View {
             }
             .padding(14)
         }
+    }
+
+    private var userInitials: String {
+        guard let name = authManager.user?.username, !name.isEmpty else { return "MM" }
+        return String(name.prefix(2)).uppercased()
     }
 
     // MARK: - Stats Section
@@ -161,6 +176,18 @@ struct AccountPageView: View {
                         showClearCacheAlert = true
                     } label: {
                         actionRow(icon: "trash.fill", title: "Clear Local Cache", color: .red)
+                    }
+
+                    DividerLine()
+
+                    Button {
+                        showLogoutAlert = true
+                    } label: {
+                        actionRow(
+                            icon: "rectangle.portrait.and.arrow.right",
+                            title: "Sign Out",
+                            color: .red
+                        )
                     }
                 }
             }
@@ -252,6 +279,8 @@ struct AccountPageView: View {
 struct SettingsView: View {
     @AppStorage("notifications") private var notifications = true
     @AppStorage("haptics") private var haptics = true
+    @AppStorage("faceIDEnabled") private var faceIDEnabled = true
+    @State private var bioManager = BiometricAuthManager()
 
     var body: some View {
         Form {
@@ -261,12 +290,21 @@ struct SettingsView: View {
             }
 
             Section("Privacy & Security") {
-                NavigationLink("Face ID / Touch ID") {
-                    Text("Biometric settings")
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background { PageBackground() }
-                        .navigationTitle("Biometrics")
+                Toggle(isOn: $faceIDEnabled) {
+                    HStack(spacing: 12) {
+                        Image(systemName: bioManager.biometryIcon)
+                            .foregroundStyle(AppTheme.blue)
+                            .frame(width: 22)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(bioManager.biometryLabel)
+                            Text("Require authentication to open the app")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .onChange(of: faceIDEnabled) { _, newValue in
+                    bioManager.setBiometricEnabled(newValue)
                 }
             }
 

@@ -87,6 +87,7 @@ struct PeoplePageView: View {
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
+            .contentMargins(.bottom, 80)
             .onScrollGeometryChange(for: CGFloat.self) { geo in
                 geo.contentOffset.y
             } action: { _, offset in

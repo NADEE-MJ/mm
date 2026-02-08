@@ -2,39 +2,50 @@ import SwiftUI
 
 // MARK: - Root Tab Host
 // Custom bottom bar: collapsible tab pill + FAB.
-// Both collapse/minimize when the user scrolls down.
+// Uses manual view switching instead of TabView to avoid
+// native tab bar conflicts on iOS 26.
 
 struct RootTabHostView: View {
     @State private var selectedTab: TabItem = .home
     @State private var isFABExpanded = false
     @State private var showAddMovie = false
     @State private var scrollState = ScrollState()
+    @State private var sheetScrollState = ScrollState()
 
     private var isMinimized: Bool { scrollState.isMinimized }
 
     var body: some View {
         ZStack {
-            // ── Tab Content ──
-            TabView(selection: $selectedTab) {
-                Tab(value: .home) { HomePageView() }
-                Tab(value: .explore) { ExplorePageView() }
-                Tab(value: .people) { PeoplePageView() }
-                Tab(value: .account) { AccountPageView() }
+            // ── Tab Content (manual switching) ──
+            Group {
+                switch selectedTab {
+                case .home:
+                    HomePageView()
+                case .explore:
+                    ExplorePageView()
+                case .people:
+                    PeoplePageView()
+                case .account:
+                    AccountPageView()
+                }
             }
-            .toolbar(.hidden, for: .tabBar)
+            .environment(scrollState)
             .tint(AppTheme.blue)
             .preferredColorScheme(.dark)
             .sensoryFeedback(.selection, trigger: selectedTab)
-            .environment(scrollState)
             .onChange(of: selectedTab) { _, _ in
                 withAnimation(.spring(duration: 0.3)) {
                     scrollState.reset()
                     if isFABExpanded { isFABExpanded = false }
                 }
             }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
+
+            // ── Bottom bar (floating overlay) ──
+            VStack {
+                Spacer()
                 bottomBar
             }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
 
             // ── Dimming overlay ──
             if isFABExpanded {
@@ -72,6 +83,7 @@ struct RootTabHostView: View {
         .sheet(isPresented: $showAddMovie) {
             NavigationStack {
                 ExplorePageView()
+                    .environment(sheetScrollState)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Done") { showAddMovie = false }
@@ -126,7 +138,7 @@ struct RootTabHostView: View {
             }
         }
         .padding(.horizontal, isMinimized ? 10 : 12)
-        .padding(.vertical, isMinimized ? 6 : 6)
+        .padding(.vertical, 6)
         .frame(height: isMinimized ? 40 : 56)
         .glassEffect(.regular, in: .capsule)
     }

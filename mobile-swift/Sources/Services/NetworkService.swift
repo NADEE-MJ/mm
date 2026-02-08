@@ -232,10 +232,22 @@ final class NetworkService {
 
     // MARK: - HTTP Helpers
 
+    private var authHeaders: [String: String] {
+        var headers: [String: String] = [:]
+        if let token = AuthManager.shared.token {
+            headers["Authorization"] = "Bearer \(token)"
+        }
+        return headers
+    }
+
     private func get(_ urlString: String) async -> Data? {
         guard let url = URL(string: urlString) else { return nil }
+        var request = URLRequest(url: url)
+        for (key, value) in authHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
         do {
-            let (data, _) = try await session.data(from: url)
+            let (data, _) = try await session.data(for: request)
             return data
         } catch {
             lastError = error.localizedDescription
@@ -248,6 +260,9 @@ final class NetworkService {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        for (key, value) in authHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
         request.httpBody = try? JSONEncoder().encode(body)
         do {
             let (_, response) = try await session.data(for: request)
@@ -263,6 +278,9 @@ final class NetworkService {
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        for (key, value) in authHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
         request.httpBody = try? JSONEncoder().encode(body)
         do {
             let (_, response) = try await session.data(for: request)
