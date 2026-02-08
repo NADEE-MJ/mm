@@ -194,7 +194,17 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
-          ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          # Get artifact ID and construct direct download URL
+          ARTIFACT_ID=$(gh api "/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts" \
+            --jq '.artifacts[] | select(.name == "mobile-swift-unsigned-ipa") | .id')
+          
+          if [ -n "$ARTIFACT_ID" ]; then
+            ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${ARTIFACT_ID}"
+          else
+            ARTIFACT_URL="${WORKFLOW_URL}"
+          fi
           
           COMMENT=$(cat <<EOF
           ## ✅ Mobile Swift Build Complete
@@ -210,7 +220,7 @@ jobs:
           
           **[📦 Download Artifact](${ARTIFACT_URL})**
           
-          The IPA will be available for 30 days. Click the link above and scroll to the "Artifacts" section to download.
+          The IPA will be available for 30 days.
           EOF
           )
           
