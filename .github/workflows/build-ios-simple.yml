@@ -36,6 +36,7 @@ jobs:
 
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       # 1) Fetch repository source
@@ -220,6 +221,34 @@ jobs:
           path: ${{ env.IPA_PATH }}
           retention-days: 30
           if-no-files-found: error
+
+      - name: Comment on PR with build artifact
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
+          ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          
+          COMMENT=$(cat <<EOF
+          ## ✅ iOS Build Complete
+          
+          Your build has finished successfully!
+          
+          | Property | Value |
+          |----------|-------|
+          | Branch | \`${{ github.head_ref }}\` |
+          | IPA | \`${{ env.IPA_NAME }}\` |
+          | Size | ${IPA_SIZE} |
+          | Artifact | ios-unsigned-ipa |
+          
+          **[📦 Download Artifact](${ARTIFACT_URL})**
+          
+          The IPA will be available for 30 days. Click the link above and scroll to the "Artifacts" section to download.
+          EOF
+          )
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
 
       # 11) Update rolling GitHub release tag with latest IPA
       - name: Publish latest IPA release
