@@ -5,6 +5,7 @@ import Foundation
 // a real-time bidirectional connection.
 // Connects to a public echo server for demo purposes.
 
+@MainActor
 @Observable
 final class WebSocketManager {
     static let shared = WebSocketManager()
@@ -56,21 +57,21 @@ final class WebSocketManager {
     func send(_ text: String) {
         guard let task, isConnected else { return }
         let message = URLSessionWebSocketTask.Message.string(text)
-        task.send(message) { [weak self] error in
+        messages.append(WSMessage(text: text, isOutgoing: true, timestamp: .now))
+        task.send(message) { error in
             if let error {
-                Task { @MainActor in
+                Task { @MainActor [weak self] in
                     self?.lastError = error.localizedDescription
                 }
             }
         }
-        messages.append(WSMessage(text: text, isOutgoing: true, timestamp: .now))
     }
 
     // MARK: - Ping
 
     func ping() {
-        task?.sendPing { [weak self] error in
-            Task { @MainActor in
+        task?.sendPing { error in
+            Task { @MainActor [weak self] in
                 if let error {
                     self?.addSystemMessage("Ping failed: \(error.localizedDescription)")
                 } else {
@@ -89,8 +90,8 @@ final class WebSocketManager {
     // MARK: - Receive Loop
 
     private func receiveLoop() {
-        task?.receive { [weak self] result in
-            Task { @MainActor in
+        task?.receive { result in
+            Task { @MainActor [weak self] in
                 switch result {
                 case .success(let msg):
                     switch msg {
@@ -102,7 +103,6 @@ final class WebSocketManager {
                     @unknown default:
                         break
                     }
-                    // Continue listening
                     self?.receiveLoop()
 
                 case .failure(let error):

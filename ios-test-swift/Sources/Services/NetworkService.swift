@@ -4,6 +4,7 @@ import Foundation
 // Demonstrates URLSession GET requests against the public GitHub REST API.
 // No authentication required for the endpoints used here.
 
+@MainActor
 @Observable
 final class NetworkService {
     static let shared = NetworkService()
@@ -27,12 +28,12 @@ final class NetworkService {
     // MARK: - Fetch User Profile
 
     func fetchUser(_ username: String) async {
-        await setLoading(true)
-        defer { Task { @MainActor in isLoading = false } }
+        isLoading = true
+        defer { isLoading = false }
 
         let urlString = "https://api.github.com/users/\(username)"
         guard let url = URL(string: urlString) else {
-            await setError("Invalid URL")
+            setError("Invalid URL")
             return
         }
 
@@ -42,33 +43,31 @@ final class NetworkService {
             let (data, response) = try await session.data(for: request)
 
             guard let http = response as? HTTPURLResponse else {
-                await setError("Not an HTTP response")
+                setError("Not an HTTP response")
                 return
             }
             guard http.statusCode == 200 else {
-                await setError("HTTP \(http.statusCode)")
+                setError("HTTP \(http.statusCode)")
                 return
             }
 
             let user = try decoder.decode(GitHubUser.self, from: data)
-            await MainActor.run {
-                fetchedUser = user
-                lastError = nil
-            }
+            fetchedUser = user
+            lastError = nil
         } catch {
-            await setError(error.localizedDescription)
+            setError(error.localizedDescription)
         }
     }
 
     // MARK: - Fetch Repos
 
     func fetchRepos(_ username: String) async {
-        await setLoading(true)
-        defer { Task { @MainActor in isLoading = false } }
+        isLoading = true
+        defer { isLoading = false }
 
         let urlString = "https://api.github.com/users/\(username)/repos?sort=updated&per_page=10"
         guard let url = URL(string: urlString) else {
-            await setError("Invalid URL")
+            setError("Invalid URL")
             return
         }
 
@@ -78,28 +77,24 @@ final class NetworkService {
             let (data, response) = try await session.data(for: request)
 
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-                await setError("Bad response")
+                setError("Bad response")
                 return
             }
 
             let repos = try decoder.decode([GitHubRepo].self, from: data)
-            await MainActor.run {
-                fetchedRepos = repos
-                lastError = nil
-            }
+            fetchedRepos = repos
+            lastError = nil
         } catch {
-            await setError(error.localizedDescription)
+            setError(error.localizedDescription)
         }
     }
 
     // MARK: - Helpers
 
-    @MainActor
     private func setLoading(_ value: Bool) {
         isLoading = value
     }
 
-    @MainActor
     private func setError(_ msg: String) {
         lastError = msg
     }

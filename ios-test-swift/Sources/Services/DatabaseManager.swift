@@ -5,6 +5,7 @@ import GRDB
 // Type-safe wrapper using GRDB.swift over SQLite.
 // Stores bookmarked repos locally for offline access.
 
+@MainActor
 @Observable
 final class DatabaseManager {
     static let shared = DatabaseManager()
