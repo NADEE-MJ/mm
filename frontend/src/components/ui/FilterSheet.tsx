@@ -1,6 +1,6 @@
 import { CheckCircle } from "lucide-react";
 import { MOVIE_STATUS } from "../../utils/constants";
-import IOSSheet from "./IOSSheet";
+import Modal from "./Modal";
 
 export default function FilterSheet({
   isOpen,
@@ -35,7 +35,7 @@ export default function FilterSheet({
         ];
 
   return (
-    <IOSSheet isOpen={isOpen} onClose={onClose} title="Sort & Filter" modalId="filter-sheet">
+    <Modal isOpen={isOpen} onClose={onClose} title="Sort & Filter" maxWidth="640px">
       <div className="space-y-6">
         {/* Sort */}
         <div>
@@ -134,6 +134,6 @@ export default function FilterSheet({
           Clear All Filters
         </button>
       </div>
-    </IOSSheet>
+    </Modal>
   );
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { IOSSheet } from "../../ui";
+import Modal from "../../ui/Modal";
 
 export default function RatingModal({ isOpen, onClose, onSave, initialRating = 7.0 }) {
   const [rating, setRating] = useState(initialRating);
@@ -12,7 +12,7 @@ export default function RatingModal({ isOpen, onClose, onSave, initialRating = 7
   };
 
   return (
-    <IOSSheet isOpen={isOpen} onClose={onClose} title="Rate This Movie" modalId="rating-modal">
+    <Modal isOpen={isOpen} onClose={onClose} title="Rate This Movie" maxWidth="560px">
       <div className="space-y-6">
         {/* Rating Display */}
         <div className="text-center">
@@ -75,6 +75,6 @@ export default function RatingModal({ isOpen, onClose, onSave, initialRating = 7
           </button>
         </div>
       </div>
-    </IOSSheet>
+    </Modal>
   );
 }

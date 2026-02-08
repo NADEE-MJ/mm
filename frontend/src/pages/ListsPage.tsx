@@ -1,50 +1,44 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
-import { Trash2, ChevronRight, Folder, Plus } from "lucide-react";
+import { Folder, Trash2 } from "lucide-react";
 import { MOVIE_STATUS } from "../utils/constants";
+import MoviePosterCard from "../components/MoviePosterCard";
 
-export default function ListsPage({ movies }) {
+export default function ListsPage({ movies, onMovieClick }) {
   const deletedMovies = useMemo(
-    () => movies.filter((m) => m.status === MOVIE_STATUS.DELETED),
+    () => movies.filter((movie) => movie.status === MOVIE_STATUS.DELETED),
     [movies],
   );
 
   return (
     <div className="space-y-6">
-      <h2 className="text-ios-title1">Lists</h2>
-
-      {/* Built-in Lists */}
-      <div className="ios-list">
-        <Link to="/lists/deleted" className="ios-list-item">
-          <div className="flex items-center gap-3">
-            <div className="ios-list-icon bg-ios-red/20">
-              <Trash2 className="w-5 h-5 text-ios-red" />
-            </div>
-            <span>Deleted</span>
+      <section className="ios-card p-5">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-lg bg-ios-red/20 flex items-center justify-center">
+            <Trash2 className="w-5 h-5 text-ios-red" />
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-ios-secondary-label">{deletedMovies.length}</span>
-            <ChevronRight className="w-5 h-5 text-ios-tertiary-label" />
+          <div>
+            <h3 className="text-ios-headline text-ios-label">Deleted</h3>
+            <p className="text-ios-caption1 text-ios-secondary-label">{deletedMovies.length} movies</p>
           </div>
-        </Link>
-      </div>
+        </div>
+        <p className="text-ios-caption1 text-ios-secondary-label">
+          Deleted movies stay here so you can restore or review them from the detail panel.
+        </p>
+      </section>
 
-      {/* Custom Lists Section */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-ios-headline">Custom Lists</h3>
-          <button className="text-ios-blue text-sm font-medium">
-            <Plus className="w-4 h-4 inline mr-1" />
-            New List
-          </button>
+      {deletedMovies.length > 0 ? (
+        <div className="movie-poster-grid">
+          {deletedMovies.map((movie) => (
+            <MoviePosterCard key={movie.imdbId} movie={movie} onClick={() => onMovieClick(movie)} />
+          ))}
         </div>
-        <div className="ios-card text-center py-8">
-          <Folder className="w-12 h-12 mx-auto mb-3 text-ios-tertiary-label" />
-          <p className="text-ios-secondary-label text-sm">
-            Create custom lists to organize your movies
-          </p>
+      ) : (
+        <div className="movie-empty-state">
+          <Folder className="w-14 h-14" />
+          <h3>No deleted movies</h3>
+          <p>Movies marked as deleted will appear here.</p>
         </div>
-      </div>
+      )}
     </div>
   );
 }

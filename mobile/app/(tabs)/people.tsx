@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, FlatList, Alert } from 'react-native';
-import { Text, FAB, Card, Chip, IconButton, Portal, Dialog, TextInput, Button } from 'react-native-paper';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Href, router } from 'expo-router';
+import { Button, Dialog, FAB, Portal, TextInput } from 'react-native-paper';
+import { Users } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePeopleStore } from '../../src/stores/peopleStore';
 import { useAuthStore } from '../../src/stores/authStore';
-import { Person } from '../../src/types';
-import { Users } from 'lucide-react-native';
+import GroupedList from '../../src/components/ui/GroupedList';
+import GroupedListItem from '../../src/components/ui/GroupedListItem';
+import { COLORS } from '../../src/utils/constants';
 
 export default function PeopleScreen() {
+  const insets = useSafeAreaInsets();
   const [dialogVisible, setDialogVisible] = useState(false);
   const [personName, setPersonName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -14,30 +19,43 @@ export default function PeopleScreen() {
   const people = usePeopleStore((state) => state.people);
   const loadPeople = usePeopleStore((state) => state.loadPeople);
   const addPerson = usePeopleStore((state) => state.addPerson);
-  const deletePerson = usePeopleStore((state) => state.deletePerson);
   const getPersonStats = usePeopleStore((state) => state.getPersonStats);
   const user = useAuthStore((state) => state.user);
 
-  const [personStats, setPersonStats] = useState<{ [key: string]: any }>({});
+  const [personStats, setPersonStats] = useState<Record<string, {
+    totalRecommendations: number;
+    upvotes: number;
+    downvotes: number;
+    moviesWatched: number;
+  }>>({});
 
   useEffect(() => {
     loadPeople();
-  }, []);
+  }, [loadPeople]);
 
   useEffect(() => {
-    // Load stats for all people
     async function loadStats() {
-      const stats: { [key: string]: any } = {};
+      const stats: Record<string, {
+        totalRecommendations: number;
+        upvotes: number;
+        downvotes: number;
+        moviesWatched: number;
+      }> = {};
+
       for (const person of people) {
-        stats[person.name] = await getPersonStats(person.name);
+        const personStat = await getPersonStats(person.name);
+        stats[person.name] = personStat;
       }
+
       setPersonStats(stats);
     }
 
     if (people.length > 0) {
       loadStats();
+    } else {
+      setPersonStats({});
     }
-  }, [people]);
+  }, [people, getPersonStats]);
 
   const handleAddPerson = async () => {
     if (!personName.trim() || !user) {
@@ -51,7 +69,6 @@ export default function PeopleScreen() {
       await addPerson(personName.trim(), user.id);
       setDialogVisible(false);
       setPersonName('');
-      Alert.alert('Success', 'Person added successfully!');
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to add person');
     } finally {
@@ -59,150 +76,58 @@ export default function PeopleScreen() {
     }
   };
 
-  const handleDeletePerson = (person: Person) => {
-    Alert.alert(
-      'Delete Person',
-      `Are you sure you want to delete ${person.name}? This will not delete their recommendations.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deletePerson(person.name);
-              Alert.alert('Success', 'Person deleted');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete person');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const renderPerson = ({ item }: { item: Person }) => {
-    const stats = personStats[item.name] || {
-      totalRecommendations: 0,
-      upvotes: 0,
-      downvotes: 0,
-      moviesWatched: 0,
-    };
-
-    return (
-      <Card style={styles.card}>
-        <View style={styles.cardContent}>
-          <View style={styles.header}>
-            <View style={styles.personInfo}>
-              {item.emoji ? (
-                <Text style={styles.emoji}>{item.emoji}</Text>
-              ) : (
-                <View
-                  style={[
-                    styles.avatar,
-                    { backgroundColor: item.color || '#DBA506' },
-                  ]}
-                >
-                  <Text style={styles.avatarText}>
-                    {item.name.charAt(0).toUpperCase()}
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.nameContainer}>
-                <Text variant="titleMedium" style={styles.name}>
-                  {item.name}
-                </Text>
-
-                <View style={styles.badges}>
-                  {item.is_trusted && (
-                    <Chip style={styles.badge} textStyle={styles.badgeText} compact>
-                      Trusted
-                    </Chip>
-                  )}
-                  {item.is_default && (
-                    <Chip style={styles.badge} textStyle={styles.badgeText} compact>
-                      Default
-                    </Chip>
-                  )}
-                </View>
-              </View>
-            </View>
-
-            <IconButton
-              icon="delete"
-              iconColor="#ff3b30"
-              size={20}
-              onPress={() => handleDeletePerson(item)}
-            />
-          </View>
-
-          <View style={styles.stats}>
-            <View style={styles.stat}>
-              <Text variant="titleMedium" style={styles.statValue}>
-                {stats.totalRecommendations}
-              </Text>
-              <Text variant="bodySmall" style={styles.statLabel}>
-                Recommendations
-              </Text>
-            </View>
-
-            <View style={styles.stat}>
-              <Text variant="titleMedium" style={styles.statValue}>
-                {stats.upvotes}
-              </Text>
-              <Text variant="bodySmall" style={styles.statLabel}>
-                Upvotes
-              </Text>
-            </View>
-
-            <View style={styles.stat}>
-              <Text variant="titleMedium" style={styles.statValue}>
-                {stats.downvotes}
-              </Text>
-              <Text variant="bodySmall" style={styles.statLabel}>
-                Downvotes
-              </Text>
-            </View>
-
-            <View style={styles.stat}>
-              <Text variant="titleMedium" style={styles.statValue}>
-                {stats.moviesWatched}
-              </Text>
-              <Text variant="bodySmall" style={styles.statLabel}>
-                Watched
-              </Text>
-            </View>
-          </View>
-        </View>
-      </Card>
-    );
-  };
-
   return (
     <View style={styles.container}>
-      {people.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Users size={64} color="#8e8e93" />
-          <Text variant="headlineSmall" style={styles.emptyText}>
-            No people yet
-          </Text>
-          <Text variant="bodyMedium" style={styles.emptySubtext}>
-            Add people to track their movie recommendations
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={people}
-          keyExtractor={(item) => item.name}
-          renderItem={renderPerson}
-          contentContainerStyle={styles.list}
-        />
-      )}
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: 120 + insets.bottom }]}>
+        <Text style={styles.largeTitle}>People</Text>
+
+        {people.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Users size={52} color={COLORS.textSecondary} />
+            <Text style={styles.emptyTitle}>No people yet</Text>
+            <Text style={styles.emptySubtitle}>Add recommenders to personalize your lists.</Text>
+          </View>
+        ) : (
+          <GroupedList>
+            {people.map((item, index) => {
+              const stats = personStats[item.name] || {
+                totalRecommendations: 0,
+                upvotes: 0,
+                downvotes: 0,
+                moviesWatched: 0,
+              };
+
+              return (
+                <GroupedListItem
+                  key={item.name}
+                  title={item.name}
+                  subtitle={`${stats.upvotes} upvotes · ${stats.downvotes} downvotes · ${stats.moviesWatched} watched`}
+                  onPress={() => router.push(`/people/${encodeURIComponent(item.name)}` as Href)}
+                  left={
+                    item.emoji ? (
+                      <Text style={styles.emoji}>{item.emoji}</Text>
+                    ) : (
+                      <View style={[styles.avatar, { backgroundColor: item.color || COLORS.primary }]}>
+                        <Text style={styles.avatarLabel}>{item.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )
+                  }
+                  right={
+                    <View style={styles.countBadge}>
+                      <Text style={styles.countBadgeText}>{stats.totalRecommendations}</Text>
+                    </View>
+                  }
+                  showDivider={index < people.length - 1}
+                />
+              );
+            })}
+          </GroupedList>
+        )}
+      </ScrollView>
 
       <FAB
         icon="plus"
-        style={styles.fab}
+        style={[styles.fab, { bottom: 106 + insets.bottom }]}
         onPress={() => setDialogVisible(true)}
       />
 
@@ -215,7 +140,6 @@ export default function PeopleScreen() {
               value={personName}
               onChangeText={setPersonName}
               autoCapitalize="words"
-              style={styles.input}
               mode="outlined"
             />
           </Dialog.Content>
@@ -236,105 +160,68 @@ export default function PeopleScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: COLORS.background,
   },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 120,
   },
-  emptyText: {
-    color: '#fff',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    color: '#8e8e93',
-    textAlign: 'center',
-  },
-  list: {
-    paddingVertical: 8,
-    paddingBottom: 80,
-  },
-  card: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    backgroundColor: '#1c1c1e',
-  },
-  cardContent: {
-    padding: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
-  },
-  personInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  largeTitle: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginBottom: 10,
   },
   emoji: {
-    fontSize: 40,
-    marginRight: 12,
+    fontSize: 22,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  avatarText: {
+  avatarLabel: {
     color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    fontSize: 13,
   },
-  nameContainer: {
-    flex: 1,
-  },
-  name: {
-    color: '#fff',
-    marginBottom: 4,
-  },
-  badges: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  badge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    height: 24,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 10,
-  },
-  stats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  stat: {
+  countBadge: {
+    minWidth: 26,
+    height: 22,
+    borderRadius: 11,
+    paddingHorizontal: 8,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2c2c2e',
   },
-  statValue: {
-    color: '#DBA506',
-    fontWeight: 'bold',
+  countBadgeText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '600',
   },
-  statLabel: {
-    color: '#8e8e93',
-    marginTop: 2,
+  emptyState: {
+    paddingTop: 90,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    color: COLORS.text,
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  emptySubtitle: {
+    color: COLORS.textSecondary,
+    marginTop: 6,
+    textAlign: 'center',
   },
   fab: {
     position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 80,
-    backgroundColor: '#DBA506',
-  },
-  input: {
-    marginBottom: 8,
+    right: 16,
+    bottom: 106,
+    backgroundColor: COLORS.primary,
   },
 });

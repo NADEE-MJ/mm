@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronRight, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import { searchMovies as searchTMDB, getMovieDetails } from "../../../services/tmdbAPI";
 import { getMovieByImdbId } from "../../../services/omdbAPI";
 import { DEFAULT_RECOMMENDERS } from "../../../utils/constants";
@@ -25,9 +25,13 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
   const searchInputRef = useRef(null);
   const customInputRef = useRef(null);
 
-  const userPeople = people.length
-    ? people
-    : peopleNames.map((name) => ({ name, color: "#0a84ff", emoji: null, is_default: false }));
+  const userPeople = useMemo(
+    () =>
+      people.length
+        ? people
+        : peopleNames.map((name) => ({ name, color: "#0a84ff", emoji: null, is_default: false })),
+    [people, peopleNames],
+  );
 
   // Combine default recommenders with user's people
   const allRecommenders = useMemo(() => {
@@ -59,7 +63,7 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
     );
 
     return Array.from(map.values());
-  }, [people, peopleNames]);
+  }, [userPeople]);
 
   // Focus search input on mount
   useEffect(() => {
@@ -187,24 +191,17 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
   const movieData = selectedMovie?.omdbData || selectedMovie?.tmdbData || {};
 
   return (
-    <div className="bg-ios-bg flex flex-col min-h-screen">
-      {/* Header */}
-      <header className="nav-stack-header">
-        <button
-          onClick={selectedMovie ? () => setSelectedMovie(null) : onClose}
-          className="nav-stack-back-button"
-        >
-          <ChevronRight className="w-5 h-5 rotate-180" />
-          <span>{selectedMovie ? "Back" : "Cancel"}</span>
-        </button>
-        <h2 className="text-ios-headline font-semibold flex-1 text-center">
-          {selectedMovie ? "Who Recommended?" : "Add Movie"}
-        </h2>
-        <div className="w-20" /> {/* Spacer for centering */}
-      </header>
+    <div className="flex flex-col min-h-[62vh]">
+      {selectedMovie && (
+        <div className="mb-4">
+          <button onClick={() => setSelectedMovie(null)} className="app-inline-back-button">
+            <ChevronLeft className="w-4 h-4" />
+            <span>Back to Search</span>
+          </button>
+        </div>
+      )}
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto nav-stack-content">
+      <div className="flex-1 overflow-y-auto">
         {!selectedMovie ? (
           <SearchStep
             query={query}
@@ -239,9 +236,8 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
         )}
       </div>
 
-      {/* Bottom Action (shown in recommender step) */}
       {selectedMovie && (
-        <div className="border-t border-ios-separator p-4 safe-area-bottom bg-ios-bg">
+        <div className="border-t border-ios-separator pt-4 mt-4">
           <button
             onClick={handleAddRecommendation}
             disabled={selectedRecommenders.length === 0 || addingMovie}

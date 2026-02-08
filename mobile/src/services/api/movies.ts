@@ -1,5 +1,7 @@
 import { apiClient, handleApiError } from "./client";
 import { TMDBData, OMDBData } from "../../types";
+import * as movieStorage from "../storage/movies";
+import { useAuthStore } from "../../stores/authStore";
 
 export interface TMDBSearchResult {
   id: number;
@@ -153,6 +155,38 @@ export async function updateMovieStatus(
 export async function deleteMovie(imdbId: string): Promise<void> {
   try {
     await apiClient.delete(`/movies/${imdbId}`);
+  } catch (error) {
+    throw new Error(handleApiError(error));
+  }
+}
+
+/**
+ * Refresh movie metadata on backend and sync latest TMDB/OMDB payloads to local storage.
+ */
+export async function refreshMovie(imdbId: string): Promise<void> {
+  try {
+    await apiClient.post(`/movies/${imdbId}/refresh`);
+
+    const detailResponse = await apiClient.get<{
+      imdb_id: string;
+      user_id: string;
+      tmdb_data?: TMDBData;
+      omdb_data?: OMDBData;
+    }>(`/movies/${imdbId}`);
+
+    const user = useAuthStore.getState().user;
+    const userId = user?.id || detailResponse.data.user_id;
+
+    if (!userId) {
+      throw new Error("Missing user id while refreshing movie");
+    }
+
+    await movieStorage.saveMovie(
+      imdbId,
+      userId,
+      detailResponse.data.tmdb_data,
+      detailResponse.data.omdb_data
+    );
   } catch (error) {
     throw new Error(handleApiError(error));
   }
