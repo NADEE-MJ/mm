@@ -2,20 +2,33 @@ import SwiftUI
 
 @main
 struct MobileSwiftApp: App {
-    @State private var authManager = BiometricAuthManager()
+    @State private var authManager = AuthManager.shared
+    @State private var bioManager = BiometricAuthManager()
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                RootTabHostView()
-
-                // ── Lock Screen Overlay ──
-                if !authManager.isUnlocked {
-                    LockScreenView(authManager: authManager)
+            Group {
+                if !authManager.isAuthenticated {
+                    // Not logged in — show login
+                    LoginView()
                         .transition(.opacity)
+                } else {
+                    ZStack {
+                        RootTabHostView()
+
+                        // ── Lock Screen Overlay (biometric) ──
+                        if !bioManager.isUnlocked {
+                            LockScreenView(authManager: bioManager)
+                                .transition(.opacity)
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.3), value: bioManager.isUnlocked)
                 }
             }
-            .animation(.easeInOut(duration: 0.3), value: authManager.isUnlocked)
+            .animation(.easeInOut(duration: 0.3), value: authManager.isAuthenticated)
+            .task {
+                await authManager.verifyToken()
+            }
         }
     }
 }
