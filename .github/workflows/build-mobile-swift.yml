@@ -1,12 +1,12 @@
-name: Build iOS Swift Test App (Unsigned)
+name: Build Mobile Swift App (Unsigned)
 
-# Separate native Swift pipeline:
-# xcodegen -> xcodebuild (unsigned) -> IPA artifact -> rolling release (ios-swift-test-latest)
+# Mobile Swift pipeline for Movie Manager app
+# xcodegen -> xcodebuild (unsigned) -> IPA artifact -> rolling release (mobile-swift-latest)
 #
 # Triggers:
 #   - workflow_dispatch: manual run from UI, builds IPA + optional release
-#   - pull_request: build check on PRs that touch ios-test-swift/
-#   - push to main: automatically build and release when ios-test-swift/ changes
+#   - pull_request: build check on PRs that touch mobile-swift/
+#   - push to main: automatically build and release when mobile-swift/ changes
 on:
   workflow_dispatch:
     inputs:
@@ -25,7 +25,7 @@ on:
         default: "26.0"
         type: string
       publish_release:
-        description: "Publish/update ios-swift-test-latest release"
+        description: "Publish/update mobile-swift-latest release"
         required: true
         default: true
         type: boolean
@@ -38,22 +38,22 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "ios-test-swift/**"
-      - ".github/workflows/build-ios-swift-test.yml"
+      - "mobile-swift/**"
+      - ".github/workflows/build-mobile-swift.yml"
 
   push:
     branches: [main]
     paths:
-      - "ios-test-swift/**"
-      - ".github/workflows/build-ios-swift-test.yml"
+      - "mobile-swift/**"
+      - ".github/workflows/build-mobile-swift.yml"
 
 concurrency:
-  group: ios-swift-test-build-${{ github.ref }}
+  group: mobile-swift-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
-    name: Build Unsigned Swift Test App
+    name: Build Unsigned Mobile Swift App
     runs-on: ${{ github.event.inputs.runner_image || 'macos-26' }}
     timeout-minutes: 45
 
@@ -73,18 +73,18 @@ jobs:
           xcodebuild -showsdks
 
       - name: Generate Xcode project
-        working-directory: ios-test-swift
+        working-directory: mobile-swift
         run: xcodegen generate
 
       - name: Resolve SPM dependencies
-        working-directory: ios-test-swift
+        working-directory: mobile-swift
         run: |
-          xcodebuild -project SwiftTestApp.xcodeproj \
-            -scheme SwiftTestApp \
+          xcodebuild -project MobileSwift.xcodeproj \
+            -scheme MobileSwift \
             -resolvePackageDependencies
 
       - name: Build with xcodebuild
-        working-directory: ios-test-swift
+        working-directory: mobile-swift
         run: |
           set -euo pipefail
 
@@ -97,8 +97,8 @@ jobs:
 
           set -o pipefail
           xcodebuild \
-            -project SwiftTestApp.xcodeproj \
-            -scheme SwiftTestApp \
+            -project MobileSwift.xcodeproj \
+            -scheme MobileSwift \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
@@ -124,7 +124,7 @@ jobs:
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
       - name: Package IPA
-        working-directory: ios-test-swift
+        working-directory: mobile-swift
         run: |
           set -euo pipefail
 
@@ -167,7 +167,7 @@ jobs:
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-swift-test-unsigned-ipa
+          name: mobile-swift-unsigned-ipa
           path: ${{ env.IPA_PATH }}
           retention-days: 30
           if-no-files-found: error
@@ -179,8 +179,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          TAG="ios-swift-test-latest"
-          RELEASE_TITLE="Latest iOS Swift Test Build"
+          TAG="mobile-swift-latest"
+          RELEASE_TITLE="Latest Mobile Swift Build"
           RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
 
           gh api -X PATCH "repos/${{ github.repository }}/git/refs/tags/${TAG}" \
@@ -193,7 +193,7 @@ jobs:
             >/dev/null
 
           NOTES=$(cat <<EOF_NOTES
-          Automated unsigned Swift test iOS build from commit ${{ github.sha }}.
+          Automated unsigned Mobile Swift iOS build from commit ${{ github.sha }}.
 
           Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           EOF_NOTES
@@ -213,8 +213,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: swift-test-build-log
-          path: ios-test-swift/build.log
+          name: mobile-swift-build-log
+          path: mobile-swift/build.log
           retention-days: 7
           if-no-files-found: warn
 
@@ -227,37 +227,37 @@ jobs:
             RELEASE_VALUE="not published (publish_release=false or non-main branch)"
           fi
 
-          echo "## iOS Swift Test Build Successful" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Mobile Swift Build Successful" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
           echo "| IPA | ${{ env.IPA_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Size | $IPA_SIZE |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifact | ios-swift-test-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Artifact | mobile-swift-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Release | $RELEASE_VALUE |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: PR check summary
         if: success() && github.event_name == 'pull_request'
         run: |
           IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
-          echo "## ✅ iOS Swift Test Build Passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "## ✅ Mobile Swift Build Passed" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
           echo "| Branch | ${{ github.head_ref }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| IPA | ${{ env.IPA_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Size | $IPA_SIZE |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifact | ios-swift-test-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Artifact | mobile-swift-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Push summary
         if: success() && github.event_name == 'push'
         run: |
           IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
-          echo "## ✅ iOS Swift Test Build & Release Complete" >> "$GITHUB_STEP_SUMMARY"
+          echo "## ✅ Mobile Swift Build & Release Complete" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
           echo "| IPA | ${{ env.IPA_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Size | $IPA_SIZE |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifact | ios-swift-test-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Artifact | mobile-swift-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Release | ${{ env.RELEASE_URL }} |" >> "$GITHUB_STEP_SUMMARY"
