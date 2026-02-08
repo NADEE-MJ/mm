@@ -1,8 +1,9 @@
 # iOS Build Guide
 
-This project uses a single workflow to create unsigned iOS IPAs:
+This project uses two workflows to create unsigned iOS IPAs:
 
 - `.github/workflows/build-ios-simple.yml`
+- `.github/workflows/build-ios-swift-test.yml`
 
 ## Pipeline
 
@@ -12,6 +13,15 @@ This project uses a single workflow to create unsigned iOS IPAs:
 4. IPA is published to:
    - Actions artifact: `ios-unsigned-ipa`
    - Rolling release tag: `ios-latest`
+
+## Swift Test App Pipeline
+
+1. XcodeGen generates an Xcode project from `ios-test-swift/project.yml`.
+2. `xcodebuild` compiles the native SwiftUI test app with signing disabled.
+3. Workflow packages `.app` into `.ipa`.
+4. IPA is published to:
+   - Actions artifact: `ios-swift-test-unsigned-ipa`
+   - Rolling release tag: `ios-swift-test-latest` (when run from `main` with `publish_release=true`)
 
 ## Required GitHub setting
 
@@ -30,12 +40,17 @@ CI writes this value into `mobile/.env` before bundling JavaScript.
 - Push to `main`, or
 - Run workflow manually from Actions tab.
 
+For the Swift test app workflow, run it manually from the Actions tab.
+Optional manual inputs for Swift test workflow:
+- `publish_release` (default `true`) to control whether `ios-swift-test-latest` is updated.
+- `artifact_suffix` to append a custom suffix to the IPA filename.
+
 ## Download from phone
 
 1. Open GitHub app.
 2. Go to repository Releases.
-3. Open `ios-latest`.
-4. Download `MovieManager-unsigned.ipa`.
+3. Open `ios-latest` for Expo app builds, or `ios-swift-test-latest` for the native Swift test app.
+4. Download `MovieManager-unsigned.ipa` or `SwiftTestApp-unsigned.ipa`.
 
 ## Install strategy
 
