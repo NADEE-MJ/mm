@@ -33,6 +33,8 @@ Then push to `main`.
 For the standalone native Swift test app pipeline, run:
 
 - **Actions > Build iOS Swift Test App (Unsigned) > Run workflow**
+- Optional: choose `runner_image=macos-latest` (or `macos-15` fallback, `macos-26` if available).
+- Optional: set `deployment_target` (default `17.0`).
 - Optional: set `publish_release=false` to skip updating `ios-swift-test-latest`.
 - Optional: set `artifact_suffix` to customize the IPA filename.
 

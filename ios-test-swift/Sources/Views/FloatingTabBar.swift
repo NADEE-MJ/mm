@@ -6,51 +6,62 @@ struct FloatingTabBar: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ForEach(TabItem.allCases, id: \.self) { tab in
-                Button {
-                    withAnimation(.snappy(duration: 0.35, extraBounce: 0.15)) {
-                        selectedTab = tab
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: tab.icon)
-                            .symbolEffect(.bounce, value: selectedTab)
+            HStack(spacing: 4) {
+                ForEach(TabItem.allCases, id: \.self) { tab in
+                    Button {
+                        withAnimation(.snappy(duration: 0.26, extraBounce: 0.04)) {
+                            selectedTab = tab
+                        }
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: tab.icon)
+                                .font(.system(size: 16, weight: .semibold))
 
-                        if selectedTab == tab {
                             Text(tab.title)
-                                .fontWeight(.semibold)
+                                .font(.system(size: 11, weight: .semibold))
+                                .lineLimit(1)
                         }
-                    }
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(selectedTab == tab ? Color.white : Color.primary)
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, selectedTab == tab ? 18 : 14)
-                    .background {
-                        if selectedTab == tab {
-                            Capsule()
-                                .fill(
-                                    LinearGradient(
-                                        colors: tab.gradientColors,
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                        .foregroundStyle(selectedTab == tab ? AppTheme.textPrimary : AppTheme.textTertiary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background {
+                            if selectedTab == tab {
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(Color.white.opacity(0.13))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                            .stroke(AppTheme.strongStroke, lineWidth: 1)
                                     )
-                                )
-                                .matchedGeometryEffect(id: "activeTab", in: namespace)
+                                    .matchedGeometryEffect(id: "activeTab", in: namespace)
+                            }
                         }
                     }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+            .padding(6)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(AppTheme.strongStroke, lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.35), radius: 22, x: 0, y: 10)
+
+            Button {
+                // Reserved orb button to match GitHub-style floating utility control.
+            } label: {
+                Image(systemName: "person.2.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .frame(width: 48, height: 48)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(
+                        Circle().stroke(AppTheme.strongStroke, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
         }
-        .padding(8)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.70), lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.16), radius: 18, x: 0, y: 12)
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 14)
         .padding(.bottom, 10)
-        .animation(.snappy(duration: 0.35, extraBounce: 0.15), value: selectedTab)
     }
 }

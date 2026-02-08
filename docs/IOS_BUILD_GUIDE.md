@@ -42,6 +42,8 @@ CI writes this value into `mobile/.env` before bundling JavaScript.
 
 For the Swift test app workflow, run it manually from the Actions tab.
 Optional manual inputs for Swift test workflow:
+- `runner_image` to choose runner (`macos-latest` default, `macos-15` fallback, `macos-26` if available).
+- `deployment_target` to override iOS deployment target used at build time (default `17.0`).
 - `publish_release` (default `true`) to control whether `ios-swift-test-latest` is updated.
 - `artifact_suffix` to append a custom suffix to the IPA filename.
 

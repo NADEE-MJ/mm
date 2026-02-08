@@ -2,32 +2,33 @@ import SwiftUI
 
 enum TabItem: String, CaseIterable, Hashable {
     case home
-    case library
+    case inbox
+    case explore
+    case profile
 
     var title: String {
         switch self {
         case .home:
             return "Home"
-        case .library:
-            return "Library"
+        case .inbox:
+            return "Inbox"
+        case .explore:
+            return "Explore"
+        case .profile:
+            return "Profile"
         }
     }
 
     var icon: String {
         switch self {
         case .home:
-            return "sparkles"
-        case .library:
-            return "square.stack.3d.up.fill"
-        }
-    }
-
-    var gradientColors: [Color] {
-        switch self {
-        case .home:
-            return [Color.blue, Color.cyan]
-        case .library:
-            return [Color.indigo, Color.mint]
+            return "house.fill"
+        case .inbox:
+            return "tray.full.fill"
+        case .explore:
+            return "safari.fill"
+        case .profile:
+            return "person.crop.circle.fill"
         }
     }
 }

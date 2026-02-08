@@ -1,59 +1,33 @@
 import SwiftUI
 
 struct RootTabHostView: View {
-    @Namespace private var tabPillNamespace
+    @Namespace private var tabNamespace
     @State private var selectedTab: TabItem = .home
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            AppBackgroundView()
+            PageBackground()
 
-            Group {
-                switch selectedTab {
-                case .home:
-                    HomePageView()
-                case .library:
-                    LibraryPageView()
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: 100)
-            }
+            tabLayer(.home, HomePageView())
+            tabLayer(.inbox, InboxPageView())
+            tabLayer(.explore, ExplorePageView())
+            tabLayer(.profile, ProfilePageView())
 
-            FloatingTabBar(
-                selectedTab: $selectedTab,
-                namespace: tabPillNamespace
-            )
+            FloatingTabBar(selectedTab: $selectedTab, namespace: tabNamespace)
         }
+        .preferredColorScheme(.dark)
         .sensoryFeedback(.selection, trigger: selectedTab)
     }
-}
 
-private struct AppBackgroundView: View {
-    var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.95, green: 0.98, blue: 1.0),
-                    Color(red: 0.88, green: 0.94, blue: 0.99)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(Color.cyan.opacity(0.20))
-                .frame(width: 340, height: 340)
-                .offset(x: -120, y: -320)
-                .blur(radius: 16)
-
-            Circle()
-                .fill(Color.indigo.opacity(0.12))
-                .frame(width: 260, height: 260)
-                .offset(x: 130, y: 320)
-                .blur(radius: 20)
-        }
-        .ignoresSafeArea()
+    private func tabLayer<Content: View>(_ tab: TabItem, _ content: Content) -> some View {
+        content
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: 112)
+            }
+            .opacity(selectedTab == tab ? 1 : 0)
+            .allowsHitTesting(selectedTab == tab)
+            .zIndex(selectedTab == tab ? 1 : 0)
+            .animation(.easeInOut(duration: 0.16), value: selectedTab)
     }
 }
 

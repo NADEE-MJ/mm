@@ -5,6 +5,20 @@ name: Build iOS Swift Test App (Unsigned)
 on:
   workflow_dispatch:
     inputs:
+      runner_image:
+        description: "GitHub macOS runner image"
+        required: true
+        default: "macos-latest"
+        type: choice
+        options:
+          - macos-latest
+          - macos-15
+          - macos-26
+      deployment_target:
+        description: "iOS deployment target for build setting (e.g. 17.0, 18.0)"
+        required: true
+        default: "17.0"
+        type: string
       publish_release:
         description: "Publish/update ios-swift-test-latest release"
         required: true
@@ -23,7 +37,7 @@ concurrency:
 jobs:
   build:
     name: Build Unsigned Swift Test App
-    runs-on: macos-15
+    runs-on: ${{ github.event.inputs.runner_image || 'macos-latest' }}
     timeout-minutes: 45
 
     permissions:
@@ -36,6 +50,11 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
+      - name: Show Xcode and SDK info
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+
       - name: Generate Xcode project
         working-directory: ios-test-swift
         run: xcodegen generate
@@ -45,6 +64,13 @@ jobs:
         run: |
           set -euo pipefail
 
+          DEPLOYMENT_TARGET_RAW="${{ github.event.inputs.deployment_target }}"
+          DEPLOYMENT_TARGET=$(echo "$DEPLOYMENT_TARGET_RAW" | tr -cd '0-9.')
+          if [ -z "$DEPLOYMENT_TARGET" ]; then
+            DEPLOYMENT_TARGET="17.0"
+          fi
+          echo "Using IPHONEOS_DEPLOYMENT_TARGET=$DEPLOYMENT_TARGET"
+
           set -o pipefail
           xcodebuild \
             -project SwiftTestApp.xcodeproj \
@@ -52,6 +78,7 @@ jobs:
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
+            IPHONEOS_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \

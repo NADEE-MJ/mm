@@ -1,106 +1,63 @@
-import SwiftUI
+import Foundation
 
-enum AccentStyle: String, CaseIterable, Hashable {
-    case sky
-    case mint
-    case coral
-    case violet
-
-    var colors: [Color] {
-        switch self {
-        case .sky:
-            return [Color.blue, Color.cyan]
-        case .mint:
-            return [Color.green, Color.mint]
-        case .coral:
-            return [Color.orange, Color.red]
-        case .violet:
-            return [Color.indigo, Color.purple]
-        }
-    }
+struct WorkRow: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let icon: String
 }
 
-struct SpotlightCard: Identifiable, Hashable {
+struct InboxThread: Identifiable, Hashable {
     let id: String
     let title: String
     let subtitle: String
-    let icon: String
-    let accent: AccentStyle
+    let unreadCount: Int
 }
 
-struct LibraryEntry: Identifiable, Hashable {
+struct RepoItem: Identifiable, Hashable {
+    let id: String
+    let name: String
+    let description: String
+    let language: String
+    let languageColorHex: String
+    let stars: Int
+}
+
+struct ProfileAction: Identifiable, Hashable {
     let id: String
     let title: String
-    let detail: String
+    let value: String
     let icon: String
-    var progress: Int
-    var isFavorite: Bool
 }
 
 enum DemoData {
-    static let spotlight: [SpotlightCard] = [
-        SpotlightCard(
-            id: "live-widgets",
-            title: "Live Widgets",
-            subtitle: "Pin interactive cards and jump into actions instantly.",
-            icon: "rectangle.3.group.bubble.left.fill",
-            accent: .sky
-        ),
-        SpotlightCard(
-            id: "smart-search",
-            title: "Smart Search",
-            subtitle: "Find anything with instant filtering and quick previews.",
-            icon: "magnifyingglass.circle.fill",
-            accent: .mint
-        ),
-        SpotlightCard(
-            id: "focus-modes",
-            title: "Focus Modes",
-            subtitle: "Adaptive scenes for work, travel, and personal routines.",
-            icon: "moon.stars.fill",
-            accent: .violet
-        ),
-        SpotlightCard(
-            id: "quick-capture",
-            title: "Quick Capture",
-            subtitle: "Capture ideas in one tap and sync them later.",
-            icon: "bolt.badge.clock.fill",
-            accent: .coral
-        )
+    static let workRows: [WorkRow] = [
+        WorkRow(id: "issues", title: "Issues", icon: "exclamationmark.circle.fill"),
+        WorkRow(id: "pulls", title: "Pull Requests", icon: "arrow.triangle.pull"),
+        WorkRow(id: "discussions", title: "Discussions", icon: "bubble.left.and.bubble.right.fill"),
+        WorkRow(id: "projects", title: "Projects", icon: "square.grid.2x2.fill"),
+        WorkRow(id: "orgs", title: "Organizations", icon: "building.2.fill"),
+        WorkRow(id: "starred", title: "Starred", icon: "star.fill")
     ]
 
-    static let library: [LibraryEntry] = [
-        LibraryEntry(
-            id: "design-system",
-            title: "Design System",
-            detail: "Reusable UI kit with dynamic colors and modern typography.",
-            icon: "paintpalette.fill",
-            progress: 84,
-            isFavorite: true
-        ),
-        LibraryEntry(
-            id: "experiments",
-            title: "Interaction Experiments",
-            detail: "Micro-interactions, transitions, and animated components.",
-            icon: "wand.and.stars.inverse",
-            progress: 61,
-            isFavorite: false
-        ),
-        LibraryEntry(
-            id: "onboarding",
-            title: "Onboarding Flow",
-            detail: "Short, adaptive onboarding with contextual tips.",
-            icon: "figure.walk.motion",
-            progress: 45,
-            isFavorite: false
-        ),
-        LibraryEntry(
-            id: "offline-pack",
-            title: "Offline Pack",
-            detail: "Essential features cached for low-connectivity scenarios.",
-            icon: "wifi.slash",
-            progress: 72,
-            isFavorite: true
-        )
+    static let inboxThreads: [InboxThread] = [
+        InboxThread(id: "1", title: "CI Build Ready", subtitle: "Swift test IPA is available for download.", unreadCount: 1),
+        InboxThread(id: "2", title: "Review Requested", subtitle: "Update the floating tab bar transitions.", unreadCount: 2),
+        InboxThread(id: "3", title: "Release Updated", subtitle: "ios-swift-test-latest now points to latest commit.", unreadCount: 0)
+    ]
+
+    static let repositories: [RepoItem] = [
+        RepoItem(id: "discord-bot", name: "discord-bot", description: "discord bot to do actions on my server remotely", language: "Python", languageColorHex: "#3572A5", stars: 0),
+        RepoItem(id: "python-live", name: "python_live_lambda", description: "AWS Lambda automation utilities", language: "Python", languageColorHex: "#3572A5", stars: 0),
+        RepoItem(id: "mm", name: "mm", description: "Movie Manager, flip it around WICKED WITCH", language: "TypeScript", languageColorHex: "#3178C6", stars: 0),
+        RepoItem(id: "maida-server", name: "maida-server", description: "FastAPI backend services", language: "Python", languageColorHex: "#3572A5", stars: 0),
+        RepoItem(id: "raddle", name: "raddle.teams", description: "A team based version of raddle.quest", language: "TypeScript", languageColorHex: "#3178C6", stars: 0),
+        RepoItem(id: "zsh", name: "zsh", description: "My zsh setup and config files.", language: "Shell", languageColorHex: "#89E051", stars: 0)
+    ]
+
+    static let profileActions: [ProfileAction] = [
+        ProfileAction(id: "repositories", title: "Repositories", value: "32", icon: "folder.fill"),
+        ProfileAction(id: "starred", title: "Starred", value: "151", icon: "star.fill"),
+        ProfileAction(id: "organizations", title: "Organizations", value: "2", icon: "building.2.fill"),
+        ProfileAction(id: "projects", title: "Projects", value: "4", icon: "square.grid.2x2")
     ]
 }
