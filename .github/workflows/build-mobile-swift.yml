@@ -137,7 +137,14 @@ jobs:
         working-directory: mobile-swift
         run: |
           set -euo pipefail
-          SETTINGS=$(xcodebuild -project MobileSwift.xcodeproj -scheme MobileSwift -configuration Release -showBuildSettings 2>/dev/null)
+          SETTINGS=$(xcodebuild \
+            -project MobileSwift.xcodeproj \
+            -scheme MobileSwift \
+            -configuration Release \
+            GENERATE_INFOPLIST_FILE=NO \
+            INFOPLIST_FILE=Sources/Info.plist \
+            INFOPLIST_EXPAND_BUILD_SETTINGS=YES \
+            -showBuildSettings 2>/dev/null)
           echo "$SETTINGS" | grep -E "^[[:space:]]*(GENERATE_INFOPLIST_FILE|INFOPLIST_FILE)[[:space:]]=" || true
           if ! echo "$SETTINGS" | grep -qE "^[[:space:]]*GENERATE_INFOPLIST_FILE[[:space:]]*=[[:space:]]*NO$"; then
             echo "❌ GENERATE_INFOPLIST_FILE must be NO"
@@ -178,6 +185,9 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             IPHONEOS_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
+            GENERATE_INFOPLIST_FILE=NO \
+            INFOPLIST_FILE=Sources/Info.plist \
+            INFOPLIST_EXPAND_BUILD_SETTINGS=YES \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
