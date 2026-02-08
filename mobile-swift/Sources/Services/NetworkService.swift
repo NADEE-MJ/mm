@@ -19,10 +19,18 @@ final class NetworkService {
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
     
-    // TODO: Replace with actual API URL or load from environment
-    private let baseURL = "http://localhost:8000/api"
+    private let baseURL: String
 
     private init() {
+        // Load API base URL from Info.plist, default to localhost
+        if let infoDict = Bundle.main.infoDictionary,
+           let apiBaseURL = infoDict["API_BASE_URL"] as? String, !apiBaseURL.isEmpty {
+            // Append /api to the base URL
+            self.baseURL = apiBaseURL.hasSuffix("/") ? "\(apiBaseURL)api" : "\(apiBaseURL)/api"
+        } else {
+            self.baseURL = "http://localhost:8000/api"
+        }
+        
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 15
         session = URLSession(configuration: config)

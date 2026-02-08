@@ -72,6 +72,20 @@ jobs:
           xcodebuild -version
           xcodebuild -showsdks
 
+      - name: Configure API base URL
+        env:
+          API_BASE_URL: ${{ vars.MOBILE_SWIFT_API_BASE_URL != '' && vars.MOBILE_SWIFT_API_BASE_URL || secrets.MOBILE_SWIFT_API_BASE_URL || '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$API_BASE_URL" ]; then
+            echo "⚠️  Missing MOBILE_SWIFT_API_BASE_URL"
+            echo "Using default localhost:8000. Set repository variable or secret MOBILE_SWIFT_API_BASE_URL to configure."
+            API_BASE_URL="http://localhost:8000"
+          fi
+          
+          echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
+          echo "✅ API base URL configured: $API_BASE_URL"
+
       - name: Generate Xcode project
         working-directory: mobile-swift
         run: xcodegen generate
@@ -103,6 +117,7 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             IPHONEOS_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
+            API_BASE_URL="${{ env.API_BASE_URL }}" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
