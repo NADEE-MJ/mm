@@ -69,7 +69,7 @@ struct SearchPageView: View {
                         searchRow(
                             icon: "film.fill",
                             title: movie.title,
-                            subtitle: movie.releaseDate?.prefix(4).map { String($0) } ?? "Movie"
+                            subtitle: movieSubtitle(movie)
                         )
                     }
                 }
@@ -175,6 +175,15 @@ struct SearchPageView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
+    }
+
+    private func movieSubtitle(_ movie: Movie) -> String {
+        guard let releaseDate = movie.releaseDate, !releaseDate.isEmpty else {
+            return "Movie"
+        }
+
+        let year = String(releaseDate.prefix(4))
+        return year.isEmpty ? "Movie" : year
     }
 
     @MainActor
