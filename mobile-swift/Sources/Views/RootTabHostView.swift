@@ -70,7 +70,7 @@ struct RootTabHostView: View {
                         Spacer()
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, 4)
                     
                     // Spacer to account for tab bar height
                     Spacer()
@@ -270,36 +270,63 @@ struct RootTabHostView: View {
     // MARK: - Expandable Search Bar
     
     private var expandableSearchBar: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(AppTheme.textSecondary)
+        HStack(spacing: 8) {
+            // Search bar with glass effect
+            HStack(spacing: 12) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+                
+                TextField("Search movies...", text: $searchState.searchText)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .focused($isSearchFocused)
+                    .submitLabel(.search)
+                
+                // X button to clear text (only shows when there's text)
+                if !searchState.searchText.isEmpty {
+                    Button {
+                        searchState.searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(AppTheme.textSecondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .glassEffect(.regular, in: .capsule)
             
-            TextField("Search movies...", text: $searchState.searchText)
-                .textFieldStyle(.plain)
-                .foregroundStyle(AppTheme.textPrimary)
-                .focused($isSearchFocused)
-                .submitLabel(.search)
-            
+            // Separate button to dismiss keyboard or collapse search
             Button {
                 withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
-                    searchState.searchText = ""
-                    searchState.isExpanded = false
-                    isSearchFocused = false
+                    if isSearchFocused {
+                        // Dismiss keyboard
+                        isSearchFocused = false
+                    } else {
+                        // Collapse search
+                        searchState.searchText = ""
+                        searchState.isExpanded = false
+                    }
                 }
             } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(AppTheme.textSecondary)
+                Image(systemName: isSearchFocused ? "chevron.down" : "chevron.left")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
+                    .background(AppTheme.blue, in: .circle)
+                    .shadow(color: AppTheme.blue.opacity(0.35), radius: 8, y: 3)
+                    .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Close search")
+            .accessibilityLabel(isSearchFocused ? "Dismiss keyboard" : "Close search")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(maxWidth: .infinity)
-        .glassEffect(.regular, in: .capsule)
     }
 }
 
