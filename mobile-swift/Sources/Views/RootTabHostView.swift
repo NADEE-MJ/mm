@@ -15,6 +15,7 @@ struct RootTabHostView: View {
     @FocusState private var isSearchFocused: Bool
 
     private var isMinimized: Bool { scrollState.isMinimized }
+    private let tabBarHeight: CGFloat = 82 // Tab bar height including padding
 
     var body: some View {
         ZStack {
@@ -73,7 +74,7 @@ struct RootTabHostView: View {
                     
                     // Spacer to account for tab bar height
                     Spacer()
-                        .frame(height: 82) // Tab bar height including padding
+                        .frame(height: tabBarHeight)
                 }
                 
                 // Tab bar - stays fixed at bottom
