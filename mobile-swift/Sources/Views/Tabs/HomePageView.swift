@@ -7,12 +7,12 @@ import SwiftUI
 struct HomePageView: View {
     @State private var movies: [Movie] = []
     @State private var isLoading = false
-    @State private var searchText = ""
     @State private var selectedStatus = "to_watch"
     @State private var sortBy = "dateRecommended"
     @State private var showFilters = false
     @State private var filterRecommender: String?
     @Environment(ScrollState.self) private var scrollState
+    @Environment(SearchState.self) private var searchState
 
     private let statusFilters: [(key: String, label: String)] = [
         ("to_watch", "To Watch"),
@@ -24,9 +24,9 @@ struct HomePageView: View {
     private var filteredMovies: [Movie] {
         var result = movies
 
-        if !searchText.isEmpty {
+        if !searchState.searchText.isEmpty {
             result = result.filter {
-                $0.title.localizedCaseInsensitiveContains(searchText)
+                $0.title.localizedCaseInsensitiveContains(searchState.searchText)
             }
         }
 
@@ -77,8 +77,8 @@ struct HomePageView: View {
                         } else {
                             EmptyStateView(
                                 icon: "film",
-                                title: searchText.isEmpty ? "No Movies" : "No Results",
-                                subtitle: searchText.isEmpty
+                                title: searchState.searchText.isEmpty ? "No Movies" : "No Results",
+                                subtitle: searchState.searchText.isEmpty
                                     ? (selectedStatus == "to_watch"
                                         ? "Add your first movie to get started."
                                         : "Movies will appear here once watched.")
@@ -104,7 +104,6 @@ struct HomePageView: View {
             }
             .background { PageBackground() }
             .navigationTitle("Movies")
-            .searchable(text: $searchText, prompt: "Search movies...")
             .refreshable {
                 await loadMovies()
             }
