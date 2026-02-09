@@ -11,6 +11,8 @@ struct RootTabHostView: View {
     @State private var showAddMovie = false
     @State private var scrollState = ScrollState()
     @State private var sheetScrollState = ScrollState()
+    @State private var searchState = SearchState()
+    @FocusState private var isSearchFocused: Bool
 
     private var isMinimized: Bool { scrollState.isMinimized }
 
@@ -30,12 +32,15 @@ struct RootTabHostView: View {
                 }
             }
             .environment(scrollState)
+            .environment(searchState)
             .tint(AppTheme.blue)
             .preferredColorScheme(.dark)
             .sensoryFeedback(.selection, trigger: selectedTab)
             .onChange(of: selectedTab) { _, _ in
                 withAnimation(.spring(duration: 0.3)) {
                     scrollState.reset()
+                    searchState.reset()
+                    isSearchFocused = false
                     if isFABExpanded { isFABExpanded = false }
                 }
             }
@@ -43,9 +48,31 @@ struct RootTabHostView: View {
             // ── Bottom bar (floating overlay) ──
             VStack {
                 Spacer()
+                
+                // Floating Search (left side above tab bar)
+                HStack {
+                    if searchState.isExpanded {
+                        // Expanded search bar
+                        expandableSearchBar
+                            .transition(.asymmetric(
+                                insertion: .move(edge: .leading).combined(with: .opacity),
+                                removal: .move(edge: .leading).combined(with: .opacity)
+                            ))
+                    } else {
+                        // Collapsed magnifying glass icon
+                        searchIconButton
+                            .transition(.asymmetric(
+                                insertion: .scale.combined(with: .opacity),
+                                removal: .scale.combined(with: .opacity)
+                            ))
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                
                 bottomBar
             }
-            .ignoresSafeArea(.keyboard, edges: .bottom)
 
             // ── Dimming overlay ──
             if isFABExpanded {
@@ -97,7 +124,7 @@ struct RootTabHostView: View {
 
     @ViewBuilder
     private var bottomBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             tabBarPill
             Spacer()
             fabMainButton
@@ -207,6 +234,61 @@ struct RootTabHostView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+    
+    // MARK: - Search Icon Button (Collapsed State)
+    
+    private var searchIconButton: some View {
+        Button {
+            withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
+                searchState.isExpanded = true
+                isSearchFocused = true
+            }
+        } label: {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(AppTheme.blue, in: .circle)
+                .shadow(color: AppTheme.blue.opacity(0.35), radius: 8, y: 3)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Search")
+    }
+    
+    // MARK: - Expandable Search Bar
+    
+    private var expandableSearchBar: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(AppTheme.textSecondary)
+            
+            TextField("Search movies...", text: $searchState.searchText)
+                .textFieldStyle(.plain)
+                .foregroundStyle(AppTheme.textPrimary)
+                .focused($isSearchFocused)
+                .submitLabel(.search)
+            
+            Button {
+                withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
+                    searchState.searchText = ""
+                    searchState.isExpanded = false
+                    isSearchFocused = false
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(AppTheme.textSecondary)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close search")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .glassEffect(.regular, in: .capsule)
     }
 }
 
