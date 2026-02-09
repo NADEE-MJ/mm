@@ -5,6 +5,8 @@ import SwiftUI
 // Uses debounced search, glass-effect cards, and sheet presentation.
 
 struct ExplorePageView: View {
+    var onAccountTap: (() -> Void)? = nil
+    var onClose: (() -> Void)? = nil
     @State private var searchResults: [TMDBMovie] = []
     @State private var isSearching = false
     @State private var showAddSheet = false
@@ -77,6 +79,23 @@ struct ExplorePageView: View {
             .background { PageBackground() }
             .navigationTitle("Explore")
             .modifier(ConditionalSearchable(isActive: useNativeSearch, text: $nativeSearchText))
+            .toolbar {
+                if let onClose {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            onClose()
+                        } label: {
+                            Image(systemName: "xmark")
+                        }
+                    }
+                }
+
+                if let onAccountTap {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        AccountToolbarButton(action: onAccountTap)
+                    }
+                }
+            }
             .onChange(of: effectiveSearchText) { _, newValue in
                 Task {
                     guard !newValue.isEmpty else {

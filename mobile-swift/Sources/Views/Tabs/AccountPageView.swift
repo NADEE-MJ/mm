@@ -5,6 +5,7 @@ import SwiftUI
 // Matches the test app's Profile page style with FrostedCards.
 
 struct AccountPageView: View {
+    var onClose: (() -> Void)? = nil
     @State private var authManager = AuthManager.shared
     @State private var dbManager = DatabaseManager.shared
     @State private var ws = WebSocketManager.shared
@@ -44,6 +45,17 @@ struct AccountPageView: View {
             }
             .background { PageBackground() }
             .navigationTitle("Account")
+            .toolbar {
+                if let onClose {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            onClose()
+                        } label: {
+                            Image(systemName: "xmark")
+                        }
+                    }
+                }
+            }
             .task {
                 await loadData()
             }
