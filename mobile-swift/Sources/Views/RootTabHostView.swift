@@ -280,6 +280,7 @@ struct RootTabHostView: View {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 20))
                     .foregroundStyle(AppTheme.textSecondary)
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Close search")
