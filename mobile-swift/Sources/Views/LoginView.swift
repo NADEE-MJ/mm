@@ -131,11 +131,19 @@ struct LoginView: View {
                 } label: {
                     Group {
                         if mode == .login {
-                            Text("Don't have an account? ") +
-                            Text("Create one").foregroundColor(AppTheme.blue).bold()
+                            HStack(spacing: 0) {
+                                Text("Don't have an account? ")
+                                Text("Create one")
+                                    .foregroundStyle(AppTheme.blue)
+                                    .bold()
+                            }
                         } else {
-                            Text("Already have an account? ") +
-                            Text("Sign in").foregroundColor(AppTheme.blue).bold()
+                            HStack(spacing: 0) {
+                                Text("Already have an account? ")
+                                Text("Sign in")
+                                    .foregroundStyle(AppTheme.blue)
+                                    .bold()
+                            }
                         }
                     }
                     .font(.subheadline)

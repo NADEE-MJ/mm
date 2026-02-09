@@ -37,47 +37,63 @@ struct SearchPageView: View {
         people.prefix(8).map { $0 }
     }
 
+    private var contentStateView: AnyView {
+        if isLoading {
+            return AnyView(
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 60)
+            )
+        }
+
+        if filteredMovies.isEmpty && filteredPeople.isEmpty {
+            return AnyView(
+                EmptyStateView(
+                    icon: "magnifyingglass",
+                    title: hasQuery ? "No Results" : "Search",
+                    subtitle: hasQuery
+                        ? "Try a different term."
+                        : "Search movies and people."
+                )
+            )
+        }
+
+        return AnyView(resultsSectionsView)
+    }
+
+    private var resultsSectionsView: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if !filteredMovies.isEmpty {
+                searchSection("Movies", systemImage: "film.fill") {
+                    ForEach(filteredMovies) { movie in
+                        searchRow(
+                            icon: "film.fill",
+                            title: movie.title,
+                            subtitle: movie.releaseDate?.prefix(4).map { String($0) } ?? "Movie"
+                        )
+                    }
+                }
+            }
+
+            if !filteredPeople.isEmpty {
+                searchSection("People", systemImage: "person.2.fill") {
+                    ForEach(filteredPeople) { person in
+                        searchRow(
+                            icon: "person.fill",
+                            title: person.name,
+                            subtitle: person.isTrusted ? "Trusted recommender" : "Recommender"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
-                    if isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 60)
-                    } else if filteredMovies.isEmpty && filteredPeople.isEmpty {
-                        EmptyStateView(
-                            icon: "magnifyingglass",
-                            title: hasQuery ? "No Results" : "Search",
-                            subtitle: hasQuery
-                                ? "Try a different term."
-                                : "Search movies and people."
-                        )
-                    } else {
-                        if !filteredMovies.isEmpty {
-                            searchSection("Movies", systemImage: "film.fill") {
-                                ForEach(filteredMovies) { movie in
-                                    searchRow(
-                                        icon: "film.fill",
-                                        title: movie.title,
-                                        subtitle: movie.releaseDate?.prefix(4).map { String($0) } ?? "Movie"
-                                    )
-                                }
-                            }
-                        }
-
-                        if !filteredPeople.isEmpty {
-                            searchSection("People", systemImage: "person.2.fill") {
-                                ForEach(filteredPeople) { person in
-                                    searchRow(
-                                        icon: "person.fill",
-                                        title: person.name,
-                                        subtitle: person.isTrusted ? "Trusted recommender" : "Recommender"
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    contentStateView
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
@@ -164,8 +180,8 @@ struct SearchPageView: View {
     @MainActor
     private func loadData() async {
         isLoading = true
-        async let fetchMoviesTask = NetworkService.shared.fetchMovies()
-        async let fetchPeopleTask = NetworkService.shared.fetchPeople()
+        async let fetchMoviesTask: Void = NetworkService.shared.fetchMovies()
+        async let fetchPeopleTask: Void = NetworkService.shared.fetchPeople()
         _ = await (fetchMoviesTask, fetchPeopleTask)
         movies = NetworkService.shared.movies
         people = NetworkService.shared.people
