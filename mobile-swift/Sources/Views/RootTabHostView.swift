@@ -240,8 +240,8 @@ struct RootTabHostView: View {
                 }
             }
         } label: {
-            Image(systemName: searchState.isExpanded ? "xmark.circle.fill" : "magnifyingglass")
-                .font(.system(size: isMinimized ? 16 : 20, weight: .medium))
+            Image(systemName: searchState.isExpanded ? "xmark.circle" : "magnifyingglass")
+                .font(.system(size: isMinimized ? 16 : 20, weight: .semibold))
                 .foregroundStyle(searchState.isExpanded ? AppTheme.textSecondary : AppTheme.blue)
                 .frame(width: isMinimized ? 36 : 44, height: isMinimized ? 36 : 44)
                 .contentTransition(.symbolEffect(.replace))
