@@ -11,20 +11,27 @@ struct ExplorePageView: View {
     @State private var selectedMovie: TMDBMovie?
     @State private var recommenderName = ""
     @State private var people: [Person] = []
+    @State private var localSearchText = "" // For modal search
     @Environment(ScrollState.self) private var scrollState
     @Environment(SearchState.self) private var searchState
+    
+    var useNativeSearch: Bool = false // When true, uses native .searchable() for sheets
+    
+    private var effectiveSearchText: String {
+        useNativeSearch ? localSearchText : searchState.searchText
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
-                    if searchResults.isEmpty && !searchState.searchText.isEmpty && !isSearching {
+                    if searchResults.isEmpty && !effectiveSearchText.isEmpty && !isSearching {
                         EmptyStateView(
                             icon: "magnifyingglass",
                             title: "No Results",
                             subtitle: "Try a different search term."
                         )
-                    } else if searchResults.isEmpty && searchState.searchText.isEmpty {
+                    } else if searchResults.isEmpty && effectiveSearchText.isEmpty {
                         EmptyStateView(
                             icon: "sparkle.magnifyingglass",
                             title: "Discover Movies",
@@ -69,7 +76,8 @@ struct ExplorePageView: View {
             }
             .background { PageBackground() }
             .navigationTitle("Explore")
-            .onChange(of: searchState.searchText) { _, newValue in
+            .searchable(text: useNativeSearch ? $localSearchText : .constant(""), prompt: "Search movies on TMDB...")
+            .onChange(of: effectiveSearchText) { _, newValue in
                 Task {
                     guard !newValue.isEmpty else {
                         searchResults = []

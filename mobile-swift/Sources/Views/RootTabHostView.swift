@@ -50,7 +50,7 @@ struct RootTabHostView: View {
             // ── Bottom bar (floating overlay) ──
             ZStack {
                 // Floating Search (left side above tab bar) - moves with keyboard
-                VStack {
+                VStack(spacing: 0) {
                     Spacer()
                     HStack {
                         if searchState.isExpanded {
@@ -72,11 +72,8 @@ struct RootTabHostView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 4)
-                    
-                    // Spacer to account for tab bar height
-                    Spacer()
-                        .frame(height: tabBarHeight)
                 }
+                .padding(.bottom, tabBarHeight)
                 
                 // Tab bar - stays fixed at bottom
                 VStack {
@@ -121,7 +118,7 @@ struct RootTabHostView: View {
         }
         .sheet(isPresented: $showAddMovie) {
             NavigationStack {
-                ExplorePageView()
+                ExplorePageView(useNativeSearch: true)
                     .environment(sheetScrollState)
                     .environment(searchState)
                     .toolbar {
