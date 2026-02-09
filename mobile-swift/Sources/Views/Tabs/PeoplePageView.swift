@@ -2,11 +2,11 @@ import SwiftUI
 
 // MARK: - People Page
 // Recommender management with stats, trust badges, swipe actions,
-// search, detail view, and add person sheet.
+// search, and detail view.
 
 struct PeoplePageView: View {
+    var onAccountTap: (() -> Void)? = nil
     @State private var people: [Person] = []
-    @State private var showAddPerson = false
     @State private var filterTrusted: Bool?
     @Environment(ScrollState.self) private var scrollState
     @Environment(SearchState.self) private var searchState
@@ -104,19 +104,11 @@ struct PeoplePageView: View {
                 await loadPeople()
             }
             .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showAddPerson = true } label: {
-                        Image(systemName: "person.badge.plus")
+                if let onAccountTap {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        AccountToolbarButton(action: onAccountTap)
                     }
                 }
-            }
-            .sheet(isPresented: $showAddPerson) {
-                AddPersonSheet {
-                    await loadPeople()
-                }
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-                .presentationCornerRadius(28)
             }
         }
     }
@@ -285,55 +277,6 @@ private struct PersonDetailView: View {
             Text(label).font(.caption).foregroundStyle(AppTheme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-    }
-}
-
-// MARK: - Add Person Sheet
-
-private struct AddPersonSheet: View {
-    let onAdded: () async -> Void
-    @State private var name = ""
-    @State private var isTrusted = false
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Details") {
-                    TextField("Name", text: $name)
-                    Toggle("Trusted Recommender", isOn: $isTrusted)
-                }
-
-                Section("Preview") {
-                    PersonRow(person: Person(
-                        name: name.isEmpty ? "New Person" : name,
-                        isTrusted: isTrusted,
-                        movieCount: 0
-                    ))
-                }
-            }
-            .navigationTitle("Add Recommender")
-            .toolbarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        Task {
-                            await NetworkService.shared.updatePerson(
-                                name: name,
-                                isTrusted: isTrusted
-                            )
-                            await onAdded()
-                            dismiss()
-                        }
-                    }
-                    .bold()
-                    .disabled(name.isEmpty)
-                }
-            }
-        }
     }
 }
 
