@@ -1,10 +1,9 @@
 import SwiftUI
 
 // MARK: - Root Tab Host
-// Slack-style floating bottom system:
-// - Main tab pill
-// - Separate search button
-// - Separate add button with quick actions
+// Native iOS 26 tab system:
+// - TabView with tab bar minimize on scroll down
+// - Bottom accessory search bar + add button
 
 struct RootTabHostView: View {
     @State private var selectedTab: TabItem = .home
@@ -17,55 +16,11 @@ struct RootTabHostView: View {
     @State private var sheetScrollState = ScrollState()
     @State private var sheetSearchState = SearchState()
     @FocusState private var isSearchFocused: Bool
-    @Namespace private var selectedTabNamespace
 
     var body: some View {
         ZStack {
-            // ── Tab Content (manual switching) ──
-            Group {
-                switch selectedTab {
-                case .home:
-                    HomePageView {
-                        showAccount = true
-                    }
-                case .explore:
-                    ExplorePageView {
-                        showAccount = true
-                    }
-                case .people:
-                    PeoplePageView {
-                        showAccount = true
-                    }
-                case .search:
-                    SearchPageView(
-                        onAccountTap: {
-                            showAccount = true
-                        },
-                        onBackgroundTap: {
-                            isSearchFocused = false
-                        }
-                    )
-                }
-            }
-            .environment(scrollState)
-            .environment(searchState)
-            .tint(AppTheme.blue)
-            .preferredColorScheme(.dark)
-            .sensoryFeedback(.selection, trigger: selectedTab)
-            .onChange(of: selectedTab) { _, newTab in
-                withAnimation(.spring(duration: 0.3)) {
-                    scrollState.reset()
+            tabHost
 
-                    if newTab != .search {
-                        isSearchFocused = false
-                        searchState.reset()
-                    } else {
-                        searchState.isExpanded = true
-                    }
-                }
-            }
-
-            // ── Dimming overlay for add menu ──
             if isAddMenuExpanded {
                 Color.black.opacity(0.45)
                     .ignoresSafeArea()
@@ -77,7 +32,6 @@ struct RootTabHostView: View {
                     .transition(.opacity)
             }
 
-            // ── Add menu popover ──
             if isAddMenuExpanded {
                 VStack {
                     Spacer()
@@ -86,21 +40,10 @@ struct RootTabHostView: View {
                         addMenu
                     }
                     .padding(.horizontal, 16)
-                    .padding(.bottom, 90)
+                    .padding(.bottom, 124)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-
-            // ── Bottom controls ──
-            VStack {
-                Spacer()
-                if selectedTab == .search {
-                    searchBottomBar
-                } else {
-                    mainBottomBar
-                }
-            }
-            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
         .fullScreenCover(isPresented: $showAddMovie) {
             fullScreenSheet(onClose: { showAddMovie = false }) {
@@ -124,170 +67,61 @@ struct RootTabHostView: View {
         }
     }
 
-    // MARK: - Main Bottom Bar
+    // MARK: - Native Tab Host
 
-    private var mainBottomBar: some View {
-        HStack(spacing: 10) {
-            tabBarPill
-            searchButton
-            addButton
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 8)
-        .animation(.spring(duration: 0.35, bounce: 0.2), value: selectedTab)
-    }
+    private var tabHost: some View {
+        TabView(selection: $selectedTab) {
+            HomePageView {
+                showAccount = true
+            }
+            .tag(TabItem.home)
+            .tabItem {
+                Label(TabItem.home.title, systemImage: TabItem.home.icon)
+            }
 
-    private var tabBarPill: some View {
-        HStack(spacing: 4) {
-            ForEach(TabItem.mainTabs, id: \.self) { tab in
-                Button {
-                    withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
-                        isAddMenuExpanded = false
-                        selectedTab = tab
-                    }
-                } label: {
-                    ZStack {
-                        if selectedTab == tab {
-                            Capsule()
-                                .fill(AppTheme.blue.opacity(0.22))
-                                .matchedGeometryEffect(
-                                    id: "active-tab-background",
-                                    in: selectedTabNamespace
-                                )
-                        }
+            ExplorePageView {
+                showAccount = true
+            }
+            .tag(TabItem.explore)
+            .tabItem {
+                Label(TabItem.explore.title, systemImage: TabItem.explore.icon)
+            }
 
-                        VStack(spacing: 2) {
-                            Image(systemName: tab.icon)
-                                .font(.system(size: 16, weight: .semibold))
-                            Text(tab.title)
-                                .font(.caption2.weight(.semibold))
-                        }
-                        .foregroundStyle(
-                            selectedTab == tab ? AppTheme.textPrimary : AppTheme.textSecondary
-                        )
-                        .frame(width: 76, height: 44)
-                    }
-                }
-                .buttonStyle(.plain)
+            PeoplePageView {
+                showAccount = true
+            }
+            .tag(TabItem.people)
+            .tabItem {
+                Label(TabItem.people.title, systemImage: TabItem.people.icon)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(height: 56)
-        .glassEffect(.regular, in: .capsule)
-    }
-
-    private var searchButton: some View {
-        Button {
-            withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
+        .environment(scrollState)
+        .environment(searchState)
+        .tint(AppTheme.blue)
+        .preferredColorScheme(.dark)
+        .sensoryFeedback(.selection, trigger: selectedTab)
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabViewBottomAccessory {
+            SearchBottomAccessory(
+                searchText: $searchState.searchText,
+                isSearchFocused: $isSearchFocused,
+                isAddMenuExpanded: $isAddMenuExpanded,
+                onAddTapped: toggleAddMenu
+            )
+        }
+        .onChange(of: selectedTab) { _, _ in
+            withAnimation(.spring(duration: 0.3)) {
+                scrollState.reset()
                 isAddMenuExpanded = false
-                selectedTab = .search
-                searchState.isExpanded = true
-                searchState.searchText = ""
             }
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-                isSearchFocused = true
-            }
-        } label: {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 19, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 54, height: 54)
-                .glassEffect(.regular.interactive(), in: .circle)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Open search")
     }
 
-    private var addButton: some View {
-        Button {
-            withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
-                if selectedTab == .search {
-                    closeSearchToHome()
-                }
-                isAddMenuExpanded.toggle()
-            }
-        } label: {
-            Image(systemName: isAddMenuExpanded ? "xmark" : "plus")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 54, height: 54)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .contentTransition(.symbolEffect(.replace))
+    private func toggleAddMenu() {
+        withAnimation(.spring(duration: 0.32, bounce: 0.2)) {
+            isSearchFocused = false
+            isAddMenuExpanded.toggle()
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isAddMenuExpanded ? "Close add menu" : "Open add menu")
-    }
-
-    // MARK: - Search Bottom Bar
-
-    private var searchBottomBar: some View {
-        HStack(spacing: 10) {
-            if !isSearchFocused {
-                Button {
-                    closeSearchToHome()
-                } label: {
-                    Image(systemName: "house.fill")
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 48, height: 48)
-                        .glassEffect(.regular.interactive(), in: .circle)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Back to home")
-                .transition(.move(edge: .leading).combined(with: .opacity))
-            }
-
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(AppTheme.textSecondary)
-
-                TextField("Search", text: $searchState.searchText)
-                    .textFieldStyle(.plain)
-                    .foregroundStyle(AppTheme.textPrimary)
-                    .focused($isSearchFocused)
-                    .submitLabel(.search)
-                    .onSubmit {
-                        isSearchFocused = false
-                    }
-
-                if !searchState.searchText.isEmpty {
-                    Button {
-                        searchState.searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 18))
-                            .foregroundStyle(AppTheme.textSecondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Clear search")
-                    .transition(.scale.combined(with: .opacity))
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .frame(maxWidth: .infinity)
-            .glassEffect(.regular, in: .capsule)
-
-            Button {
-                closeSearchToHome()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 48, height: 48)
-                    .glassEffect(.regular.interactive(), in: .circle)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close search")
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 8)
-        .animation(.spring(duration: 0.3, bounce: 0.2), value: isSearchFocused)
     }
 
     // MARK: - Add Menu
@@ -384,14 +218,6 @@ struct RootTabHostView: View {
         }
     }
 
-    private func closeSearchToHome() {
-        withAnimation(.spring(duration: 0.3, bounce: 0.2)) {
-            isSearchFocused = false
-            searchState.reset()
-            selectedTab = .home
-        }
-    }
-
     private func fullScreenSheet<Content: View>(
         onClose: @escaping () -> Void,
         @ViewBuilder content: @escaping () -> Content
@@ -414,6 +240,111 @@ struct RootTabHostView: View {
             }
             .ignoresSafeArea()
             .preferredColorScheme(.dark)
+        }
+    }
+}
+
+// MARK: - Bottom Accessory
+
+private struct SearchBottomAccessory: View {
+    @Binding var searchText: String
+    @FocusState.Binding var isSearchFocused: Bool
+    @Binding var isAddMenuExpanded: Bool
+    let onAddTapped: () -> Void
+
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement
+
+    var body: some View {
+        Group {
+            switch placement {
+            case .inline:
+                inlineAccessory
+            case .expanded:
+                expandedAccessory
+            default:
+                expandedAccessory
+            }
+        }
+    }
+
+    private var expandedAccessory: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(AppTheme.textSecondary)
+
+                TextField("Search", text: $searchText)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .focused($isSearchFocused)
+                    .submitLabel(.search)
+
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 18))
+                            .foregroundStyle(AppTheme.textSecondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity)
+            .glassEffect(.regular, in: .capsule)
+
+            Button(action: onAddTapped) {
+                Image(systemName: isAddMenuExpanded ? "xmark" : "plus")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isAddMenuExpanded ? "Close add menu" : "Open add menu")
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+    }
+
+    private var inlineAccessory: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(AppTheme.textSecondary)
+
+            Text(searchText.isEmpty ? "Search" : searchText)
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+                .foregroundStyle(searchText.isEmpty ? AppTheme.textSecondary : AppTheme.textPrimary)
+
+            Spacer()
+
+            Button(action: onAddTapped) {
+                Image(systemName: isAddMenuExpanded ? "xmark" : "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppTheme.textPrimary)
+                    .frame(width: 28, height: 28)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isAddMenuExpanded ? "Close add menu" : "Open add menu")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: .capsule)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            isSearchFocused = true
         }
     }
 }
