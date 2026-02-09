@@ -5,26 +5,33 @@ import SwiftUI
 // Uses debounced search, glass-effect cards, and sheet presentation.
 
 struct ExplorePageView: View {
-    @State private var searchText = ""
     @State private var searchResults: [TMDBMovie] = []
     @State private var isSearching = false
     @State private var showAddSheet = false
     @State private var selectedMovie: TMDBMovie?
     @State private var recommenderName = ""
     @State private var people: [Person] = []
+    @State private var nativeSearchText = "" // For modal/sheet search
     @Environment(ScrollState.self) private var scrollState
+    @Environment(SearchState.self) private var searchState
+    
+    var useNativeSearch: Bool = false // When true, uses native .searchable() for sheets
+    
+    private var effectiveSearchText: String {
+        useNativeSearch ? nativeSearchText : searchState.searchText
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
-                    if searchResults.isEmpty && !searchText.isEmpty && !isSearching {
+                    if searchResults.isEmpty && !effectiveSearchText.isEmpty && !isSearching {
                         EmptyStateView(
                             icon: "magnifyingglass",
                             title: "No Results",
                             subtitle: "Try a different search term."
                         )
-                    } else if searchResults.isEmpty && searchText.isEmpty {
+                    } else if searchResults.isEmpty && effectiveSearchText.isEmpty {
                         EmptyStateView(
                             icon: "sparkle.magnifyingglass",
                             title: "Discover Movies",
@@ -69,8 +76,8 @@ struct ExplorePageView: View {
             }
             .background { PageBackground() }
             .navigationTitle("Explore")
-            .searchable(text: $searchText, prompt: "Search movies on TMDB...")
-            .onChange(of: searchText) { _, newValue in
+            .modifier(ConditionalSearchable(isActive: useNativeSearch, text: $nativeSearchText))
+            .onChange(of: effectiveSearchText) { _, newValue in
                 Task {
                     guard !newValue.isEmpty else {
                         searchResults = []
@@ -231,6 +238,21 @@ private struct AddMovieSheet: View {
                         .disabled(recommenderName.isEmpty)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Conditional Searchable Modifier
+
+private struct ConditionalSearchable: ViewModifier {
+    let isActive: Bool
+    @Binding var text: String
+    
+    func body(content: Content) -> some View {
+        if isActive {
+            content.searchable(text: $text, prompt: "Search movies on TMDB...")
+        } else {
+            content
         }
     }
 }
