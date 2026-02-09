@@ -123,6 +123,7 @@ struct RootTabHostView: View {
             NavigationStack {
                 ExplorePageView()
                     .environment(sheetScrollState)
+                    .environment(searchState)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Done") { showAddMovie = false }
