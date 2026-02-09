@@ -5,7 +5,6 @@ import SwiftUI
 // Uses debounced search, glass-effect cards, and sheet presentation.
 
 struct ExplorePageView: View {
-    @State private var searchText = ""
     @State private var searchResults: [TMDBMovie] = []
     @State private var isSearching = false
     @State private var showAddSheet = false
@@ -13,18 +12,19 @@ struct ExplorePageView: View {
     @State private var recommenderName = ""
     @State private var people: [Person] = []
     @Environment(ScrollState.self) private var scrollState
+    @Environment(SearchState.self) private var searchState
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
-                    if searchResults.isEmpty && !searchText.isEmpty && !isSearching {
+                    if searchResults.isEmpty && !searchState.searchText.isEmpty && !isSearching {
                         EmptyStateView(
                             icon: "magnifyingglass",
                             title: "No Results",
                             subtitle: "Try a different search term."
                         )
-                    } else if searchResults.isEmpty && searchText.isEmpty {
+                    } else if searchResults.isEmpty && searchState.searchText.isEmpty {
                         EmptyStateView(
                             icon: "sparkle.magnifyingglass",
                             title: "Discover Movies",
@@ -69,8 +69,7 @@ struct ExplorePageView: View {
             }
             .background { PageBackground() }
             .navigationTitle("Explore")
-            .searchable(text: $searchText, prompt: "Search movies on TMDB...")
-            .onChange(of: searchText) { _, newValue in
+            .onChange(of: searchState.searchText) { _, newValue in
                 Task {
                     guard !newValue.isEmpty else {
                         searchResults = []
