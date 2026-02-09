@@ -16,6 +16,7 @@ struct RootTabHostView: View {
 
     private var isMinimized: Bool { scrollState.isMinimized }
     private let tabBarHeight: CGFloat = 82 // Tab bar height including padding
+    private let searchControlsSpacing: CGFloat = 8 // Gap between search bar and control button
 
     var body: some View {
         ZStack {
@@ -270,7 +271,7 @@ struct RootTabHostView: View {
     // MARK: - Expandable Search Bar
     
     private var expandableSearchBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: searchControlsSpacing) {
             // Search bar with glass effect
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
@@ -282,6 +283,8 @@ struct RootTabHostView: View {
                     .foregroundStyle(AppTheme.textPrimary)
                     .focused($isSearchFocused)
                     .submitLabel(.search)
+                    .accessibilityIdentifier("searchTextField")
+                    .accessibilityHint("Enter text to search for movies")
                 
                 // X button to clear text (only shows when there's text)
                 if !searchState.searchText.isEmpty {
