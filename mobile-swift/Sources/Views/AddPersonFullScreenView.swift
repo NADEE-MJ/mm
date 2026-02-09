@@ -4,6 +4,7 @@ import SwiftUI
 
 struct AddPersonFullScreenView: View {
     let onAdded: () -> Void
+    var onClose: (() -> Void)? = nil
 
     @State private var name = ""
     @State private var isTrusted = false
@@ -83,6 +84,16 @@ struct AddPersonFullScreenView: View {
             .navigationTitle("Add Recommender")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
+                if let onClose {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            onClose()
+                        } label: {
+                            Image(systemName: "xmark")
+                        }
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Add") {
                         Task {

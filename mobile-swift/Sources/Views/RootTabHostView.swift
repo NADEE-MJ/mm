@@ -3,11 +3,10 @@ import SwiftUI
 // MARK: - Root Tab Host
 // Native iOS 26 tab system:
 // - TabView with tab bar minimize on scroll down
-// - Bottom accessory search bar + add button
+// - Bottom accessory search bar + add menu
 
 struct RootTabHostView: View {
     @State private var selectedTab: TabItem = .home
-    @State private var isAddMenuExpanded = false
     @State private var showAddMovie = false
     @State private var showAddPerson = false
     @State private var showAccount = false
@@ -18,58 +17,6 @@ struct RootTabHostView: View {
     @FocusState private var isSearchFocused: Bool
 
     var body: some View {
-        ZStack {
-            tabHost
-
-            if isAddMenuExpanded {
-                Color.black.opacity(0.45)
-                    .ignoresSafeArea()
-                    .onTapGesture {
-                        withAnimation(.spring(duration: 0.28)) {
-                            isAddMenuExpanded = false
-                        }
-                    }
-                    .transition(.opacity)
-            }
-
-            if isAddMenuExpanded {
-                VStack {
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        addMenu
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 124)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .fullScreenCover(isPresented: $showAddMovie) {
-            fullScreenSheet(onClose: { showAddMovie = false }) {
-                ExplorePageView(useNativeSearch: true)
-                    .environment(sheetScrollState)
-                    .environment(sheetSearchState)
-            }
-        }
-        .fullScreenCover(isPresented: $showAddPerson) {
-            fullScreenSheet(onClose: { showAddPerson = false }) {
-                AddPersonFullScreenView {
-                    showAddPerson = false
-                }
-            }
-        }
-        .fullScreenCover(isPresented: $showAccount) {
-            fullScreenSheet(onClose: { showAccount = false }) {
-                AccountPageView()
-                    .environment(sheetScrollState)
-            }
-        }
-    }
-
-    // MARK: - Native Tab Host
-
-    private var tabHost: some View {
         TabView(selection: $selectedTab) {
             HomePageView {
                 showAccount = true
@@ -105,142 +52,44 @@ struct RootTabHostView: View {
             SearchBottomAccessory(
                 searchText: $searchState.searchText,
                 isSearchFocused: $isSearchFocused,
-                isAddMenuExpanded: $isAddMenuExpanded,
-                onAddTapped: toggleAddMenu
+                onAddMovie: openAddMovie,
+                onAddPerson: openAddPerson
             )
         }
         .onChange(of: selectedTab) { _, _ in
             withAnimation(.spring(duration: 0.3)) {
                 scrollState.reset()
-                isAddMenuExpanded = false
             }
         }
-    }
-
-    private func toggleAddMenu() {
-        withAnimation(.spring(duration: 0.32, bounce: 0.2)) {
-            isSearchFocused = false
-            isAddMenuExpanded.toggle()
+        .fullScreenCover(isPresented: $showAddMovie) {
+            ExplorePageView(
+                onAccountTap: nil,
+                useNativeSearch: true,
+                onClose: { showAddMovie = false }
+            )
+            .environment(sheetScrollState)
+            .environment(sheetSearchState)
+        }
+        .fullScreenCover(isPresented: $showAddPerson) {
+            AddPersonFullScreenView(
+                onAdded: { showAddPerson = false },
+                onClose: { showAddPerson = false }
+            )
+        }
+        .fullScreenCover(isPresented: $showAccount) {
+            AccountPageView(onClose: { showAccount = false })
+                .environment(sheetScrollState)
         }
     }
-
-    // MARK: - Add Menu
-
-    private var addMenu: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(spacing: 0) {
-                quickActionRow(
-                    icon: "sparkle.magnifyingglass",
-                    title: "Movie",
-                    subtitle: "Search TMDB and add to your collection"
-                ) {
-                    openAddMovie()
-                }
-
-                Rectangle()
-                    .fill(AppTheme.stroke)
-                    .frame(height: 1)
-                    .padding(.leading, 48)
-
-                quickActionRow(
-                    icon: "person.badge.plus",
-                    title: "Person",
-                    subtitle: "Add a new recommender"
-                ) {
-                    openAddPerson()
-                }
-            }
-            .glassEffect(.regular, in: .rect(cornerRadius: 20, style: .continuous))
-
-            Button {
-                withAnimation(.spring(duration: 0.25)) { isAddMenuExpanded = false }
-                selectedTab = .explore
-            } label: {
-                HStack {
-                    Spacer()
-                    Label("Discover", systemImage: "safari.fill")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.textPrimary)
-                    Spacer()
-                }
-                .padding(.vertical, 12)
-            }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: .capsule)
-        }
-        .frame(width: 300)
-    }
-
-    private func quickActionRow(
-        icon: String,
-        title: String,
-        subtitle: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(AppTheme.textPrimary)
-                    .frame(width: 24)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.textPrimary)
-                    Text(subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.textSecondary)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Helpers
 
     private func openAddMovie() {
-        withAnimation(.spring(duration: 0.25)) { isAddMenuExpanded = false }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            showAddMovie = true
-        }
+        isSearchFocused = false
+        showAddMovie = true
     }
 
     private func openAddPerson() {
-        withAnimation(.spring(duration: 0.25)) { isAddMenuExpanded = false }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            showAddPerson = true
-        }
-    }
-
-    private func fullScreenSheet<Content: View>(
-        onClose: @escaping () -> Void,
-        @ViewBuilder content: @escaping () -> Content
-    ) -> some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .topLeading) {
-                content()
-
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundStyle(AppTheme.textPrimary)
-                        .frame(width: 34, height: 34)
-                        .glassEffect(.regular.interactive(), in: .circle)
-                }
-                .buttonStyle(.plain)
-                .padding(.leading, 16)
-                .padding(.top, proxy.safeAreaInsets.top + 8)
-                .accessibilityLabel("Close")
-            }
-            .ignoresSafeArea()
-            .preferredColorScheme(.dark)
-        }
+        isSearchFocused = false
+        showAddPerson = true
     }
 }
 
@@ -249,8 +98,8 @@ struct RootTabHostView: View {
 private struct SearchBottomAccessory: View {
     @Binding var searchText: String
     @FocusState.Binding var isSearchFocused: Bool
-    @Binding var isAddMenuExpanded: Bool
-    let onAddTapped: () -> Void
+    let onAddMovie: () -> Void
+    let onAddPerson: () -> Void
 
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
 
@@ -297,16 +146,7 @@ private struct SearchBottomAccessory: View {
             .frame(maxWidth: .infinity)
             .glassEffect(.regular, in: .capsule)
 
-            Button(action: onAddTapped) {
-                Image(systemName: isAddMenuExpanded ? "xmark" : "plus")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 48, height: 48)
-                    .glassEffect(.regular.interactive(), in: .circle)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(isAddMenuExpanded ? "Close add menu" : "Open add menu")
+            addMenuButton(size: 48, iconSize: 20)
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -326,16 +166,7 @@ private struct SearchBottomAccessory: View {
 
             Spacer()
 
-            Button(action: onAddTapped) {
-                Image(systemName: isAddMenuExpanded ? "xmark" : "plus")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppTheme.textPrimary)
-                    .frame(width: 28, height: 28)
-                    .glassEffect(.regular.interactive(), in: .circle)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(isAddMenuExpanded ? "Close add menu" : "Open add menu")
+            addMenuButton(size: 28, iconSize: 15)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -346,6 +177,30 @@ private struct SearchBottomAccessory: View {
         .onTapGesture {
             isSearchFocused = true
         }
+    }
+
+    private func addMenuButton(size: CGFloat, iconSize: CGFloat) -> some View {
+        Menu {
+            Button {
+                onAddMovie()
+            } label: {
+                Label("Movie", systemImage: "sparkle.magnifyingglass")
+            }
+
+            Button {
+                onAddPerson()
+            } label: {
+                Label("Person", systemImage: "person.badge.plus")
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: iconSize, weight: .semibold))
+                .foregroundStyle(size < 40 ? AppTheme.textPrimary : .white)
+                .frame(width: size, height: size)
+                .glassEffect(.regular.interactive(), in: .circle)
+        }
+        .menuIndicator(.hidden)
+        .accessibilityLabel("Add")
     }
 }
 
