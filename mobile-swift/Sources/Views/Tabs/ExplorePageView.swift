@@ -11,14 +11,14 @@ struct ExplorePageView: View {
     @State private var selectedMovie: TMDBMovie?
     @State private var recommenderName = ""
     @State private var people: [Person] = []
-    @State private var localSearchText = "" // For modal search
+    @State private var nativeSearchText = "" // For modal/sheet search
     @Environment(ScrollState.self) private var scrollState
     @Environment(SearchState.self) private var searchState
     
     var useNativeSearch: Bool = false // When true, uses native .searchable() for sheets
     
     private var effectiveSearchText: String {
-        useNativeSearch ? localSearchText : searchState.searchText
+        useNativeSearch ? nativeSearchText : searchState.searchText
     }
 
     var body: some View {
@@ -76,7 +76,7 @@ struct ExplorePageView: View {
             }
             .background { PageBackground() }
             .navigationTitle("Explore")
-            .searchable(text: useNativeSearch ? $localSearchText : .constant(""), prompt: "Search movies on TMDB...")
+            .modifier(ConditionalSearchable(isActive: useNativeSearch, text: $nativeSearchText))
             .onChange(of: effectiveSearchText) { _, newValue in
                 Task {
                     guard !newValue.isEmpty else {
@@ -238,6 +238,21 @@ private struct AddMovieSheet: View {
                         .disabled(recommenderName.isEmpty)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Conditional Searchable Modifier
+
+private struct ConditionalSearchable: ViewModifier {
+    let isActive: Bool
+    @Binding var text: String
+    
+    func body(content: Content) -> some View {
+        if isActive {
+            content.searchable(text: $text, prompt: "Search movies on TMDB...")
+        } else {
+            content
         }
     }
 }
