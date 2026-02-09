@@ -73,7 +73,6 @@ struct RootTabHostView: View {
                 
                 bottomBar
             }
-            .ignoresSafeArea(.keyboard, edges: .bottom)
 
             // ── Dimming overlay ──
             if isFABExpanded {
