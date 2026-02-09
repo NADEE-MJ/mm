@@ -6,15 +6,15 @@ import SwiftUI
 
 struct PeoplePageView: View {
     @State private var people: [Person] = []
-    @State private var searchText = ""
     @State private var showAddPerson = false
     @State private var filterTrusted: Bool?
     @Environment(ScrollState.self) private var scrollState
+    @Environment(SearchState.self) private var searchState
 
     private var filteredPeople: [Person] {
         var result = people
-        if !searchText.isEmpty {
-            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        if !searchState.searchText.isEmpty {
+            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchState.searchText) }
         }
         if let trusted = filterTrusted {
             result = result.filter { $0.isTrusted == trusted }
@@ -97,7 +97,6 @@ struct PeoplePageView: View {
             }
             .background { PageBackground() }
             .navigationTitle("People")
-            .searchable(text: $searchText, prompt: "Search people...")
             .refreshable {
                 await loadPeople()
             }
