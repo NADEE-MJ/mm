@@ -1,26 +1,23 @@
 import SwiftUI
 
-enum TabItem: String, CaseIterable, Hashable {
+enum TabItem: String, Hashable, CaseIterable {
     case home
     case explore
     case people
-    case account
 
     var title: String {
         switch self {
-        case .home: "Movies"
-        case .explore: "Explore"
+        case .home: "Home"
+        case .explore: "Discover"
         case .people: "People"
-        case .account: "Account"
         }
     }
 
     var icon: String {
         switch self {
-        case .home: "film.fill"
+        case .home: "house.fill"
         case .explore: "sparkle.magnifyingglass"
         case .people: "person.2.fill"
-        case .account: "person.crop.circle.fill"
         }
     }
 }

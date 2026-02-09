@@ -5,6 +5,7 @@ import SwiftUI
 // filter chips, sort/filter sheet, swipe actions, pull-to-refresh.
 
 struct HomePageView: View {
+    var onAccountTap: (() -> Void)? = nil
     @State private var movies: [Movie] = []
     @State private var isLoading = false
     @State private var selectedStatus = "to_watch"
@@ -104,6 +105,13 @@ struct HomePageView: View {
             }
             .background { PageBackground() }
             .navigationTitle("Movies")
+            .toolbar {
+                if let onAccountTap {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        AccountToolbarButton(action: onAccountTap)
+                    }
+                }
+            }
             .refreshable {
                 await loadMovies()
             }

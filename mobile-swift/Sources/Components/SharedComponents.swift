@@ -175,6 +175,53 @@ struct StarRatingView: View {
     }
 }
 
+// MARK: - Account Toolbar Button
+
+struct AccountToolbarButton: View {
+    let action: () -> Void
+    @State private var authManager = AuthManager.shared
+
+    private var initials: String {
+        guard let user = authManager.user else {
+            return "MM"
+        }
+        let username = user.username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !username.isEmpty else { return "MM" }
+        return String(username.prefix(2)).uppercased()
+    }
+
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .bottomTrailing) {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [AppTheme.surfaceMuted, AppTheme.surface],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Text(initials)
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(AppTheme.textPrimary)
+                    )
+
+                Circle()
+                    .fill(AppTheme.blue)
+                    .frame(width: 9, height: 9)
+                    .overlay(
+                        Circle()
+                            .stroke(AppTheme.background, lineWidth: 1.5)
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open account")
+    }
+}
+
 // MARK: - Hex Color Extension
 
 extension Color {
