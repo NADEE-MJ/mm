@@ -245,6 +245,7 @@ struct RootTabHostView: View {
                 .foregroundStyle(searchState.isExpanded ? AppTheme.textSecondary : AppTheme.blue)
                 .frame(width: isMinimized ? 36 : 44, height: isMinimized ? 36 : 44)
                 .contentTransition(.symbolEffect(.replace))
+                .accessibilityLabel(searchState.isExpanded ? "Close search" : "Search")
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.selection, trigger: searchState.isExpanded)
