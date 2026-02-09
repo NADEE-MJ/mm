@@ -64,8 +64,8 @@ struct RootTabHostView: View {
         .fullScreenCover(isPresented: $showAddMovie) {
             ExplorePageView(
                 onAccountTap: nil,
-                useNativeSearch: true,
-                onClose: { showAddMovie = false }
+                onClose: { showAddMovie = false },
+                useNativeSearch: true
             )
             .environment(sheetScrollState)
             .environment(sheetSearchState)
