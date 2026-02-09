@@ -113,7 +113,7 @@ struct RootTabHostView: View {
 
     @ViewBuilder
     private var bottomBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             tabBarPill
             Spacer()
             searchButton
@@ -229,8 +229,7 @@ struct RootTabHostView: View {
     // MARK: - Search Button
     
     private var searchButton: some View {
-        let size: CGFloat = isMinimized ? 40 : 56
-        return Button {
+        Button {
             withAnimation(.spring(duration: 0.35, bounce: 0.25)) {
                 searchState.isExpanded.toggle()
                 if searchState.isExpanded {
@@ -241,22 +240,14 @@ struct RootTabHostView: View {
                 }
             }
         } label: {
-            Image(systemName: searchState.isExpanded ? "xmark" : "magnifyingglass")
-                .font(.system(size: isMinimized ? 16 : 20, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: size, height: size)
-                .background(
-                    searchState.isExpanded ? Color.gray : AppTheme.blue,
-                    in: .circle
-                )
-                .shadow(
-                    color: (searchState.isExpanded ? Color.gray : AppTheme.blue).opacity(0.35),
-                    radius: 8, y: 3
-                )
+            Image(systemName: searchState.isExpanded ? "xmark.circle.fill" : "magnifyingglass")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(searchState.isExpanded ? AppTheme.textSecondary : AppTheme.blue)
+                .frame(width: 44, height: isMinimized ? 40 : 56)
                 .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.plain)
-        .sensoryFeedback(.impact(flexibility: .solid), trigger: searchState.isExpanded)
+        .sensoryFeedback(.selection, trigger: searchState.isExpanded)
     }
     
     // MARK: - Expandable Search Bar
