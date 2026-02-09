@@ -92,12 +92,13 @@ struct SearchPageView: View {
                     scrollState.update(offset: offset)
                 }
             }
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    onBackgroundTap?()
-                }
-            )
-            .background { PageBackground() }
+            .background {
+                PageBackground()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        onBackgroundTap?()
+                    }
+            }
             .navigationTitle("Search")
             .refreshable {
                 await loadData()
@@ -160,10 +161,12 @@ struct SearchPageView: View {
         .padding(.vertical, 12)
     }
 
+    @MainActor
     private func loadData() async {
         isLoading = true
-        await NetworkService.shared.fetchMovies()
-        await NetworkService.shared.fetchPeople()
+        async let fetchMoviesTask = NetworkService.shared.fetchMovies()
+        async let fetchPeopleTask = NetworkService.shared.fetchPeople()
+        _ = await (fetchMoviesTask, fetchPeopleTask)
         movies = NetworkService.shared.movies
         people = NetworkService.shared.people
         isLoading = false

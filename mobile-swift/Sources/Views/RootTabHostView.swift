@@ -55,7 +55,6 @@ struct RootTabHostView: View {
             .onChange(of: selectedTab) { _, newTab in
                 withAnimation(.spring(duration: 0.3)) {
                     scrollState.reset()
-                    isAddMenuExpanded = false
 
                     if newTab != .search {
                         isSearchFocused = false
@@ -144,6 +143,7 @@ struct RootTabHostView: View {
             ForEach(TabItem.mainTabs, id: \.self) { tab in
                 Button {
                     withAnimation(.spring(duration: 0.35, bounce: 0.2)) {
+                        isAddMenuExpanded = false
                         selectedTab = tab
                     }
                 } label: {
@@ -218,7 +218,7 @@ struct RootTabHostView: View {
                 .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Open add menu")
+        .accessibilityLabel(isAddMenuExpanded ? "Close add menu" : "Open add menu")
     }
 
     // MARK: - Search Bottom Bar
@@ -263,6 +263,7 @@ struct RootTabHostView: View {
                             .foregroundStyle(AppTheme.textSecondary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
                     .transition(.scale.combined(with: .opacity))
                 }
             }
