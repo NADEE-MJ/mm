@@ -46,32 +46,42 @@ struct RootTabHostView: View {
             }
 
             // ── Bottom bar (floating overlay) ──
-            VStack {
-                Spacer()
-                
-                // Floating Search (left side above tab bar)
-                HStack {
-                    if searchState.isExpanded {
-                        // Expanded search bar
-                        expandableSearchBar
-                            .transition(.asymmetric(
-                                insertion: .move(edge: .leading).combined(with: .opacity),
-                                removal: .move(edge: .leading).combined(with: .opacity)
-                            ))
-                    } else {
-                        // Collapsed magnifying glass icon
-                        searchIconButton
-                            .transition(.asymmetric(
-                                insertion: .scale.combined(with: .opacity),
-                                removal: .scale.combined(with: .opacity)
-                            ))
-                    }
+            ZStack {
+                // Floating Search (left side above tab bar) - moves with keyboard
+                VStack {
                     Spacer()
+                    HStack {
+                        if searchState.isExpanded {
+                            // Expanded search bar
+                            expandableSearchBar
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: .leading).combined(with: .opacity),
+                                    removal: .move(edge: .leading).combined(with: .opacity)
+                                ))
+                        } else {
+                            // Collapsed magnifying glass icon
+                            searchIconButton
+                                .transition(.asymmetric(
+                                    insertion: .scale.combined(with: .opacity),
+                                    removal: .scale.combined(with: .opacity)
+                                ))
+                        }
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                    
+                    // Spacer to account for tab bar height
+                    Spacer()
+                        .frame(height: 82) // Tab bar height including padding
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
                 
-                bottomBar
+                // Tab bar - stays fixed at bottom
+                VStack {
+                    Spacer()
+                    bottomBar
+                }
+                .ignoresSafeArea(.keyboard, edges: .bottom)
             }
 
             // ── Dimming overlay ──
