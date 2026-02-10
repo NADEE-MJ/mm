@@ -18,7 +18,6 @@ struct RootTabHostView: View {
                         showAccount = true
                     }
                 )
-                .tabBarMinimizeBehavior(.onScrollDown)
             }
 
             Tab("People", systemImage: TabItem.people.icon) {
@@ -30,12 +29,10 @@ struct RootTabHostView: View {
                         showAccount = true
                     }
                 )
-                .tabBarMinimizeBehavior(.onScrollDown)
             }
 
             Tab(role: .search) {
                 GlobalSearchPageView()
-                    .tabBarMinimizeBehavior(.onScrollDown)
             }
         }
         .tint(AppTheme.blue)

@@ -13,6 +13,9 @@ final class WebSocketManager {
     private(set) var lastError: String?
 
     private var task: URLSessionWebSocketTask?
+    private var reconnectTask: Task<Void, Never>?
+    private var reconnectAttempt = 0
+    private var shouldMaintainConnection = false
     private let session = URLSession(configuration: .default)
     private let wsBaseURL = AppConfiguration.webSocketURL
 
@@ -28,10 +31,22 @@ final class WebSocketManager {
     // MARK: - Connect
 
     func connect() {
-        guard !isConnected else { return }
+        shouldMaintainConnection = true
+        if isConnected, task != nil {
+            return
+        }
+
+        if let existingTask = task {
+            existingTask.cancel(with: .goingAway, reason: nil)
+            task = nil
+        }
+
+        reconnectTask?.cancel()
+        reconnectTask = nil
         lastError = nil
 
         guard let token = AuthManager.shared.token, !token.isEmpty else {
+            shouldMaintainConnection = false
             lastError = "Missing auth token for sync websocket"
             addSystemMessage("Connection failed: not authenticated")
             AppLog.warning("🔌 [WebSocket] Missing auth token", category: .websocket)
@@ -54,17 +69,23 @@ final class WebSocketManager {
         }
 
         AppLog.info("🔌 [WebSocket] Connecting to \(wsBaseURL.absoluteString)", category: .websocket)
-        task = session.webSocketTask(with: wsURL)
-        task?.resume()
+        let nextTask = session.webSocketTask(with: wsURL)
+        task = nextTask
+        nextTask.resume()
         isConnected = true
+        reconnectAttempt = 0
 
         addSystemMessage("Connected to sync server")
-        receiveLoop()
+        receiveLoop(for: nextTask)
     }
 
     // MARK: - Disconnect
 
     func disconnect() {
+        shouldMaintainConnection = false
+        reconnectTask?.cancel()
+        reconnectTask = nil
+
         AppLog.info("🔌 [WebSocket] Disconnect requested", category: .websocket)
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
@@ -113,31 +134,60 @@ final class WebSocketManager {
 
     // MARK: - Receive Loop
 
-    private func receiveLoop() {
-        task?.receive { result in
+    private func receiveLoop(for currentTask: URLSessionWebSocketTask) {
+        currentTask.receive { result in
             Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard self.task === currentTask else {
+                    AppLog.debug("🔌 [WebSocket] Ignoring stale websocket callback", category: .websocket)
+                    return
+                }
+
                 switch result {
                 case .success(let msg):
                     switch msg {
                     case .string(let text):
-                        self?.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
+                        self.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
                         AppLog.debug("🔌 [WebSocket] Received text message (\(text.count) chars)", category: .websocket)
                     case .data(let data):
                         let text = String(data: data, encoding: .utf8) ?? "<binary \(data.count) bytes>"
-                        self?.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
+                        self.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
                         AppLog.debug("🔌 [WebSocket] Received binary message (\(data.count) bytes)", category: .websocket)
                     @unknown default:
                         AppLog.warning("🔌 [WebSocket] Received unknown message type", category: .websocket)
                         break
                     }
-                    self?.receiveLoop()
+                    self.receiveLoop(for: currentTask)
 
                 case .failure(let error):
-                    self?.isConnected = false
-                    self?.lastError = error.localizedDescription
-                    self?.addSystemMessage("Connection lost")
+                    self.task = nil
+                    self.isConnected = false
+                    self.lastError = error.localizedDescription
+                    self.addSystemMessage("Connection lost")
                     AppLog.error("🔌 [WebSocket] Connection lost: \(error.localizedDescription)", category: .websocket)
+                    self.scheduleReconnectIfNeeded()
                 }
+            }
+        }
+    }
+
+    private func scheduleReconnectIfNeeded() {
+        guard shouldMaintainConnection else { return }
+        guard reconnectTask == nil else { return }
+        guard AuthManager.shared.token != nil else { return }
+
+        reconnectAttempt += 1
+        let delaySeconds = min(30, 1 << min(reconnectAttempt - 1, 4))
+        addSystemMessage("Reconnecting in \(delaySeconds)s...")
+        AppLog.warning("🔌 [WebSocket] Scheduling reconnect in \(delaySeconds)s", category: .websocket)
+
+        reconnectTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delaySeconds) * 1_000_000_000)
+            await MainActor.run {
+                guard let self else { return }
+                self.reconnectTask = nil
+                guard self.shouldMaintainConnection else { return }
+                self.connect()
             }
         }
     }

@@ -6,6 +6,7 @@ struct MobileSwiftApp: App {
     @State private var authManager = AuthManager.shared
     @State private var bioManager = BiometricAuthManager()
     @State private var wsManager = WebSocketManager.shared
+    @State private var didCompleteInitialAuthCheck = false
 
     var body: some Scene {
         WindowGroup {
@@ -31,13 +32,16 @@ struct MobileSwiftApp: App {
             .task {
                 AppLog.info("📱 [App] Launching app and verifying auth token", category: .app)
                 await authManager.verifyToken()
+                didCompleteInitialAuthCheck = true
                 updateWebSocketConnection(reason: "initial-auth-check")
             }
             .onChange(of: scenePhase) { _, newPhase in
+                guard didCompleteInitialAuthCheck else { return }
                 guard newPhase == .active else { return }
                 updateWebSocketConnection(reason: "scene-active")
             }
             .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
+                guard didCompleteInitialAuthCheck else { return }
                 if !isAuthenticated {
                     wsManager.disconnect()
                     return
@@ -54,8 +58,9 @@ struct MobileSwiftApp: App {
             return
         }
 
-        AppLog.info("🔌 [App] Refreshing websocket connection (\(reason))", category: .app)
-        wsManager.disconnect()
+        guard scenePhase == .active else { return }
+
+        AppLog.info("🔌 [App] Ensuring websocket connection (\(reason))", category: .app)
         wsManager.connect()
     }
 }
