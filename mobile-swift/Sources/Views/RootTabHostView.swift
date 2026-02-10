@@ -42,41 +42,41 @@ struct RootTabHostView: View {
                 scrollState.reset()
             }
         }
-        .safeAreaInset(edge: .bottom) {
+        .tabViewBottomAccessory {
             HStack {
                 Spacer()
-                VStack(alignment: .trailing, spacing: 10) {
-                    Menu {
-                        Button {
-                            showAddMovie = true
-                        } label: {
-                            Label("Add Movie", systemImage: "film.fill")
-                        }
-
-                        Button {
-                            showAddPerson = true
-                        } label: {
-                            Label("Add Person", systemImage: "person.badge.plus")
-                        }
-                    } label: {
-                        Label("Add", systemImage: "plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .accessibilityLabel("Add options")
-
-                    Button {
-                        showGlobalSearch = true
-                    } label: {
-                        Label("Search", systemImage: "magnifyingglass")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .accessibilityLabel("Open global search")
+                Button {
+                    showGlobalSearch = true
+                } label: {
+                    Image(systemName: "magnifyingglass")
                 }
-                .padding(.trailing, 12)
-                .padding(.bottom, 6)
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+                .accessibilityLabel("Open global search")
+                .padding(.trailing, 6)
             }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            Menu {
+                Button {
+                    showAddMovie = true
+                } label: {
+                    Label("Add Movie", systemImage: "film.fill")
+                }
+
+                Button {
+                    showAddPerson = true
+                } label: {
+                    Label("Add Person", systemImage: "person.badge.plus")
+                }
+            } label: {
+                Image(systemName: "plus")
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.regular)
+            .accessibilityLabel("Add options")
+            .padding(.trailing, 12)
+            .padding(.bottom, 84)
         }
         .sheet(isPresented: $showAddMovie) {
             AddMoviePageView(onClose: { showAddMovie = false })
