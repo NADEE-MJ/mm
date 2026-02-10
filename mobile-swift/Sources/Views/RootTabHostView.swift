@@ -3,59 +3,40 @@ import SwiftUI
 // MARK: - Root Tab Host
 
 struct RootTabHostView: View {
-    @State private var selectedTab: TabItem = .home
     @State private var showAddMovie = false
     @State private var showAddPerson = false
-    @State private var showGlobalSearch = false
     @State private var showAccount = false
     @State private var scrollState = ScrollState()
     @State private var sheetScrollState = ScrollState()
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            HomePageView(
-                onAccountTap: {
-                    showAccount = true
+        TabView {
+            TabSection("Library") {
+                Tab("Movies", systemImage: TabItem.home.icon) {
+                    HomePageView(
+                        onAccountTap: {
+                            showAccount = true
+                        }
+                    )
                 }
-            )
-            .tag(TabItem.home)
-            .tabItem {
-                Label(TabItem.home.title, systemImage: TabItem.home.icon)
+
+                Tab("People", systemImage: TabItem.people.icon) {
+                    PeoplePageView(
+                        onAccountTap: {
+                            showAccount = true
+                        }
+                    )
+                }
             }
 
-            PeoplePageView(
-                onAccountTap: {
-                    showAccount = true
-                }
-            )
-            .tag(TabItem.people)
-            .tabItem {
-                Label(TabItem.people.title, systemImage: TabItem.people.icon)
+            Tab(role: .search) {
+                GlobalSearchPageView()
             }
         }
         .environment(scrollState)
         .tint(AppTheme.blue)
-        .sensoryFeedback(.selection, trigger: selectedTab)
+        .tabViewStyle(.sidebarAdaptable)
         .tabBarMinimizeBehavior(.onScrollDown)
-        .onChange(of: selectedTab) { _, _ in
-            withAnimation(.spring(duration: 0.3)) {
-                scrollState.reset()
-            }
-        }
-        .tabViewBottomAccessory {
-            HStack {
-                Spacer()
-                Button {
-                    showGlobalSearch = true
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.regular)
-                .accessibilityLabel("Open global search")
-                .padding(.trailing, 6)
-            }
-        }
         .overlay(alignment: .bottomTrailing) {
             Menu {
                 Button {
@@ -91,10 +72,6 @@ struct RootTabHostView: View {
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
-        }
-        .fullScreenCover(isPresented: $showGlobalSearch) {
-            GlobalSearchPageView(onClose: { showGlobalSearch = false })
-                .environment(sheetScrollState)
         }
         .fullScreenCover(isPresented: $showAccount) {
             AccountPageView(onClose: { showAccount = false })

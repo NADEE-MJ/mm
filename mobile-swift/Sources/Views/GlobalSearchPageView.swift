@@ -20,7 +20,7 @@ struct GlobalSearchPageView: View {
         var id: String { rawValue }
     }
 
-    let onClose: () -> Void
+    var onClose: (() -> Void)? = nil
 
     @State private var movies: [Movie] = []
     @State private var people: [Person] = []
@@ -192,9 +192,11 @@ struct GlobalSearchPageView: View {
                 await loadData()
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") {
-                        onClose()
+                if let onClose {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Close") {
+                            onClose()
+                        }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {

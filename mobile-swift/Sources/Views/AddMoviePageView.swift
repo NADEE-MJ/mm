@@ -78,7 +78,7 @@ struct AddMoviePageView: View {
                 }
 
                 isSearching = true
-                try? await Task.sleep(for: .milliseconds(1200))
+                try? await Task.sleep(for: .milliseconds(350))
                 guard !Task.isCancelled else { return }
                 searchResults = await NetworkService.shared.searchMovies(query: trimmed)
                 isSearching = false
