@@ -11,31 +11,20 @@ struct RootTabHostView: View {
 
     var body: some View {
         TabView {
-            TabSection("Library") {
-                Tab("Movies", systemImage: TabItem.home.icon) {
-                    HomePageView(
-                        onAccountTap: {
-                            showAccount = true
-                        }
-                    )
-                }
-
-                Tab("People", systemImage: TabItem.people.icon) {
-                    PeoplePageView(
-                        onAccountTap: {
-                            showAccount = true
-                        }
-                    )
-                }
+            Tab("Movies", systemImage: TabItem.home.icon) {
+                HomePageView(
+                    onAccountTap: {
+                        showAccount = true
+                    }
+                )
             }
 
-            TabSection("Add") {
-                Tab("Add", systemImage: "plus") {
-                    AddActionsPageView(
-                        onAddMovie: { showAddMovie = true },
-                        onAddPerson: { showAddPerson = true }
-                    )
-                }
+            Tab("People", systemImage: TabItem.people.icon) {
+                PeoplePageView(
+                    onAccountTap: {
+                        showAccount = true
+                    }
+                )
             }
 
             Tab(role: .search) {
@@ -44,8 +33,29 @@ struct RootTabHostView: View {
         }
         .environment(scrollState)
         .tint(AppTheme.blue)
-        .tabViewStyle(.sidebarAdaptable)
         .tabBarMinimizeBehavior(.onScrollDown)
+        .overlay(alignment: .bottomTrailing) {
+            Menu {
+                Button {
+                    showAddMovie = true
+                } label: {
+                    Label("Add Movie", systemImage: "film.fill")
+                }
+
+                Button {
+                    showAddPerson = true
+                } label: {
+                    Label("Add Person", systemImage: "person.badge.plus")
+                }
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Add options")
+            .padding(.trailing, 6)
+            .padding(.bottom, 84)
+        }
         .sheet(isPresented: $showAddMovie) {
             AddMoviePageView(onClose: { showAddMovie = false })
             .environment(sheetScrollState)
@@ -68,31 +78,4 @@ struct RootTabHostView: View {
 
 #Preview {
     RootTabHostView()
-}
-
-private struct AddActionsPageView: View {
-    let onAddMovie: () -> Void
-    let onAddPerson: () -> Void
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Create") {
-                    Button {
-                        onAddMovie()
-                    } label: {
-                        Label("Add Movie", systemImage: "film.fill")
-                    }
-
-                    Button {
-                        onAddPerson()
-                    } label: {
-                        Label("Add Person", systemImage: "person.badge.plus")
-                    }
-                }
-            }
-            .navigationTitle("Add")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
 }
