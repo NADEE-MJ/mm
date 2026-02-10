@@ -26,7 +26,7 @@ struct GlobalSearchPageView: View {
     @State private var people: [Person] = []
     @State private var isLoading = false
     @State private var searchText = ""
-    @State private var isSearchPresented = false
+    @State private var isSearchPresented = true
 
     @State private var scope: ResultScope = .all
     @State private var sortOption: SortOption = .dateAdded
@@ -190,9 +190,6 @@ struct GlobalSearchPageView: View {
                 isPresented: $isSearchPresented,
                 prompt: "Search movies and people"
             )
-            .onAppear {
-                isSearchPresented = true
-            }
             .refreshable {
                 await loadData()
             }

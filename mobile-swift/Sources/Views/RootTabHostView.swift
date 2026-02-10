@@ -34,28 +34,33 @@ struct RootTabHostView: View {
         }
         .tint(AppTheme.blue)
         .tabBarMinimizeBehavior(.onScrollDown)
-        .overlay(alignment: .bottomTrailing) {
+        .tabViewBottomAccessory {
             if !isSearchTabActive {
-                Menu {
-                    Button {
-                        showAddMovie = true
-                    } label: {
-                        Label("Add Movie", systemImage: "film.fill")
-                    }
+                HStack {
+                    Spacer()
 
-                    Button {
-                        showAddPerson = true
+                    Menu {
+                        Button {
+                            showAddMovie = true
+                        } label: {
+                            Label("Add Movie", systemImage: "film.fill")
+                        }
+
+                        Button {
+                            showAddPerson = true
+                        } label: {
+                            Label("Add Person", systemImage: "person.badge.plus")
+                        }
                     } label: {
-                        Label("Add Person", systemImage: "person.badge.plus")
+                        Image(systemName: "plus")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 44, height: 44)
                     }
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
-                        .frame(width: 44, height: 44)
+                    .buttonStyle(.glass)
+                    .buttonBorderShape(.circle)
+                    .accessibilityLabel("Add options")
                 }
-                .accessibilityLabel("Add options")
                 .padding(.trailing, 6)
-                .padding(.bottom, 84)
             }
         }
         .sheet(isPresented: $showAddMovie) {

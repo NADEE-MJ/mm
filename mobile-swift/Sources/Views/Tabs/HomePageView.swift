@@ -38,12 +38,23 @@ struct HomePageView: View {
         return Array(Set(names)).sorted()
     }
 
-    private var toWatchCount: Int {
-        allMovies.filter { $0.status == "to_watch" }.count
+    private var moviesSectionTitle: String {
+        if selectedStatus == "to_watch" {
+            return "\(filteredMovies.count) movie\(filteredMovies.count == 1 ? "" : "s") to watch"
+        }
+        return "\(filteredMovies.count) watched movie\(filteredMovies.count == 1 ? "" : "s")"
     }
 
-    private var watchedCount: Int {
-        allMovies.filter { $0.status == "watched" }.count
+    private var toWatchFooterMessage: String? {
+        guard selectedStatus == "to_watch" else { return nil }
+
+        if filteredMovies.count <= 3 {
+            return "Hey, ask your friends for more recommendations."
+        }
+        if filteredMovies.count >= 12 {
+            return "Hey buddy, you got a lot of movies to watch."
+        }
+        return "Solid queue. Keep chipping away."
     }
 
     private var activeFiltersCount: Int {
@@ -53,17 +64,14 @@ struct HomePageView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Status") {
+                Section {
                     Picker("Status", selection: $selectedStatus) {
                         ForEach(statusFilters, id: \.key) { filter in
-                            let count = filter.key == "to_watch" ? toWatchCount : watchedCount
-                            Text("\(filter.label) (\(count))").tag(filter.key)
+                            Text(filter.label).tag(filter.key)
                         }
                     }
                     .pickerStyle(.segmented)
-                }
 
-                Section("Options") {
                     Button {
                         showFilters = true
                     } label: {
@@ -103,7 +111,7 @@ struct HomePageView: View {
                         )
                     }
                 } else {
-                    Section("\(filteredMovies.count) movies") {
+                    Section {
                         ForEach(filteredMovies) { movie in
                             NavigationLink {
                                 MovieDetailView(movie: movie)
@@ -158,6 +166,12 @@ struct HomePageView: View {
                                     .tint(.orange)
                                 }
                             }
+                        }
+                    } header: {
+                        Text(moviesSectionTitle)
+                    } footer: {
+                        if let toWatchFooterMessage {
+                            Text(toWatchFooterMessage)
                         }
                     }
                 }
