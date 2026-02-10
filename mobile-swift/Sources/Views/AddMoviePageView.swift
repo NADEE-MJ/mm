@@ -1,11 +1,9 @@
 import SwiftUI
 
-// MARK: - Explore Page
+// MARK: - Add Movie Page
 
-struct ExplorePageView: View {
-    var onAccountTap: (() -> Void)? = nil
-    var onAddPerson: (() -> Void)? = nil
-    var onClose: (() -> Void)? = nil
+struct AddMoviePageView: View {
+    let onClose: () -> Void
 
     @State private var searchResults: [TMDBMovie] = []
     @State private var isSearching = false
@@ -30,7 +28,7 @@ struct ExplorePageView: View {
                 } else if searchResults.isEmpty && searchText.isEmpty {
                     Section {
                         ContentUnavailableView(
-                            "Explore Movies",
+                            "Add Movie",
                             systemImage: "sparkle.magnifyingglass",
                             description: Text("Search TMDB for movies to add to your collection.")
                         )
@@ -60,35 +58,15 @@ struct ExplorePageView: View {
                     scrollState.update(offset: offset)
                 }
             }
-            .navigationTitle("Explore")
+            .navigationTitle("Add Movie")
             .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, prompt: "Search movies on TMDB")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    if let onClose {
-                        Button {
-                            onClose()
-                        }
-                        label: { Text("Close") }
+                    Button {
+                        onClose()
                     }
-                }
-
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if let onAddPerson {
-                        Button {
-                            onAddPerson()
-                        } label: {
-                            Image(systemName: "person.badge.plus")
-                        }
-                        .accessibilityLabel("Add person")
-                    }
-
-                    if let onAccountTap {
-                        Button(action: onAccountTap) {
-                            Image(systemName: "person.crop.circle")
-                        }
-                        .accessibilityLabel("Open account")
-                    }
+                    label: { Text("Close") }
                 }
             }
             .task(id: searchText) {
@@ -281,5 +259,5 @@ private struct AddMovieSheet: View {
 }
 
 #Preview {
-    ExplorePageView()
+    AddMoviePageView(onClose: {})
 }

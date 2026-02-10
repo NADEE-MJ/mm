@@ -11,6 +11,8 @@ struct Movie: Identifiable, Hashable, Decodable {
     let overview: String?
     let releaseDate: String?
     let voteAverage: Double?
+    let genres: [String]
+    let director: String?
     let status: String
     let myRating: Int?
     let dateWatched: String?
@@ -59,6 +61,10 @@ struct Movie: Identifiable, Hashable, Decodable {
             overview = tmdbData?.plot ?? omdbData?.plot
             releaseDate = tmdbData?.year ?? omdbData?.yearString
             voteAverage = tmdbData?.voteAverage ?? omdbData?.imdbRating
+            let omdbGenres = omdbData?.genres ?? []
+            let tmdbGenres = tmdbData?.genres ?? []
+            genres = omdbGenres.isEmpty ? tmdbGenres : omdbGenres
+            director = omdbData?.director
             status = Self.mapBackendStatusToApp(backendStatus)
             if let watchHistory = backendMovie.watchHistory {
                 myRating = Int(round(watchHistory.myRating))
@@ -82,6 +88,8 @@ struct Movie: Identifiable, Hashable, Decodable {
         overview = try c.decodeIfPresent(String.self, forKey: .overview)
         releaseDate = try c.decodeIfPresent(String.self, forKey: .releaseDate)
         voteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverage)
+        genres = []
+        director = nil
         status = try c.decodeIfPresent(String.self, forKey: .status) ?? "to_watch"
         myRating = try c.decodeIfPresent(Int.self, forKey: .myRating)
         dateWatched = try c.decodeIfPresent(String.self, forKey: .dateWatched)
@@ -97,6 +105,8 @@ struct Movie: Identifiable, Hashable, Decodable {
         overview: String?,
         releaseDate: String?,
         voteAverage: Double?,
+        genres: [String] = [],
+        director: String? = nil,
         status: String,
         myRating: Int?,
         dateWatched: String?,
@@ -110,6 +120,8 @@ struct Movie: Identifiable, Hashable, Decodable {
         self.overview = overview
         self.releaseDate = releaseDate
         self.voteAverage = voteAverage
+        self.genres = genres
+        self.director = director
         self.status = status
         self.myRating = myRating
         self.dateWatched = dateWatched
@@ -310,6 +322,7 @@ private struct TMDBDetailPayload: Codable {
     let posterSmall: String?
     let posterPath: String?
     let plot: String?
+    let genres: [String]?
     let voteAverage: Double?
     let voteCount: Int?
 
@@ -322,6 +335,7 @@ private struct TMDBDetailPayload: Codable {
         case posterSmall
         case posterPath = "poster_path"
         case plot
+        case genres
         case voteAverage
         case voteCount
     }
@@ -349,6 +363,7 @@ private struct TMDBDetailPayload: Codable {
         posterSmall = try c.decodeIfPresent(String.self, forKey: .posterSmall)
         posterPath = try c.decodeIfPresent(String.self, forKey: .posterPath)
         plot = try c.decodeIfPresent(String.self, forKey: .plot)
+        genres = try c.decodeIfPresent([String].self, forKey: .genres)
         var decodedVoteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverage)
         var decodedVoteCount = try c.decodeIfPresent(Int.self, forKey: .voteCount)
 
@@ -375,6 +390,7 @@ private struct TMDBDetailPayload: Codable {
         posterSmall: String?,
         posterPath: String?,
         plot: String?,
+        genres: [String]?,
         voteAverage: Double?,
         voteCount: Int?
     ) {
@@ -386,6 +402,7 @@ private struct TMDBDetailPayload: Codable {
         self.posterSmall = posterSmall
         self.posterPath = posterPath
         self.plot = plot
+        self.genres = genres
         self.voteAverage = voteAverage
         self.voteCount = voteCount
     }
@@ -397,6 +414,8 @@ private struct OMDBDetailPayload: Codable {
     let year: Int?
     let plot: String?
     let poster: String?
+    let genres: [String]?
+    let director: String?
     let imdbRating: Double?
 
     enum CodingKeys: String, CodingKey {
@@ -405,6 +424,8 @@ private struct OMDBDetailPayload: Codable {
         case year
         case plot
         case poster
+        case genres
+        case director
         case imdbRating
     }
 

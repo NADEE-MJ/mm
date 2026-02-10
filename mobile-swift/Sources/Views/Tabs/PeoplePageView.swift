@@ -9,7 +9,6 @@ struct PeoplePageView: View {
     }
 
     var onAccountTap: (() -> Void)? = nil
-    var onAddPerson: (() -> Void)? = nil
 
     @State private var people: [Person] = []
     @State private var filter: TrustedFilter = .all
@@ -121,14 +120,7 @@ struct PeoplePageView: View {
                 await loadPeople()
             }
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if let onAddPerson {
-                        Button(action: onAddPerson) {
-                            Image(systemName: "person.badge.plus")
-                        }
-                        .accessibilityLabel("Add person")
-                    }
-
+                ToolbarItem(placement: .topBarTrailing) {
                     if let onAccountTap {
                         Button(action: onAccountTap) {
                             Image(systemName: "person.crop.circle")

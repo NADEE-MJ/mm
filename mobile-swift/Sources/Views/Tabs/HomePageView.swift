@@ -4,8 +4,6 @@ import SwiftUI
 
 struct HomePageView: View {
     var onAccountTap: (() -> Void)? = nil
-    var onAddMovie: (() -> Void)? = nil
-    var onAddPerson: (() -> Void)? = nil
 
     @State private var allMovies: [Movie] = []
     @State private var isLoading = false
@@ -200,29 +198,7 @@ struct HomePageView: View {
                 }
             }
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    if onAddMovie != nil || onAddPerson != nil {
-                        Menu {
-                            if let onAddMovie {
-                                Button {
-                                    onAddMovie()
-                                } label: {
-                                    Label("Movie", systemImage: "sparkle.magnifyingglass")
-                                }
-                            }
-
-                            if let onAddPerson {
-                                Button {
-                                    onAddPerson()
-                                } label: {
-                                    Label("Person", systemImage: "person.badge.plus")
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                    }
-
+                ToolbarItem(placement: .topBarTrailing) {
                     if let onAccountTap {
                         Button(action: onAccountTap) {
                             Image(systemName: "person.crop.circle")
