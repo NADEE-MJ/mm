@@ -46,7 +46,7 @@ struct PeoplePageView: View {
                     .pickerStyle(.segmented)
                 }
 
-                Section("\(filteredPeople.count) people") {
+                Section {
                     if filteredPeople.isEmpty {
                         ContentUnavailableView(
                             "No People",
@@ -97,6 +97,8 @@ struct PeoplePageView: View {
                             }
                         }
                     }
+                } header: {
+                    Text("\(filteredPeople.count) people")
                 } footer: {
                     Text("Swipe right or use the context menu to toggle trust.")
                 }
