@@ -279,21 +279,17 @@ struct GlobalSearchPageView: View {
     }
 
     private func parseISODate(_ value: String) -> Date? {
-        iso8601WithFractional.date(from: value) ?? iso8601Basic.date(from: value)
+        let fractionalFormatter = ISO8601DateFormatter()
+        fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let parsed = fractionalFormatter.date(from: value) {
+            return parsed
+        }
+
+        let basicFormatter = ISO8601DateFormatter()
+        basicFormatter.formatOptions = [.withInternetDateTime]
+        return basicFormatter.date(from: value)
     }
 }
-
-private let iso8601WithFractional: ISO8601DateFormatter = {
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-    return formatter
-}()
-
-private let iso8601Basic: ISO8601DateFormatter = {
-    let formatter = ISO8601DateFormatter()
-    formatter.formatOptions = [.withInternetDateTime]
-    return formatter
-}()
 
 private struct GlobalMovieRow: View {
     let movie: Movie
