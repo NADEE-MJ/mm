@@ -318,11 +318,13 @@ jobs:
           if-no-files-found: error
 
       - name: Publish PR build release
+        id: publish_pr_release
         if: success() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          echo "published=false" >> "$GITHUB_OUTPUT"
           
           # Sanitize branch name for tag
           BRANCH_RAW="${{ github.head_ref }}"
@@ -336,9 +338,13 @@ jobs:
           RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
           
           # Create tag
-          gh api -X POST "repos/${{ github.repository }}/git/refs" \
+          if ! CREATE_REF_OUTPUT=$(gh api -X POST "repos/${{ github.repository }}/git/refs" \
             -f ref="refs/tags/${TAG}" \
-            -f sha="${{ github.sha }}"
+            -f sha="${{ github.sha }}" 2>&1); then
+            echo "::warning::Skipping PR release publish: token cannot create refs in this context."
+            echo "::warning::$CREATE_REF_OUTPUT"
+            exit 0
+          fi
           
           NOTES=$(cat <<EOF_NOTES
           PR build for branch \`${BRANCH}\` from commit ${{ github.sha }}.
@@ -352,17 +358,22 @@ jobs:
           )
           
           # Create release
-          gh release create "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" \
+          if ! CREATE_RELEASE_OUTPUT=$(gh release create "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" \
             --title "$RELEASE_TITLE" \
             --notes "$NOTES" \
-            --prerelease
+            --prerelease 2>&1); then
+            echo "::warning::Tag was created but release publish is not permitted in this context."
+            echo "::warning::$CREATE_RELEASE_OUTPUT"
+            exit 0
+          fi
           
           echo "RELEASE_URL=$RELEASE_URL" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "published=true" >> "$GITHUB_OUTPUT"
           echo "✅ Created PR release: $RELEASE_URL"
 
       - name: Comment on PR with build artifact
-        if: success() && github.event_name == 'pull_request'
+        if: success() && github.event_name == 'pull_request' && steps.publish_pr_release.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
