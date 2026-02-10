@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - Home Page
 
 struct HomePageView: View {
+    var onAddMovieTap: (() -> Void)? = nil
     var onAccountTap: (() -> Void)? = nil
 
     @State private var allMovies: [Movie] = []
@@ -191,7 +192,14 @@ struct HomePageView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if let onAddMovieTap {
+                        Button(action: onAddMovieTap) {
+                            Image(systemName: "plus")
+                        }
+                        .accessibilityLabel("Add movie")
+                    }
+
                     if let onAccountTap {
                         Button(action: onAccountTap) {
                             Image(systemName: "person.crop.circle")
