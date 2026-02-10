@@ -200,10 +200,13 @@ mm/
 
 ### iOS Build Pipeline (Unsigned IPA)
 
-This repo now has two iOS unsigned build workflows:
+This section covers three iOS unsigned build workflows:
 
 - Expo app: `.github/workflows/build-ios-simple.yml`
 - Native Swift test app: `.github/workflows/build-ios-swift-test.yml`
+- Landmarks SwiftUI app: `.github/workflows/build-landmarks.yml`
+
+For the main native Swift app pipeline, see `.github/workflows/build-mobile-swift.yml`.
 
 Expo app flow:
 1. Set GitHub repository variable or secret `EXPO_PUBLIC_API_URL` (production API URL used by CI builds).
@@ -223,6 +226,17 @@ Swift test app flow:
 3. Download from:
    - Action artifact `ios-swift-test-unsigned-ipa`, or
    - Release tag `ios-swift-test-latest` in GitHub Releases.
+
+Landmarks app flow:
+1. Run **Build Landmarks App (Unsigned)** from GitHub Actions.
+2. Optional workflow inputs:
+   - `runner_image` (`macos-latest` default, `macos-15` fallback, `macos-26` if available).
+   - `deployment_target` (default `26.0`) for the iOS build setting.
+   - `publish_release` to control rolling release updates.
+   - `artifact_suffix` to append a suffix to the IPA filename.
+3. Download from:
+   - Action artifact `landmarks-unsigned-ipa`, or
+   - Release tag `landmarks-latest` in GitHub Releases.
 
 Install flow:
 - Import IPA into SideStore / LiveContainer.
@@ -464,6 +478,16 @@ The repository includes automated build pipelines for all iOS apps that build un
 - **Outputs**:
   - Artifact: `ios-swift-test-unsigned-ipa`
   - Release: `ios-swift-test-latest` tag
+
+### Landmarks SwiftUI App (`landmarks-example-app/`)
+- **Workflow**: `.github/workflows/build-landmarks.yml`
+- **Triggers**:
+  - Manual dispatch from GitHub Actions UI
+  - Pull requests when `landmarks-example-app/**` changes
+  - Push to main when `landmarks-example-app/**` changes
+- **Outputs**:
+  - Artifact: `landmarks-unsigned-ipa`
+  - Release: `landmarks-latest` tag
 
 All pipelines use path-based filtering to ensure they only run when their respective folders change, reducing unnecessary builds and CI costs.
 
