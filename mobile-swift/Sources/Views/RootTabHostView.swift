@@ -8,7 +8,6 @@ struct RootTabHostView: View {
     @State private var showAddPerson = false
     @State private var showGlobalSearch = false
     @State private var showAccount = false
-    @State private var showAddMenu = false
     @State private var scrollState = ScrollState()
     @State private var sheetScrollState = ScrollState()
 
@@ -16,7 +15,6 @@ struct RootTabHostView: View {
         TabView(selection: $selectedTab) {
             HomePageView(
                 onAccountTap: {
-                    showAddMenu = false
                     showAccount = true
                 }
             )
@@ -27,7 +25,6 @@ struct RootTabHostView: View {
 
             PeoplePageView(
                 onAccountTap: {
-                    showAddMenu = false
                     showAccount = true
                 }
             )
@@ -43,33 +40,43 @@ struct RootTabHostView: View {
         .onChange(of: selectedTab) { _, _ in
             withAnimation(.spring(duration: 0.3)) {
                 scrollState.reset()
-                showAddMenu = false
             }
         }
-        .overlay(alignment: .bottomTrailing) {
-            FloatingQuickActions(
-                isExpanded: $showAddMenu,
-                onToggleAddMenu: {
-                    withAnimation(.spring(duration: 0.28)) {
-                        showAddMenu.toggle()
+        .safeAreaInset(edge: .bottom) {
+            HStack {
+                Spacer()
+                VStack(alignment: .trailing, spacing: 10) {
+                    Menu {
+                        Button {
+                            showAddMovie = true
+                        } label: {
+                            Label("Add Movie", systemImage: "film.fill")
+                        }
+
+                        Button {
+                            showAddPerson = true
+                        } label: {
+                            Label("Add Person", systemImage: "person.badge.plus")
+                        }
+                    } label: {
+                        Label("Add", systemImage: "plus")
                     }
-                },
-                onOpenSearch: {
-                    showAddMenu = false
-                    showGlobalSearch = true
-                },
-                onAddMovie: {
-                    showAddMenu = false
-                    showAddMovie = true
-                },
-                onAddPerson: {
-                    showAddMenu = false
-                    showAddPerson = true
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .accessibilityLabel("Add options")
+
+                    Button {
+                        showGlobalSearch = true
+                    } label: {
+                        Label("Search", systemImage: "magnifyingglass")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .accessibilityLabel("Open global search")
                 }
-            )
-            .padding(.trailing, 8)
-            .padding(.bottom, 76)
-            .offset(x: 10)
+                .padding(.trailing, 12)
+                .padding(.bottom, 6)
+            }
         }
         .sheet(isPresented: $showAddMovie) {
             AddMoviePageView(onClose: { showAddMovie = false })
@@ -98,94 +105,4 @@ struct RootTabHostView: View {
 
 #Preview {
     RootTabHostView()
-}
-
-private struct FloatingQuickActions: View {
-    @Binding var isExpanded: Bool
-    let onToggleAddMenu: () -> Void
-    let onOpenSearch: () -> Void
-    let onAddMovie: () -> Void
-    let onAddPerson: () -> Void
-
-    var body: some View {
-        VStack(alignment: .trailing, spacing: 12) {
-            if isExpanded {
-                VStack(alignment: .trailing, spacing: 10) {
-                    expandedActionButton(
-                        title: "Add Movie",
-                        icon: "film.fill",
-                        tint: AppTheme.blue,
-                        action: onAddMovie
-                    )
-                    expandedActionButton(
-                        title: "Add Person",
-                        icon: "person.badge.plus",
-                        tint: .green,
-                        action: onAddPerson
-                    )
-                }
-                .transition(.move(edge: .trailing).combined(with: .opacity))
-            }
-
-            circleButton(
-                icon: isExpanded ? "xmark" : "plus",
-                tint: AppTheme.blue,
-                accessibilityLabel: isExpanded ? "Close add menu" : "Open add menu",
-                action: onToggleAddMenu
-            )
-
-            circleButton(
-                icon: "magnifyingglass",
-                tint: .orange,
-                accessibilityLabel: "Open global search",
-                action: onOpenSearch
-            )
-        }
-    }
-
-    private func expandedActionButton(
-        title: String,
-        icon: String,
-        tint: Color,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.subheadline.weight(.semibold))
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(.ultraThinMaterial, in: Capsule())
-            .overlay(
-                Capsule()
-                    .stroke(tint.opacity(0.32), lineWidth: 1)
-            )
-        }
-        .foregroundStyle(.white)
-        .shadow(color: .black.opacity(0.26), radius: 8, x: 0, y: 5)
-    }
-
-    private func circleButton(
-        icon: String,
-        tint: Color,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .bold))
-                .frame(width: 52, height: 52)
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay(
-                    Circle()
-                        .stroke(tint.opacity(0.36), lineWidth: 1.3)
-                )
-        }
-        .foregroundStyle(.white)
-        .shadow(color: .black.opacity(0.3), radius: 10, x: 0, y: 5)
-        .accessibilityLabel(accessibilityLabel)
-    }
 }
