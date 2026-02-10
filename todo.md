@@ -21,4 +21,4 @@
     - the default recommenders should not exist in the database, maybe you link to them with negative numbers or some other way, not sure yet
   - movies
     - tmdb_data should be split up into tmdb data omdb data, its currently storing everything in omdb data
-  -
+- actually make offline work, cause right now if you try to open the app offline it just fails
