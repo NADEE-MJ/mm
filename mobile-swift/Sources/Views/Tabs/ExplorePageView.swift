@@ -31,7 +31,7 @@ struct ExplorePageView: View {
                 } else if searchResults.isEmpty && searchText.isEmpty {
                     Section {
                         ContentUnavailableView(
-                            "Discover Movies",
+                            "Explore Movies",
                             systemImage: "sparkle.magnifyingglass",
                             description: Text("Search TMDB for movies to add to your collection.")
                         )
@@ -63,20 +63,20 @@ struct ExplorePageView: View {
                 }
             }
             .navigationTitle("Explore")
+            .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, prompt: "Search movies on TMDB")
             .toolbar {
-                if let onClose {
-                    ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .topBarLeading) {
+                    if let onClose {
                         Button {
                             onClose()
-                        } label: {
-                            Image(systemName: "xmark")
                         }
+                        label: { Text("Close") }
                     }
                 }
 
-                if let onAddPerson {
-                    ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if let onAddPerson {
                         Button {
                             onAddPerson()
                         } label: {
@@ -84,10 +84,8 @@ struct ExplorePageView: View {
                         }
                         .accessibilityLabel("Add person")
                     }
-                }
 
-                if let onAccountTap {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    if let onAccountTap {
                         Button(action: onAccountTap) {
                             Image(systemName: "person.crop.circle")
                         }
@@ -95,19 +93,19 @@ struct ExplorePageView: View {
                     }
                 }
             }
-            .onChange(of: searchText) { _, newValue in
-                Task {
-                    guard !newValue.isEmpty else {
-                        searchResults = []
-                        return
-                    }
-
-                    isSearching = true
-                    try? await Task.sleep(for: .milliseconds(400))
-                    guard !Task.isCancelled else { return }
-                    searchResults = await NetworkService.shared.searchMovies(query: newValue)
+            .task(id: searchText) {
+                let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else {
+                    searchResults = []
                     isSearching = false
+                    return
                 }
+
+                isSearching = true
+                try? await Task.sleep(for: .milliseconds(350))
+                guard !Task.isCancelled else { return }
+                searchResults = await NetworkService.shared.searchMovies(query: trimmed)
+                isSearching = false
             }
             .task {
                 await NetworkService.shared.fetchPeople()
@@ -255,8 +253,8 @@ private struct AddMovieSheet: View {
                     }
                 }
 
-                Section("Recommender") {
-                    TextField("Recommender Name", text: $recommenderName)
+                Section("Person") {
+                    TextField("Recommended by", text: $recommenderName)
 
                     if !people.isEmpty {
                         Picker("Choose Existing", selection: recommenderSelection) {

@@ -13,6 +13,8 @@ struct AccountPageView: View {
     @State private var showClearCacheAlert = false
     @State private var showLogoutAlert = false
 
+    private var isSyncConnected: Bool { ws.isConnected }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -40,7 +42,7 @@ struct AccountPageView: View {
                     LabeledContent("Watched") {
                         Text("\(movies.filter { $0.status == "watched" }.count)")
                     }
-                    LabeledContent("Recommenders") { Text("\(people.count)") }
+                    LabeledContent("People") { Text("\(people.count)") }
                 }
 
                 Section("Quick Actions") {
@@ -53,7 +55,7 @@ struct AccountPageView: View {
                     NavigationLink {
                         DevToolsView()
                     } label: {
-                        Label("Developer Labs", systemImage: "hammer")
+                        Label("Developer Tools", systemImage: "hammer")
                     }
 
                     Button(role: .destructive) {
@@ -73,18 +75,24 @@ struct AccountPageView: View {
                     LabeledContent("Version") { Text("1.0.0") }
                     LabeledContent("Cached Movies") { Text("\(dbManager.movieCount)") }
                     LabeledContent("Cached People") { Text("\(dbManager.peopleCount)") }
-                    LabeledContent("Sync Status") { Text(ws.isConnected ? "Connected" : "Disconnected") }
+                    LabeledContent("Sync Status") {
+                        Label(
+                            isSyncConnected ? "Connected" : "Disconnected",
+                            systemImage: isSyncConnected ? "checkmark.circle.fill" : "xmark.circle.fill"
+                        )
+                        .foregroundStyle(isSyncConnected ? .green : .red)
+                    }
                 }
             }
             .navigationTitle("Account")
+            .navigationBarTitleDisplayMode(onClose == nil ? .large : .inline)
             .toolbar {
                 if let onClose {
-                    ToolbarItem(placement: .topBarLeading) {
+                    ToolbarItem(placement: .cancellationAction) {
                         Button {
                             onClose()
-                        } label: {
-                            Image(systemName: "xmark")
                         }
+                        label: { Text("Close") }
                     }
                 }
             }
@@ -195,8 +203,9 @@ struct DevToolsView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle("Developer Labs")
+        .navigationTitle("Developer Tools")
         .toolbarTitleDisplayMode(.inline)
+        .animation(.default, value: selectedSection)
         .onAppear {
             loggingEnabled = DebugSettings.loggingEnabled
             logURL = FileLogStore.shared.exportURL()

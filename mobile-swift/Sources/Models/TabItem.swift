@@ -7,15 +7,15 @@ enum TabItem: String, Hashable, CaseIterable {
 
     var title: String {
         switch self {
-        case .home: "Home"
-        case .explore: "Discover"
+        case .home: "Movies"
+        case .explore: "Explore"
         case .people: "People"
         }
     }
 
     var icon: String {
         switch self {
-        case .home: "house.fill"
+        case .home: "film.fill"
         case .explore: "sparkle.magnifyingglass"
         case .people: "person.2.fill"
         }

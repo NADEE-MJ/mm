@@ -22,6 +22,10 @@ struct HomePageView: View {
         ("watched", "Watched"),
     ]
 
+    private var currentDefaultSort: String {
+        selectedStatus == "watched" ? "dateWatched" : "dateRecommended"
+    }
+
     private var filteredMovies: [Movie] {
         var result = allMovies.filter { $0.status == selectedStatus }
 
@@ -60,7 +64,7 @@ struct HomePageView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
+                Section("Status") {
                     Picker("Status", selection: $selectedStatus) {
                         ForEach(statusFilters, id: \.key) { filter in
                             let count = filter.key == "to_watch" ? toWatchCount : watchedCount
@@ -70,12 +74,12 @@ struct HomePageView: View {
                     .pickerStyle(.segmented)
                 }
 
-                Section {
+                Section("Options") {
                     Button {
                         showFilters = true
                     } label: {
                         HStack {
-                            Text("Sort and Filter")
+                            Label("Sort and Filter", systemImage: "line.3.horizontal.decrease.circle")
                             Spacer()
                             if activeFiltersCount > 0 {
                                 Text("\(activeFiltersCount)")
@@ -182,6 +186,7 @@ struct HomePageView: View {
                 }
             }
             .navigationTitle("Movies")
+            .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, prompt: "Search movies")
             .refreshable {
                 await loadAllMovies()
@@ -189,9 +194,14 @@ struct HomePageView: View {
             .task {
                 await loadAllMovies()
             }
+            .onChange(of: selectedStatus) { _, _ in
+                if sortBy == "dateRecommended" || sortBy == "dateWatched" {
+                    sortBy = currentDefaultSort
+                }
+            }
             .toolbar {
-                if onAddMovie != nil || onAddPerson != nil {
-                    ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if onAddMovie != nil || onAddPerson != nil {
                         Menu {
                             if let onAddMovie {
                                 Button {
@@ -212,10 +222,8 @@ struct HomePageView: View {
                             Image(systemName: "plus")
                         }
                     }
-                }
 
-                if let onAccountTap {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    if let onAccountTap {
                         Button(action: onAccountTap) {
                             Image(systemName: "person.crop.circle")
                         }
@@ -364,7 +372,7 @@ private struct MovieRowView: View {
                 .font(.caption)
 
                 if let recommender = movie.recommendations.first?.recommender {
-                    Text("from \(recommender)")
+                    Text("Recommended by \(recommender)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -459,12 +467,12 @@ private struct MovieDetailView: View {
             }
 
             if !movie.recommendations.isEmpty {
-                Section("Recommenders") {
-                    ForEach(movie.recommendations, id: \.recommender) { rec in
+                Section("Recommended By") {
+                    ForEach(Array(movie.recommendations.enumerated()), id: \.offset) { _, rec in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(rec.recommender)
                                 .font(.headline)
-                            Text("Recommended \(rec.dateRecommended)")
+                            Text("Recommended \(formattedDate(rec.dateRecommended))")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -491,6 +499,14 @@ private struct MovieDetailView: View {
                 .presentationDetents([.height(360)])
                 .presentationDragIndicator(.visible)
         }
+    }
+
+    private func formattedDate(_ value: String) -> String {
+        let parser = ISO8601DateFormatter()
+        if let date = parser.date(from: value) {
+            return date.formatted(date: .abbreviated, time: .omitted)
+        }
+        return value
     }
 }
 
@@ -595,9 +611,9 @@ private struct FilterSortSheet: View {
                 }
 
                 if !recommenders.isEmpty {
-                    Section("Recommender") {
-                        Picker("Recommender", selection: recommenderSelection) {
-                            Text("All Recommenders").tag("__all__")
+                    Section("Person") {
+                        Picker("Person", selection: recommenderSelection) {
+                            Text("All People").tag("__all__")
                             ForEach(recommenders, id: \.self) { name in
                                 Text(name).tag(name)
                             }

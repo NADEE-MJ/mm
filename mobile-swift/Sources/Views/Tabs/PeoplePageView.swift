@@ -38,7 +38,7 @@ struct PeoplePageView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
+                Section("Filter") {
                     Picker("Filter", selection: $filter) {
                         Text("All (\(people.count))").tag(TrustedFilter.all)
                         Text("Trusted (\(trustedCount))").tag(TrustedFilter.trusted)
@@ -51,7 +51,7 @@ struct PeoplePageView: View {
                         ContentUnavailableView(
                             "No People",
                             systemImage: "person.2.slash",
-                            description: Text("Add recommenders to track who suggests movies.")
+                            description: Text("Add people to track who suggests movies.")
                         )
                     } else {
                         ForEach(filteredPeople) { person in
@@ -73,14 +73,32 @@ struct PeoplePageView: View {
                                     }
                                 } label: {
                                     Label(
-                                        person.isTrusted ? "Untrust" : "Trust",
+                                        person.isTrusted ? "Mark Untrusted" : "Mark Trusted",
                                         systemImage: person.isTrusted ? "star.slash.fill" : "star.fill"
                                     )
                                 }
                                 .tint(person.isTrusted ? .orange : .green)
                             }
+                            .contextMenu {
+                                Button {
+                                    Task {
+                                        await NetworkService.shared.updatePerson(
+                                            name: person.name,
+                                            isTrusted: !person.isTrusted
+                                        )
+                                        await loadPeople()
+                                    }
+                                } label: {
+                                    Label(
+                                        person.isTrusted ? "Mark Untrusted" : "Mark Trusted",
+                                        systemImage: person.isTrusted ? "star.slash.fill" : "star.fill"
+                                    )
+                                }
+                            }
                         }
                     }
+                } footer: {
+                    Text("Swipe right or use the context menu to toggle trust.")
                 }
             }
             .listStyle(.insetGrouped)
@@ -92,6 +110,7 @@ struct PeoplePageView: View {
                 }
             }
             .navigationTitle("People")
+            .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, prompt: "Search people")
             .refreshable {
                 await loadPeople()
@@ -100,17 +119,15 @@ struct PeoplePageView: View {
                 await loadPeople()
             }
             .toolbar {
-                if let onAddPerson {
-                    ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if let onAddPerson {
                         Button(action: onAddPerson) {
                             Image(systemName: "person.badge.plus")
                         }
                         .accessibilityLabel("Add person")
                     }
-                }
 
-                if let onAccountTap {
-                    ToolbarItem(placement: .topBarTrailing) {
+                    if let onAccountTap {
                         Button(action: onAccountTap) {
                             Image(systemName: "person.crop.circle")
                         }
@@ -184,7 +201,7 @@ private struct PersonDetailView: View {
             }
 
             Section("Trust") {
-                Toggle("Trusted Recommender", isOn: $isTrusted)
+                Toggle("Trusted Person", isOn: $isTrusted)
                     .onChange(of: isTrusted) { _, newValue in
                         Task {
                             await NetworkService.shared.updatePerson(

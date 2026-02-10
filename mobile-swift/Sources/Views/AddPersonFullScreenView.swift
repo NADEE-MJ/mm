@@ -14,9 +14,9 @@ struct AddPersonFullScreenView: View {
         NavigationStack {
             Form {
                 Section("Person") {
-                    TextField("Recommender Name", text: $name)
+                    TextField("Person name", text: $name)
 
-                    Toggle("Trusted Recommender", isOn: $isTrusted)
+                    Toggle("Trusted Person", isOn: $isTrusted)
                 }
 
                 Section("Preview") {
@@ -24,24 +24,23 @@ struct AddPersonFullScreenView: View {
                         Text(name.isEmpty ? "New Person" : name)
                     }
                     LabeledContent("Type") {
-                        Text(isTrusted ? "Trusted" : "Recommender")
+                        Text(isTrusted ? "Trusted" : "Person")
                     }
                 }
             }
-            .navigationTitle("Add Recommender")
+            .navigationTitle("Add Person")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 if let onClose {
-                    ToolbarItem(placement: .topBarLeading) {
+                    ToolbarItem(placement: .cancellationAction) {
                         Button {
                             onClose()
-                        } label: {
-                            Image(systemName: "xmark")
                         }
+                        label: { Text("Cancel") }
                     }
                 }
 
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
                         Task {
                             await savePerson()

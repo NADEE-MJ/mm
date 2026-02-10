@@ -10,10 +10,18 @@ struct LoginView: View {
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var localError: String?
+    @FocusState private var focusedField: Field?
 
     enum AuthMode: String, CaseIterable {
         case login = "Sign In"
         case register = "Create Account"
+    }
+
+    private enum Field: Hashable {
+        case email
+        case username
+        case password
+        case confirmPassword
     }
 
     private var displayError: String? {
@@ -55,20 +63,46 @@ struct LoginView: View {
                         .keyboardType(.emailAddress)
                         .textContentType(.emailAddress)
                         .autocorrectionDisabled()
+                        .focused($focusedField, equals: .email)
+                        .submitLabel(mode == .register ? .next : .continue)
+                        .onSubmit {
+                            focusedField = mode == .register ? .username : .password
+                        }
 
                     if mode == .register {
                         TextField("Username", text: $username)
                             .textInputAutocapitalization(.never)
                             .textContentType(.username)
                             .autocorrectionDisabled()
+                            .focused($focusedField, equals: .username)
+                            .submitLabel(.next)
+                            .onSubmit {
+                                focusedField = .password
+                            }
                     }
 
                     SecureField("Password", text: $password)
                         .textContentType(.password)
+                        .focused($focusedField, equals: .password)
+                        .submitLabel(mode == .register ? .next : .go)
+                        .onSubmit {
+                            if mode == .register {
+                                focusedField = .confirmPassword
+                            } else if isFormValid {
+                                submit()
+                            }
+                        }
 
                     if mode == .register {
                         SecureField("Confirm Password", text: $confirmPassword)
                             .textContentType(.password)
+                            .focused($focusedField, equals: .confirmPassword)
+                            .submitLabel(.go)
+                            .onSubmit {
+                                if isFormValid {
+                                    submit()
+                                }
+                            }
                     }
                 }
 
@@ -99,7 +133,14 @@ struct LoginView: View {
                 }
             }
             .navigationTitle("Movie Manager")
+            .navigationBarTitleDisplayMode(.inline)
             .animation(.default, value: mode)
+            .onChange(of: mode) { _, newValue in
+                focusedField = newValue == .register ? .username : .email
+            }
+            .onAppear {
+                focusedField = .email
+            }
         }
     }
 
@@ -108,7 +149,7 @@ struct LoginView: View {
             Image(systemName: "film.stack")
                 .font(.system(size: 36, weight: .semibold))
                 .foregroundStyle(AppTheme.blue)
-            Text("Track recommendations across devices")
+            Text("Track movie recommendations across devices")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
