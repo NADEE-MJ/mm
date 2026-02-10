@@ -179,7 +179,7 @@ struct HomePageView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Movies")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .refreshable {
                 await loadAllMovies()
             }
