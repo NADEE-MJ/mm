@@ -9,7 +9,6 @@ struct ExplorePageView: View {
 
     @State private var searchResults: [TMDBMovie] = []
     @State private var isSearching = false
-    @State private var showAddSheet = false
     @State private var selectedMovie: TMDBMovie?
     @State private var recommenderName = ""
     @State private var people: [Person] = []
@@ -45,7 +44,6 @@ struct ExplorePageView: View {
                         ForEach(searchResults) { movie in
                             Button {
                                 selectedMovie = movie
-                                showAddSheet = true
                             } label: {
                                 SearchResultRow(movie: movie)
                             }
@@ -102,7 +100,7 @@ struct ExplorePageView: View {
                 }
 
                 isSearching = true
-                try? await Task.sleep(for: .milliseconds(350))
+                try? await Task.sleep(for: .milliseconds(1200))
                 guard !Task.isCancelled else { return }
                 searchResults = await NetworkService.shared.searchMovies(query: trimmed)
                 isSearching = false
@@ -111,25 +109,25 @@ struct ExplorePageView: View {
                 await NetworkService.shared.fetchPeople()
                 people = NetworkService.shared.people
             }
-            .sheet(isPresented: $showAddSheet) {
-                if let movie = selectedMovie {
-                    AddMovieSheet(
-                        movie: movie,
-                        recommenderName: $recommenderName,
-                        people: people
-                    ) {
-                        Task {
-                            _ = await NetworkService.shared.addMovie(
-                                tmdbId: movie.id,
-                                recommender: recommenderName
-                            )
-                            showAddSheet = false
-                            recommenderName = ""
-                        }
+            .sheet(item: $selectedMovie, onDismiss: {
+                recommenderName = ""
+            }) { movie in
+                AddMovieSheet(
+                    movie: movie,
+                    recommenderName: $recommenderName,
+                    people: people
+                ) {
+                    Task {
+                        _ = await NetworkService.shared.addMovie(
+                            tmdbId: movie.id,
+                            recommender: recommenderName
+                        )
+                        selectedMovie = nil
+                        recommenderName = ""
                     }
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
                 }
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
             }
         }
     }
