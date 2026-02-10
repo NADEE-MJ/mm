@@ -484,6 +484,16 @@ private struct UpdatePersonRequest: Encodable {
     }
 }
 
+private struct AddPersonRequest: Encodable {
+    let name: String
+    let isTrusted: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case isTrusted = "is_trusted"
+    }
+}
+
 // MARK: - Network Service
 
 @MainActor
@@ -645,6 +655,21 @@ final class NetworkService {
             lastError = "Failed to decode people response"
             AppLog.warning("🌐 [NetworkService] Could not decode /people response", category: .network)
         }
+    }
+
+    func addPerson(name: String, isTrusted: Bool) async -> Bool {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            lastError = "Person name is required"
+            return false
+        }
+
+        let body = AddPersonRequest(name: trimmed, isTrusted: isTrusted)
+        return await post(
+            "\(baseURL)/people",
+            body: body,
+            validStatusCodes: [200, 201]
+        )
     }
 
     func updatePerson(name: String, isTrusted: Bool) async {

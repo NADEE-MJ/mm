@@ -58,9 +58,11 @@ struct AddPersonFullScreenView: View {
         guard !trimmed.isEmpty else { return }
 
         isSaving = true
-        await NetworkService.shared.updatePerson(name: trimmed, isTrusted: isTrusted)
+        let didAdd = await NetworkService.shared.addPerson(name: trimmed, isTrusted: isTrusted)
         isSaving = false
-        onAdded()
+        if didAdd {
+            onAdded()
+        }
     }
 }
 
