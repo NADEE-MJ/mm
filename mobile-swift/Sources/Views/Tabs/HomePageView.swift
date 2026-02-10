@@ -1,32 +1,37 @@
 import SwiftUI
 
 // MARK: - Home Page
-// Movie browsing with To Watch / Watched tabs, poster grid,
-// filter chips, sort/filter sheet, swipe actions, pull-to-refresh.
 
 struct HomePageView: View {
-    @State private var movies: [Movie] = []
+    var onAccountTap: (() -> Void)? = nil
+    var onAddMovie: (() -> Void)? = nil
+    var onAddPerson: (() -> Void)? = nil
+
+    @State private var allMovies: [Movie] = []
     @State private var isLoading = false
     @State private var selectedStatus = "to_watch"
     @State private var sortBy = "dateRecommended"
     @State private var showFilters = false
     @State private var filterRecommender: String?
+    @State private var searchText = ""
+
     @Environment(ScrollState.self) private var scrollState
-    @Environment(SearchState.self) private var searchState
 
     private let statusFilters: [(key: String, label: String)] = [
         ("to_watch", "To Watch"),
         ("watched", "Watched"),
     ]
 
-    // MARK: - Computed
+    private var currentDefaultSort: String {
+        selectedStatus == "watched" ? "dateWatched" : "dateRecommended"
+    }
 
     private var filteredMovies: [Movie] {
-        var result = movies
+        var result = allMovies.filter { $0.status == selectedStatus }
 
-        if !searchState.searchText.isEmpty {
+        if !searchText.isEmpty {
             result = result.filter {
-                $0.title.localizedCaseInsensitiveContains(searchState.searchText)
+                $0.title.localizedCaseInsensitiveContains(searchText)
             }
         }
 
@@ -40,61 +45,139 @@ struct HomePageView: View {
     }
 
     private var allRecommenders: [String] {
-        let names = movies.flatMap { $0.recommendations.map(\.recommender) }
+        let names = allMovies.flatMap { $0.recommendations.map(\.recommender) }
         return Array(Set(names)).sorted()
     }
 
     private var toWatchCount: Int {
-        movies.filter { $0.status == "to_watch" }.count
+        allMovies.filter { $0.status == "to_watch" }.count
     }
 
     private var watchedCount: Int {
-        movies.filter { $0.status == "watched" }.count
+        allMovies.filter { $0.status == "watched" }.count
     }
 
     private var activeFiltersCount: Int {
         [filterRecommender].compactMap { $0 }.count
     }
 
-    // MARK: - Body
-
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 14) {
-                    // Status filter chips
-                    statusFilterBar
-
-                    // Sort & filter bar
-                    sortFilterBar
-
-                    // Movie grid or empty state
-                    if filteredMovies.isEmpty {
-                        if isLoading {
-                            ProgressView()
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 60)
-                        } else {
-                            EmptyStateView(
-                                icon: "film",
-                                title: searchState.searchText.isEmpty ? "No Movies" : "No Results",
-                                subtitle: searchState.searchText.isEmpty
-                                    ? (selectedStatus == "to_watch"
-                                        ? "Add your first movie to get started."
-                                        : "Movies will appear here once watched.")
-                                    : "Try a different search term or filter."
-                            )
+            List {
+                Section("Status") {
+                    Picker("Status", selection: $selectedStatus) {
+                        ForEach(statusFilters, id: \.key) { filter in
+                            let count = filter.key == "to_watch" ? toWatchCount : watchedCount
+                            Text("\(filter.label) (\(count))").tag(filter.key)
                         }
-                    } else {
-                        movieGrid
+                    }
+                    .pickerStyle(.segmented)
+                }
+
+                Section("Options") {
+                    Button {
+                        showFilters = true
+                    } label: {
+                        HStack {
+                            Label("Sort and Filter", systemImage: "line.3.horizontal.decrease.circle")
+                            Spacer()
+                            if activeFiltersCount > 0 {
+                                Text("\(activeFiltersCount)")
+                                    .font(.caption.bold())
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(.tint, in: Capsule())
+                                    .foregroundStyle(.white)
+                            }
+                        }
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 100)
+
+                if isLoading && allMovies.isEmpty {
+                    Section {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                            Spacer()
+                        }
+                    }
+                } else if filteredMovies.isEmpty {
+                    Section {
+                        if searchText.isEmpty {
+                            ContentUnavailableView(
+                                "No Movies",
+                                systemImage: "film",
+                                description: Text(
+                                    selectedStatus == "to_watch"
+                                        ? "Add your first movie to get started."
+                                        : "Movies will appear here once watched."
+                                )
+                            )
+                        } else {
+                            ContentUnavailableView.search
+                        }
+                    }
+                } else {
+                    Section("\(filteredMovies.count) movies") {
+                        ForEach(filteredMovies) { movie in
+                            NavigationLink {
+                                MovieDetailView(movie: movie)
+                            } label: {
+                                MovieRowView(movie: movie)
+                            }
+                            .contextMenu {
+                                movieContextMenu(movie)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) {
+                                    Task {
+                                        await NetworkService.shared.updateMovie(
+                                            movie: movie,
+                                            rating: nil,
+                                            status: "deleted"
+                                        )
+                                        await loadAllMovies()
+                                    }
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                                if movie.status == "to_watch" {
+                                    Button {
+                                        Task {
+                                            await NetworkService.shared.updateMovie(
+                                                movie: movie,
+                                                rating: nil,
+                                                status: "watched"
+                                            )
+                                            await loadAllMovies()
+                                        }
+                                    } label: {
+                                        Label("Watched", systemImage: "checkmark.circle")
+                                    }
+                                    .tint(.green)
+                                } else if movie.status == "watched" {
+                                    Button {
+                                        Task {
+                                            await NetworkService.shared.updateMovie(
+                                                movie: movie,
+                                                rating: nil,
+                                                status: "to_watch"
+                                            )
+                                            await loadAllMovies()
+                                        }
+                                    } label: {
+                                        Label("To Watch", systemImage: "arrow.uturn.backward")
+                                    }
+                                    .tint(.orange)
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            .scrollIndicators(.hidden)
-            .scrollBounceBehavior(.basedOnSize)
+            .listStyle(.insetGrouped)
             .onScrollGeometryChange(for: CGFloat.self) { geo in
                 geo.contentOffset.y
             } action: { _, offset in
@@ -102,16 +185,51 @@ struct HomePageView: View {
                     scrollState.update(offset: offset)
                 }
             }
-            .background { PageBackground() }
             .navigationTitle("Movies")
+            .navigationBarTitleDisplayMode(.large)
+            .searchable(text: $searchText, prompt: "Search movies")
             .refreshable {
-                await loadMovies()
+                await loadAllMovies()
             }
             .task {
                 await loadAllMovies()
             }
             .onChange(of: selectedStatus) { _, _ in
-                Task { await loadMovies() }
+                if sortBy == "dateRecommended" || sortBy == "dateWatched" {
+                    sortBy = currentDefaultSort
+                }
+            }
+            .toolbar {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if onAddMovie != nil || onAddPerson != nil {
+                        Menu {
+                            if let onAddMovie {
+                                Button {
+                                    onAddMovie()
+                                } label: {
+                                    Label("Movie", systemImage: "sparkle.magnifyingglass")
+                                }
+                            }
+
+                            if let onAddPerson {
+                                Button {
+                                    onAddPerson()
+                                } label: {
+                                    Label("Person", systemImage: "person.badge.plus")
+                                }
+                            }
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                    }
+
+                    if let onAccountTap {
+                        Button(action: onAccountTap) {
+                            Image(systemName: "person.crop.circle")
+                        }
+                        .accessibilityLabel("Open account")
+                    }
+                }
             }
             .sheet(isPresented: $showFilters) {
                 FilterSortSheet(
@@ -122,80 +240,9 @@ struct HomePageView: View {
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
-                .presentationCornerRadius(28)
             }
         }
     }
-
-    // MARK: - Status Filter Bar
-
-    private var statusFilterBar: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                ForEach(statusFilters, id: \.key) { filter in
-                    FilterChip(
-                        title: "\(filter.label) (\(filter.key == "to_watch" ? toWatchCount : watchedCount))",
-                        isSelected: selectedStatus == filter.key
-                    ) {
-                        withAnimation(.spring(duration: 0.3)) {
-                            selectedStatus = filter.key
-                            sortBy = filter.key == "watched" ? "dateWatched" : "dateRecommended"
-                        }
-                    }
-                }
-            }
-        }
-        .scrollIndicators(.hidden)
-        .scrollClipDisabled()
-    }
-
-    // MARK: - Sort & Filter Bar
-
-    private var sortFilterBar: some View {
-        HStack {
-            Text("\(filteredMovies.count) movies")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.textSecondary)
-
-            Spacer()
-
-            Button {
-                showFilters = true
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "line.3.horizontal.decrease")
-                        .font(.system(size: 14))
-                    Text("Filter")
-                        .font(.subheadline.weight(.medium))
-                    if activeFiltersCount > 0 {
-                        BadgeView(count: activeFiltersCount)
-                    }
-                }
-                .foregroundStyle(AppTheme.textSecondary)
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: - Movie Grid
-
-    private var movieGrid: some View {
-        LazyVGrid(columns: [.init(.adaptive(minimum: 110))], spacing: 16) {
-            ForEach(filteredMovies) { movie in
-                NavigationLink {
-                    MovieDetailView(movie: movie)
-                } label: {
-                    MoviePosterCard(movie: movie)
-                }
-                .buttonStyle(.plain)
-                .contextMenu {
-                    movieContextMenu(movie)
-                }
-            }
-        }
-    }
-
-    // MARK: - Context Menu
 
     @ViewBuilder
     private func movieContextMenu(_ movie: Movie) -> some View {
@@ -203,9 +250,11 @@ struct HomePageView: View {
             Button {
                 Task {
                     await NetworkService.shared.updateMovie(
-                        movie: movie, rating: nil, status: "watched"
+                        movie: movie,
+                        rating: nil,
+                        status: "watched"
                     )
-                    await loadMovies()
+                    await loadAllMovies()
                 }
             } label: {
                 Label("Mark Watched", systemImage: "checkmark.circle")
@@ -216,9 +265,11 @@ struct HomePageView: View {
             Button {
                 Task {
                     await NetworkService.shared.updateMovie(
-                        movie: movie, rating: nil, status: "to_watch"
+                        movie: movie,
+                        rating: nil,
+                        status: "to_watch"
                     )
-                    await loadMovies()
+                    await loadAllMovies()
                 }
             } label: {
                 Label("Move to Watch List", systemImage: "arrow.uturn.backward")
@@ -228,28 +279,21 @@ struct HomePageView: View {
         Button(role: .destructive) {
             Task {
                 await NetworkService.shared.updateMovie(
-                    movie: movie, rating: nil, status: "deleted"
+                    movie: movie,
+                    rating: nil,
+                    status: "deleted"
                 )
-                await loadMovies()
+                await loadAllMovies()
             }
         } label: {
             Label("Delete", systemImage: "trash")
         }
     }
 
-    // MARK: - Data
-
     private func loadAllMovies() async {
         isLoading = true
         await NetworkService.shared.fetchMovies()
-        movies = NetworkService.shared.movies
-        isLoading = false
-    }
-
-    private func loadMovies() async {
-        isLoading = true
-        await NetworkService.shared.fetchMovies(status: selectedStatus)
-        movies = NetworkService.shared.movies
+        allMovies = NetworkService.shared.movies
         isLoading = false
     }
 
@@ -277,56 +321,64 @@ struct HomePageView: View {
     }
 }
 
-// MARK: - Movie Poster Card
+// MARK: - Movie Row
 
-private struct MoviePosterCard: View {
+private struct MovieRowView: View {
     let movie: Movie
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            MoviePosterImage(
-                url: movie.posterURL,
-                width: .infinity,
-                height: 165
-            )
-            .frame(maxWidth: .infinity)
-
-            Text(movie.title)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(AppTheme.textPrimary)
-                .lineLimit(2)
-
-            HStack(spacing: 6) {
-                if let year = movie.releaseDate?.prefix(4) {
-                    Text(String(year))
-                        .font(.caption2)
-                        .foregroundStyle(AppTheme.textTertiary)
-                }
-
-                if let rating = movie.voteAverage {
-                    StarRatingView(rating)
-                }
-
-                Spacer()
-
-                if let myRating = movie.myRating {
-                    HStack(spacing: 2) {
-                        Image(systemName: "heart.fill")
-                            .font(.system(size: 8))
-                        Text("\(myRating)")
-                            .font(.caption2.weight(.semibold))
+        HStack(alignment: .top, spacing: 12) {
+            AsyncImage(url: movie.posterURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                case .failure, .empty:
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(.secondary.opacity(0.2))
+                        Image(systemName: "film")
+                            .foregroundStyle(.secondary)
                     }
-                    .foregroundStyle(AppTheme.blue)
+                @unknown default:
+                    Color.secondary.opacity(0.2)
                 }
             }
+            .frame(width: 54, height: 80)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
-            if let recommender = movie.recommendations.first?.recommender {
-                Text("from \(recommender)")
-                    .font(.caption2)
-                    .foregroundStyle(AppTheme.textTertiary)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(movie.title)
+                    .font(.headline)
+                    .lineLimit(2)
+
+                HStack(spacing: 8) {
+                    if let year = movie.releaseDate?.prefix(4) {
+                        Text(String(year))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let rating = movie.voteAverage {
+                        Label(String(format: "%.1f", rating), systemImage: "star.fill")
+                            .foregroundStyle(.yellow)
+                    }
+
+                    if let myRating = movie.myRating {
+                        Label("\(myRating)", systemImage: "heart.fill")
+                            .foregroundStyle(AppTheme.blue)
+                    }
+                }
+                .font(.caption)
+
+                if let recommender = movie.recommendations.first?.recommender {
+                    Text("Recommended by \(recommender)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
+        .padding(.vertical, 2)
     }
 }
 
@@ -334,174 +386,127 @@ private struct MoviePosterCard: View {
 
 private struct MovieDetailView: View {
     let movie: Movie
-    @State private var rating: Int?
+    @State private var ratingValue = 0
     @State private var showRatingSheet = false
-    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // Poster
-                MoviePosterImage(
-                    url: movie.posterURL,
-                    width: .infinity,
-                    height: 350
-                )
-                .frame(maxWidth: .infinity)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    // Title & Year
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(movie.title)
-                            .font(.title.bold())
-                            .foregroundStyle(AppTheme.textPrimary)
-
-                        if let year = movie.releaseDate?.prefix(4) {
-                            Text(String(year))
-                                .font(.subheadline)
-                                .foregroundStyle(AppTheme.textSecondary)
+        List {
+            Section {
+                AsyncImage(url: movie.posterURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    case .failure, .empty:
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(.secondary.opacity(0.15))
+                            Image(systemName: "film")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
                         }
+                    @unknown default:
+                        Color.secondary.opacity(0.15)
                     }
+                }
+                .frame(maxWidth: .infinity, minHeight: 260)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
 
-                    // Ratings row
-                    if movie.voteAverage != nil || movie.myRating != nil {
-                        FrostedCard {
-                            HStack(spacing: 0) {
-                                if let vote = movie.voteAverage {
-                                    statCell(
-                                        value: String(format: "%.1f", vote),
-                                        label: "TMDB",
-                                        icon: "star.fill"
-                                    )
-                                }
-                                if let myRating = movie.myRating {
-                                    statCell(
-                                        value: "\(myRating)/10",
-                                        label: "My Rating",
-                                        icon: "heart.fill"
-                                    )
-                                }
-                                statCell(
-                                    value: "\(movie.recommendations.count)",
-                                    label: "Votes",
-                                    icon: "hand.thumbsup.fill"
+            Section("Details") {
+                LabeledContent("Title") {
+                    Text(movie.title)
+                }
+
+                if let year = movie.releaseDate?.prefix(4) {
+                    LabeledContent("Year") {
+                        Text(String(year))
+                    }
+                }
+
+                LabeledContent("Status") {
+                    Text(movie.status == "to_watch" ? "To Watch" : "Watched")
+                }
+            }
+
+            Section("Ratings") {
+                if let vote = movie.voteAverage {
+                    LabeledContent("TMDB") {
+                        Label(String(format: "%.1f", vote), systemImage: "star.fill")
+                            .foregroundStyle(.yellow)
+                    }
+                }
+
+                if movie.status == "watched" {
+                    Stepper("My Rating: \(max(1, ratingValue))/10", value: $ratingValue, in: 1...10)
+                        .onChange(of: ratingValue) { _, newValue in
+                            Task {
+                                await NetworkService.shared.updateMovie(
+                                    movie: movie,
+                                    rating: newValue,
+                                    status: nil
                                 )
                             }
-                            .padding(.vertical, 12)
                         }
+                } else if let myRating = movie.myRating {
+                    LabeledContent("My Rating") {
+                        Text("\(myRating)/10")
                     }
+                }
 
-                    // Overview
-                    if let overview = movie.overview, !overview.isEmpty {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Overview")
+                LabeledContent("Recommendations") {
+                    Text("\(movie.recommendations.count)")
+                }
+            }
+
+            if let overview = movie.overview, !overview.isEmpty {
+                Section("Overview") {
+                    Text(overview)
+                }
+            }
+
+            if !movie.recommendations.isEmpty {
+                Section("Recommended By") {
+                    ForEach(Array(movie.recommendations.enumerated()), id: \.offset) { _, rec in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(rec.recommender)
                                 .font(.headline)
-                                .foregroundStyle(AppTheme.textPrimary)
-                            Text(overview)
-                                .font(.body)
-                                .foregroundStyle(AppTheme.textSecondary)
-                        }
-                    }
-
-                    // Recommenders
-                    if !movie.recommendations.isEmpty {
-                        FrostedCard {
-                            VStack(alignment: .leading, spacing: 0) {
-                                ForEach(Array(movie.recommendations.enumerated()), id: \.element.recommender) { index, rec in
-                                    HStack(spacing: 12) {
-                                        Image(systemName: "person.circle.fill")
-                                            .font(.title3)
-                                            .foregroundStyle(AppTheme.blue)
-                                        VStack(alignment: .leading, spacing: 2) {
-                                            Text(rec.recommender)
-                                                .font(.subheadline.weight(.medium))
-                                                .foregroundStyle(AppTheme.textPrimary)
-                                            Text("Recommended \(rec.dateRecommended)")
-                                                .font(.caption)
-                                                .foregroundStyle(AppTheme.textTertiary)
-                                        }
-                                        Spacer()
-                                    }
-                                    .padding(14)
-
-                                    if index < movie.recommendations.count - 1 {
-                                        DividerLine()
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Actions
-                    if movie.status == "to_watch" {
-                        Button {
-                            showRatingSheet = true
-                        } label: {
-                            Label("Mark as Watched", systemImage: "checkmark.circle.fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(AppTheme.blue)
-                    }
-
-                    // Rating editor for watched movies
-                    if movie.status == "watched" {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Your Rating")
-                                .font(.headline)
-                                .foregroundStyle(AppTheme.textPrimary)
-
-                            HStack(spacing: 6) {
-                                ForEach(1...10, id: \.self) { value in
-                                    Button {
-                                        rating = value
-                                        Task {
-                                            await NetworkService.shared.updateMovie(
-                                                movie: movie, rating: value, status: nil
-                                            )
-                                        }
-                                    } label: {
-                                        Text("\(value)")
-                                            .font(.caption.weight(.medium))
-                                            .foregroundStyle(
-                                                (rating ?? movie.myRating ?? 0) >= value
-                                                    ? .white : AppTheme.textTertiary
-                                            )
-                                            .frame(width: 30, height: 30)
-                                            .background(
-                                                (rating ?? movie.myRating ?? 0) >= value
-                                                    ? AppTheme.blue : AppTheme.surface,
-                                                in: .circle
-                                            )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
+                            Text("Recommended \(formattedDate(rec.dateRecommended))")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
-                .padding(.horizontal, 16)
+            }
+
+            if movie.status == "to_watch" {
+                Section {
+                    Button {
+                        showRatingSheet = true
+                    } label: {
+                        Label("Mark as Watched", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
             }
         }
-        .background { PageBackground() }
         .navigationTitle("Details")
         .toolbarTitleDisplayMode(.inline)
-        .onAppear { rating = movie.myRating }
+        .onAppear { ratingValue = movie.myRating ?? 7 }
         .sheet(isPresented: $showRatingSheet) {
             RatingSheet(movie: movie)
-                .presentationDetents([.height(300)])
+                .presentationDetents([.height(360)])
                 .presentationDragIndicator(.visible)
-                .presentationCornerRadius(28)
         }
     }
 
-    private func statCell(value: String, label: String, icon: String) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon).foregroundStyle(AppTheme.blue)
-            Text(value).font(.headline)
-            Text(label).font(.caption).foregroundStyle(AppTheme.textSecondary)
+    private func formattedDate(_ value: String) -> String {
+        let parser = ISO8601DateFormatter()
+        if let date = parser.date(from: value) {
+            return date.formatted(date: .abbreviated, time: .omitted)
         }
-        .frame(maxWidth: .infinity)
+        return value
     }
 }
 
@@ -514,50 +519,38 @@ private struct RatingSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                Text("Rate \(movie.title)")
-                    .font(.headline)
-                    .foregroundStyle(AppTheme.textPrimary)
-                    .multilineTextAlignment(.center)
+            Form {
+                Section {
+                    Text("Rate \(movie.title)")
+                        .font(.headline)
+                }
 
-                HStack(spacing: 8) {
-                    ForEach(1...10, id: \.self) { value in
-                        Button {
-                            selectedRating = value
-                        } label: {
-                            Text("\(value)")
-                                .font(.body.weight(.medium))
-                                .foregroundStyle(
-                                    selectedRating >= value ? .white : AppTheme.textTertiary
-                                )
-                                .frame(width: 34, height: 34)
-                                .background(
-                                    selectedRating >= value ? AppTheme.blue : AppTheme.surface,
-                                    in: .circle
-                                )
+                Section("Rating") {
+                    Picker("Score", selection: $selectedRating) {
+                        ForEach(1...10, id: \.self) { value in
+                            Text("\(value)").tag(value)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .pickerStyle(.wheel)
                 }
 
-                Button {
-                    Task {
-                        await NetworkService.shared.updateMovie(
-                            movie: movie, rating: selectedRating, status: "watched"
-                        )
-                        dismiss()
+                Section {
+                    Button {
+                        Task {
+                            await NetworkService.shared.updateMovie(
+                                movie: movie,
+                                rating: selectedRating,
+                                status: "watched"
+                            )
+                            dismiss()
+                        }
+                    } label: {
+                        Label("Mark Watched", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
                     }
-                } label: {
-                    Label("Mark Watched", systemImage: "checkmark.circle.fill")
-                        .frame(maxWidth: .infinity)
+                    .buttonStyle(.borderedProminent)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(AppTheme.blue)
-
-                Spacer()
             }
-            .padding(16)
-            .background(AppTheme.background)
             .navigationTitle("Rate Movie")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
@@ -596,74 +589,46 @@ private struct FilterSortSheet: View {
         ]
     }
 
+    private var recommenderSelection: Binding<String> {
+        Binding(
+            get: { filterRecommender ?? "__all__" },
+            set: { newValue in
+                filterRecommender = newValue == "__all__" ? nil : newValue
+            }
+        )
+    }
+
     var body: some View {
         NavigationStack {
-            List {
-                // Sort section
+            Form {
                 Section("Sort By") {
-                    ForEach(sortOptions, id: \.key) { option in
-                        Button {
-                            sortBy = option.key
-                        } label: {
-                            HStack {
-                                Text(option.label)
-                                    .foregroundStyle(AppTheme.textPrimary)
-                                Spacer()
-                                if sortBy == option.key {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(AppTheme.blue)
-                                }
-                            }
+                    Picker("Sort By", selection: $sortBy) {
+                        ForEach(sortOptions, id: \.key) { option in
+                            Text(option.label).tag(option.key)
                         }
                     }
+                    .pickerStyle(.inline)
                 }
 
-                // Recommender filter
                 if !recommenders.isEmpty {
-                    Section("Recommender") {
-                        Button {
-                            filterRecommender = nil
-                        } label: {
-                            HStack {
-                                Text("All Recommenders")
-                                    .foregroundStyle(AppTheme.textPrimary)
-                                Spacer()
-                                if filterRecommender == nil {
-                                    Image(systemName: "checkmark")
-                                        .foregroundStyle(AppTheme.blue)
-                                }
-                            }
-                        }
-
-                        ForEach(recommenders, id: \.self) { name in
-                            Button {
-                                filterRecommender = name
-                            } label: {
-                                HStack {
-                                    Text(name)
-                                        .foregroundStyle(AppTheme.textPrimary)
-                                    Spacer()
-                                    if filterRecommender == name {
-                                        Image(systemName: "checkmark")
-                                            .foregroundStyle(AppTheme.blue)
-                                    }
-                                }
+                    Section("Person") {
+                        Picker("Person", selection: recommenderSelection) {
+                            Text("All People").tag("__all__")
+                            ForEach(recommenders, id: \.self) { name in
+                                Text(name).tag(name)
                             }
                         }
                     }
                 }
 
-                // Clear all
                 Section {
-                    Button("Clear All Filters") {
+                    Button("Clear All Filters", role: .destructive) {
                         sortBy = status == "watched" ? "dateWatched" : "dateRecommended"
                         filterRecommender = nil
                     }
-                    .foregroundStyle(.red)
                 }
             }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Sort & Filter")
+            .navigationTitle("Sort and Filter")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
