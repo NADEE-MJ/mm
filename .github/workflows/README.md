@@ -1,9 +1,11 @@
 # iOS Build Workflow
 
-This repo uses two iOS workflows:
+This repo uses iOS workflows:
 
+- `.github/workflows/build-mobile-swift.yml` (main Mobile Swift app)
 - `.github/workflows/build-ios-simple.yml` (Expo app)
 - `.github/workflows/build-ios-swift-test.yml` (standalone Swift test app)
+- `.github/workflows/build-landmarks.yml` (Landmarks SwiftUI app)
 
 ## Expo workflow
 
@@ -59,3 +61,24 @@ Download from phone:
 1. Open repo **Releases**.
 2. Open release tag `ios-swift-test-latest`.
 3. Download `SwiftTestApp-unsigned.ipa` (or suffixed variant if set via workflow input).
+
+## Landmarks workflow
+
+1. Generates an Xcode project from `landmarks-example-app/project.yml`.
+2. Builds the native SwiftUI Landmarks app with signing disabled.
+3. Uploads `landmarks-unsigned-ipa` artifact.
+4. Updates rolling release tag `landmarks-latest` when run from `main` and `publish_release=true`.
+
+Trigger:
+
+- Manual run via **Actions > Build Landmarks App (Unsigned) > Run workflow**
+- Optional input `runner_image` (`macos-latest` default, `macos-15` fallback, `macos-26` if available in GitHub Actions).
+- Optional input `deployment_target` (default `26.0`) to override `IPHONEOS_DEPLOYMENT_TARGET` for a run.
+- Optional input `publish_release` to skip rolling release updates for a specific run.
+- Optional input `artifact_suffix` to customize the IPA filename.
+
+Download from phone:
+
+1. Open repo **Releases**.
+2. Open release tag `landmarks-latest`.
+3. Download `Landmarks-unsigned.ipa` (or suffixed variant if set via workflow input).

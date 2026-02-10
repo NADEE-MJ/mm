@@ -14,7 +14,7 @@ final class WebSocketManager {
 
     private var task: URLSessionWebSocketTask?
     private let session = URLSession(configuration: .default)
-    private let wsURL = AppConfiguration.webSocketURL
+    private let wsBaseURL = AppConfiguration.webSocketURL
 
     struct WSMessage: Identifiable, Hashable {
         let id = UUID()
@@ -31,7 +31,29 @@ final class WebSocketManager {
         guard !isConnected else { return }
         lastError = nil
 
-        AppLog.info("🔌 [WebSocket] Connecting to \(wsURL.absoluteString)", category: .websocket)
+        guard let token = AuthManager.shared.token, !token.isEmpty else {
+            lastError = "Missing auth token for sync websocket"
+            addSystemMessage("Connection failed: not authenticated")
+            AppLog.warning("🔌 [WebSocket] Missing auth token", category: .websocket)
+            return
+        }
+
+        guard var components = URLComponents(url: wsBaseURL, resolvingAgainstBaseURL: false) else {
+            lastError = "Invalid websocket URL"
+            addSystemMessage("Connection failed: invalid websocket URL")
+            AppLog.error("🔌 [WebSocket] Invalid websocket base URL", category: .websocket)
+            return
+        }
+        components.queryItems = [URLQueryItem(name: "token", value: token)]
+
+        guard let wsURL = components.url else {
+            lastError = "Unable to construct authenticated websocket URL"
+            addSystemMessage("Connection failed: invalid websocket auth URL")
+            AppLog.error("🔌 [WebSocket] Could not construct authenticated URL", category: .websocket)
+            return
+        }
+
+        AppLog.info("🔌 [WebSocket] Connecting to \(wsBaseURL.absoluteString)", category: .websocket)
         task = session.webSocketTask(with: wsURL)
         task?.resume()
         isConnected = true

@@ -45,7 +45,7 @@ enum AppConfiguration {
 
         var wsComponents = apiComponents
         wsComponents.scheme = "wss"
-        wsComponents.path = "/ws"
+        wsComponents.path = "/ws/sync"
         wsComponents.query = nil
         wsComponents.fragment = nil
 
