@@ -98,7 +98,7 @@ struct PeoplePageView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("People")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             .refreshable {
                 await loadPeople()
             }
