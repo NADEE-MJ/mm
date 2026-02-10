@@ -6,8 +6,7 @@ struct RootTabHostView: View {
     @State private var showAddMovie = false
     @State private var showAddPerson = false
     @State private var showAccount = false
-    @State private var scrollState = ScrollState()
-    @State private var sheetScrollState = ScrollState()
+    @State private var isSearchTabActive = false
 
     var body: some View {
         TabView {
@@ -29,36 +28,38 @@ struct RootTabHostView: View {
 
             Tab(role: .search) {
                 GlobalSearchPageView()
+                    .onAppear { isSearchTabActive = true }
+                    .onDisappear { isSearchTabActive = false }
             }
         }
-        .environment(scrollState)
         .tint(AppTheme.blue)
         .tabBarMinimizeBehavior(.onScrollDown)
         .overlay(alignment: .bottomTrailing) {
-            Menu {
-                Button {
-                    showAddMovie = true
-                } label: {
-                    Label("Add Movie", systemImage: "film.fill")
-                }
+            if !isSearchTabActive {
+                Menu {
+                    Button {
+                        showAddMovie = true
+                    } label: {
+                        Label("Add Movie", systemImage: "film.fill")
+                    }
 
-                Button {
-                    showAddPerson = true
+                    Button {
+                        showAddPerson = true
+                    } label: {
+                        Label("Add Person", systemImage: "person.badge.plus")
+                    }
                 } label: {
-                    Label("Add Person", systemImage: "person.badge.plus")
+                    Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 44, height: 44)
                 }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 44, height: 44)
+                .accessibilityLabel("Add options")
+                .padding(.trailing, 6)
+                .padding(.bottom, 84)
             }
-            .accessibilityLabel("Add options")
-            .padding(.trailing, 6)
-            .padding(.bottom, 84)
         }
         .sheet(isPresented: $showAddMovie) {
             AddMoviePageView(onClose: { showAddMovie = false })
-            .environment(sheetScrollState)
             .presentationDetents([.large])
         }
         .sheet(isPresented: $showAddPerson) {
@@ -66,11 +67,10 @@ struct RootTabHostView: View {
                 onAdded: { showAddPerson = false },
                 onClose: { showAddPerson = false }
             )
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.large])
         }
         .sheet(isPresented: $showAccount) {
             AccountPageView(onClose: { showAccount = false })
-                .environment(sheetScrollState)
                 .presentationDetents([.large])
         }
     }

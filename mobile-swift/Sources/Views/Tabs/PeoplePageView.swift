@@ -13,8 +13,6 @@ struct PeoplePageView: View {
     @State private var people: [Person] = []
     @State private var filter: TrustedFilter = .all
 
-    @Environment(ScrollState.self) private var scrollState
-
     private var filteredPeople: [Person] {
         var result = people
 
@@ -98,13 +96,6 @@ struct PeoplePageView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .onScrollGeometryChange(for: CGFloat.self) { geo in
-                geo.contentOffset.y
-            } action: { _, offset in
-                withAnimation(.spring(duration: 0.35)) {
-                    scrollState.update(offset: offset)
-                }
-            }
             .navigationTitle("People")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {

@@ -12,8 +12,6 @@ struct HomePageView: View {
     @State private var showFilters = false
     @State private var filterRecommender: String?
 
-    @Environment(ScrollState.self) private var scrollState
-
     private let statusFilters: [(key: String, label: String)] = [
         ("to_watch", "To Watch"),
         ("watched", "Watched"),
@@ -165,13 +163,6 @@ struct HomePageView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .onScrollGeometryChange(for: CGFloat.self) { geo in
-                geo.contentOffset.y
-            } action: { _, offset in
-                withAnimation(.spring(duration: 0.35)) {
-                    scrollState.update(offset: offset)
-                }
-            }
             .navigationTitle("Movies")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {

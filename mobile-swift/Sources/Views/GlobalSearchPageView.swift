@@ -26,6 +26,7 @@ struct GlobalSearchPageView: View {
     @State private var people: [Person] = []
     @State private var isLoading = false
     @State private var searchText = ""
+    @State private var isSearchPresented = false
 
     @State private var scope: ResultScope = .all
     @State private var sortOption: SortOption = .dateAdded
@@ -184,7 +185,14 @@ struct GlobalSearchPageView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("Global Search")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchText, prompt: "Search movies and people")
+            .searchable(
+                text: $searchText,
+                isPresented: $isSearchPresented,
+                prompt: "Search movies and people"
+            )
+            .onAppear {
+                isSearchPresented = true
+            }
             .refreshable {
                 await loadData()
             }

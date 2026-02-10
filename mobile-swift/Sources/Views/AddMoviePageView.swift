@@ -12,8 +12,6 @@ struct AddMoviePageView: View {
     @State private var people: [Person] = []
     @State private var searchText = ""
 
-    @Environment(ScrollState.self) private var scrollState
-
     var body: some View {
         NavigationStack {
             List {
@@ -51,13 +49,6 @@ struct AddMoviePageView: View {
                 }
             }
             .listStyle(.insetGrouped)
-            .onScrollGeometryChange(for: CGFloat.self) { geo in
-                geo.contentOffset.y
-            } action: { _, offset in
-                withAnimation(.spring(duration: 0.35)) {
-                    scrollState.update(offset: offset)
-                }
-            }
             .navigationTitle("Add Movie")
             .navigationBarTitleDisplayMode(.large)
             .searchable(text: $searchText, prompt: "Search movies on TMDB")
