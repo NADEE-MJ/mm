@@ -2,8 +2,10 @@ import SwiftUI
 
 @main
 struct MobileSwiftApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var authManager = AuthManager.shared
     @State private var bioManager = BiometricAuthManager()
+    @State private var wsManager = WebSocketManager.shared
 
     var body: some Scene {
         WindowGroup {
@@ -29,8 +31,32 @@ struct MobileSwiftApp: App {
             .task {
                 AppLog.info("📱 [App] Launching app and verifying auth token", category: .app)
                 await authManager.verifyToken()
+                updateWebSocketConnection(reason: "initial-auth-check")
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard newPhase == .active else { return }
+                updateWebSocketConnection(reason: "scene-active")
+            }
+            .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
+                if !isAuthenticated {
+                    wsManager.disconnect()
+                    return
+                }
+                guard scenePhase == .active else { return }
+                updateWebSocketConnection(reason: "auth-changed")
             }
         }
+    }
+
+    private func updateWebSocketConnection(reason: String) {
+        guard authManager.isAuthenticated else {
+            wsManager.disconnect()
+            return
+        }
+
+        AppLog.info("🔌 [App] Refreshing websocket connection (\(reason))", category: .app)
+        wsManager.disconnect()
+        wsManager.connect()
     }
 }
 

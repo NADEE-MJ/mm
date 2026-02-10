@@ -9,6 +9,7 @@ struct AddPersonFullScreenView: View {
     @State private var name = ""
     @State private var isTrusted = false
     @State private var isSaving = false
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -31,13 +32,17 @@ struct AddPersonFullScreenView: View {
             .navigationTitle("Add Person")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
-                if let onClose {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        if let onClose {
                             onClose()
+                        } else {
+                            dismiss()
                         }
-                        label: { Text("Cancel") }
+                    } label: {
+                        Image(systemName: "xmark")
                     }
+                    .accessibilityLabel("Close")
                 }
 
                 ToolbarItem(placement: .confirmationAction) {

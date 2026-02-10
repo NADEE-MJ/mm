@@ -12,16 +12,11 @@ struct PeoplePageView: View {
 
     @State private var people: [Person] = []
     @State private var filter: TrustedFilter = .all
-    @State private var searchText = ""
 
     @Environment(ScrollState.self) private var scrollState
 
     private var filteredPeople: [Person] {
         var result = people
-
-        if !searchText.isEmpty {
-            result = result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
-        }
 
         if filter == .trusted {
             result = result.filter { $0.isTrusted }
@@ -112,7 +107,6 @@ struct PeoplePageView: View {
             }
             .navigationTitle("People")
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, prompt: "Search people")
             .refreshable {
                 await loadPeople()
             }

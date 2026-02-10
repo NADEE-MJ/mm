@@ -194,9 +194,12 @@ struct GlobalSearchPageView: View {
             .toolbar {
                 if let onClose {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button("Close") {
+                        Button {
                             onClose()
+                        } label: {
+                            Image(systemName: "xmark")
                         }
+                        .accessibilityLabel("Close")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -226,7 +229,6 @@ struct GlobalSearchPageView: View {
                     availableDirectors: availableDirectors
                 )
                 .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
             }
         }
     }
@@ -480,6 +482,12 @@ private struct GlobalSearchFiltersSheet: View {
             .navigationTitle("Sort and Filter")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         dismiss()

@@ -66,7 +66,8 @@ struct AddMoviePageView: View {
                     Button {
                         onClose()
                     }
-                    label: { Text("Close") }
+                    label: { Image(systemName: "xmark") }
+                    .accessibilityLabel("Close")
                 }
             }
             .task(id: searchText) {
@@ -105,7 +106,6 @@ struct AddMoviePageView: View {
                     }
                 }
                 .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
             }
         }
     }
@@ -245,8 +245,11 @@ private struct AddMovieSheet: View {
             .navigationTitle("Add Movie")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") { onAdd() }

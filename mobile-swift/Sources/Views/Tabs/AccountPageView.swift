@@ -88,11 +88,13 @@ struct AccountPageView: View {
             .navigationBarTitleDisplayMode(onClose == nil ? .large : .inline)
             .toolbar {
                 if let onClose {
-                    ToolbarItem(placement: .cancellationAction) {
+                    ToolbarItem(placement: .topBarLeading) {
                         Button {
                             onClose()
+                        } label: {
+                            Image(systemName: "xmark")
                         }
-                        label: { Text("Close") }
+                        .accessibilityLabel("Close")
                     }
                 }
             }

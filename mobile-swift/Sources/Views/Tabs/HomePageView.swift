@@ -11,7 +11,6 @@ struct HomePageView: View {
     @State private var sortBy = "dateRecommended"
     @State private var showFilters = false
     @State private var filterRecommender: String?
-    @State private var searchText = ""
 
     @Environment(ScrollState.self) private var scrollState
 
@@ -26,12 +25,6 @@ struct HomePageView: View {
 
     private var filteredMovies: [Movie] {
         var result = allMovies.filter { $0.status == selectedStatus }
-
-        if !searchText.isEmpty {
-            result = result.filter {
-                $0.title.localizedCaseInsensitiveContains(searchText)
-            }
-        }
 
         if let recommender = filterRecommender {
             result = result.filter { movie in
@@ -101,19 +94,15 @@ struct HomePageView: View {
                     }
                 } else if filteredMovies.isEmpty {
                     Section {
-                        if searchText.isEmpty {
-                            ContentUnavailableView(
-                                "No Movies",
-                                systemImage: "film",
-                                description: Text(
-                                    selectedStatus == "to_watch"
-                                        ? "Add your first movie to get started."
-                                        : "Movies will appear here once watched."
-                                )
+                        ContentUnavailableView(
+                            "No Movies",
+                            systemImage: "film",
+                            description: Text(
+                                selectedStatus == "to_watch"
+                                    ? "Add your first movie to get started."
+                                    : "Movies will appear here once watched."
                             )
-                        } else {
-                            ContentUnavailableView.search
-                        }
+                        )
                     }
                 } else {
                     Section("\(filteredMovies.count) movies") {
@@ -185,7 +174,6 @@ struct HomePageView: View {
             }
             .navigationTitle("Movies")
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, prompt: "Search movies")
             .refreshable {
                 await loadAllMovies()
             }
@@ -215,7 +203,6 @@ struct HomePageView: View {
                     status: selectedStatus
                 )
                 .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
             }
         }
     }
@@ -473,7 +460,6 @@ private struct MovieDetailView: View {
         .sheet(isPresented: $showRatingSheet) {
             RatingSheet(movie: movie)
                 .presentationDetents([.height(360)])
-                .presentationDragIndicator(.visible)
         }
     }
 
@@ -530,8 +516,11 @@ private struct RatingSheet: View {
             .navigationTitle("Rate Movie")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
                 }
             }
         }
@@ -607,6 +596,12 @@ private struct FilterSortSheet: View {
             .navigationTitle("Sort and Filter")
             .toolbarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                         .bold()

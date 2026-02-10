@@ -29,6 +29,15 @@ struct RootTabHostView: View {
                 }
             }
 
+            TabSection("Add") {
+                Tab("Add", systemImage: "plus") {
+                    AddActionsPageView(
+                        onAddMovie: { showAddMovie = true },
+                        onAddPerson: { showAddPerson = true }
+                    )
+                }
+            }
+
             Tab(role: .search) {
                 GlobalSearchPageView()
             }
@@ -37,33 +46,10 @@ struct RootTabHostView: View {
         .tint(AppTheme.blue)
         .tabViewStyle(.sidebarAdaptable)
         .tabBarMinimizeBehavior(.onScrollDown)
-        .overlay(alignment: .bottomTrailing) {
-            Menu {
-                Button {
-                    showAddMovie = true
-                } label: {
-                    Label("Add Movie", systemImage: "film.fill")
-                }
-
-                Button {
-                    showAddPerson = true
-                } label: {
-                    Label("Add Person", systemImage: "person.badge.plus")
-                }
-            } label: {
-                Image(systemName: "plus")
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.regular)
-            .accessibilityLabel("Add options")
-            .padding(.trailing, 12)
-            .padding(.bottom, 84)
-        }
         .sheet(isPresented: $showAddMovie) {
             AddMoviePageView(onClose: { showAddMovie = false })
             .environment(sheetScrollState)
             .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showAddPerson) {
             AddPersonFullScreenView(
@@ -71,15 +57,42 @@ struct RootTabHostView: View {
                 onClose: { showAddPerson = false }
             )
             .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
         }
-        .fullScreenCover(isPresented: $showAccount) {
+        .sheet(isPresented: $showAccount) {
             AccountPageView(onClose: { showAccount = false })
                 .environment(sheetScrollState)
+                .presentationDetents([.large])
         }
     }
 }
 
 #Preview {
     RootTabHostView()
+}
+
+private struct AddActionsPageView: View {
+    let onAddMovie: () -> Void
+    let onAddPerson: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Create") {
+                    Button {
+                        onAddMovie()
+                    } label: {
+                        Label("Add Movie", systemImage: "film.fill")
+                    }
+
+                    Button {
+                        onAddPerson()
+                    } label: {
+                        Label("Add Person", systemImage: "person.badge.plus")
+                    }
+                }
+            }
+            .navigationTitle("Add")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
 }
