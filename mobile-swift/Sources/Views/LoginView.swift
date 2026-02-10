@@ -1,8 +1,6 @@
 import SwiftUI
 
 // MARK: - Login View
-// Sign In / Create Account with segmented picker.
-// Matches the frontend AuthScreen design.
 
 struct LoginView: View {
     @State private var authManager = AuthManager.shared
@@ -23,200 +21,99 @@ struct LoginView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 32) {
-                Spacer().frame(height: 40)
+        NavigationStack {
+            Form {
+                Section {
+                    logo
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
+                }
 
-                // Logo
-                logo
-
-                // Mode picker
-                Picker("Mode", selection: $mode) {
-                    ForEach(AuthMode.allCases, id: \.self) { m in
-                        Text(m.rawValue).tag(m)
+                Section {
+                    Picker("Mode", selection: $mode) {
+                        ForEach(AuthMode.allCases, id: \.self) { item in
+                            Text(item.rawValue).tag(item)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .onChange(of: mode) { _, _ in
+                        localError = nil
+                        authManager.clearError()
                     }
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 24)
-                .onChange(of: mode) { _, _ in
-                    localError = nil
-                    authManager.clearError()
-                }
 
-                // Error
                 if let error = displayError {
-                    HStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.red)
-                        Text(error)
-                            .font(.subheadline)
+                    Section {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(.red)
                     }
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.red.opacity(0.1), in: .rect(cornerRadius: 12))
-                    .padding(.horizontal, 24)
                 }
 
-                // Form fields
-                VStack(spacing: 16) {
-                    fieldRow(
-                        icon: "envelope.fill",
-                        placeholder: "Email",
-                        text: $email,
-                        keyboard: .emailAddress,
-                        contentType: .emailAddress
-                    )
+                Section(mode == .login ? "Sign In" : "Create Account") {
+                    TextField("Email", text: $email)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.emailAddress)
+                        .textContentType(.emailAddress)
+                        .autocorrectionDisabled()
 
                     if mode == .register {
-                        fieldRow(
-                            icon: "person.fill",
-                            placeholder: "Username",
-                            text: $username,
-                            keyboard: .default,
-                            contentType: .username
-                        )
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                        TextField("Username", text: $username)
+                            .textInputAutocapitalization(.never)
+                            .textContentType(.username)
+                            .autocorrectionDisabled()
                     }
 
-                    fieldRow(
-                        icon: "lock.fill",
-                        placeholder: "Password",
-                        text: $password,
-                        isSecure: true,
-                        contentType: .password
-                    )
+                    SecureField("Password", text: $password)
+                        .textContentType(.password)
 
                     if mode == .register {
-                        fieldRow(
-                            icon: "lock.fill",
-                            placeholder: "Confirm Password",
-                            text: $confirmPassword,
-                            isSecure: true,
-                            contentType: .password
-                        )
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                        SecureField("Confirm Password", text: $confirmPassword)
+                            .textContentType(.password)
                     }
                 }
-                .padding(.horizontal, 24)
-                .animation(.spring(duration: 0.3), value: mode)
 
-                // Submit button
-                Button {
-                    submit()
-                } label: {
-                    Group {
-                        if authManager.isLoading {
-                            ProgressView()
-                                .tint(.white)
-                        } else {
-                            Text(mode == .login ? "Sign In" : "Create Account")
-                                .font(.headline)
-                        }
-                    }
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(AppTheme.blue, in: .rect(cornerRadius: 14))
-                }
-                .disabled(authManager.isLoading || !isFormValid)
-                .opacity(isFormValid ? 1 : 0.5)
-                .padding(.horizontal, 24)
-
-                // Footer
-                Button {
-                    withAnimation(.spring(duration: 0.3)) {
-                        mode = mode == .login ? .register : .login
-                    }
-                } label: {
-                    Group {
-                        if mode == .login {
-                            HStack(spacing: 0) {
-                                Text("Don't have an account? ")
-                                Text("Create one")
-                                    .foregroundStyle(AppTheme.blue)
+                Section {
+                    Button {
+                        submit()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if authManager.isLoading {
+                                ProgressView()
+                            } else {
+                                Text(mode == .login ? "Sign In" : "Create Account")
                                     .bold()
                             }
-                        } else {
-                            HStack(spacing: 0) {
-                                Text("Already have an account? ")
-                                Text("Sign in")
-                                    .foregroundStyle(AppTheme.blue)
-                                    .bold()
-                            }
+                            Spacer()
                         }
                     }
-                    .font(.subheadline)
-                    .foregroundStyle(AppTheme.textTertiary)
+                    .disabled(authManager.isLoading || !isFormValid)
                 }
 
-                Spacer()
+                Section {
+                    Button(mode == .login ? "Need an account? Create one" : "Already have an account? Sign in") {
+                        withAnimation(.spring(duration: 0.3)) {
+                            mode = mode == .login ? .register : .login
+                        }
+                    }
+                }
             }
+            .navigationTitle("Movie Manager")
+            .animation(.default, value: mode)
         }
-        .scrollIndicators(.hidden)
-        .background { PageBackground() }
-        .preferredColorScheme(.dark)
     }
-
-    // MARK: - Logo
 
     private var logo: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "film.fill")
-                .font(.system(size: 48))
+        VStack(spacing: 8) {
+            Image(systemName: "film.stack")
+                .font(.system(size: 36, weight: .semibold))
                 .foregroundStyle(AppTheme.blue)
-                .frame(width: 96, height: 96)
-                .background(
-                    LinearGradient(
-                        colors: [AppTheme.blue.opacity(0.3), AppTheme.blue.opacity(0.1)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    in: .rect(cornerRadius: 28)
-                )
-
-            Text("Movie Manager")
-                .font(.largeTitle.bold())
-                .foregroundStyle(AppTheme.textPrimary)
-
             Text("Track recommendations across devices")
-                .font(.subheadline)
-                .foregroundStyle(AppTheme.textSecondary)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
+        .padding(.vertical, 8)
     }
-
-    // MARK: - Field Row
-
-    private func fieldRow(
-        icon: String,
-        placeholder: String,
-        text: Binding<String>,
-        isSecure: Bool = false,
-        keyboard: UIKeyboardType = .default,
-        contentType: UITextContentType? = nil
-    ) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(AppTheme.textTertiary)
-                .frame(width: 20)
-
-            if isSecure {
-                SecureField(placeholder, text: text)
-                    .textContentType(contentType)
-            } else {
-                TextField(placeholder, text: text)
-                    .keyboardType(keyboard)
-                    .textContentType(contentType)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-            }
-        }
-        .padding(14)
-        .glassEffect(.regular, in: .rect(cornerRadius: 14))
-    }
-
-    // MARK: - Validation
 
     private var isFormValid: Bool {
         if email.isEmpty || password.isEmpty { return false }
@@ -227,8 +124,6 @@ struct LoginView: View {
         }
         return true
     }
-
-    // MARK: - Submit
 
     private func submit() {
         localError = nil

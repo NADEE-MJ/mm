@@ -1,11 +1,10 @@
 import SwiftUI
 
 // MARK: - Account Page
-// Profile, stats, settings, dev tools.
-// Matches the test app's Profile page style with FrostedCards.
 
 struct AccountPageView: View {
     var onClose: (() -> Void)? = nil
+
     @State private var authManager = AuthManager.shared
     @State private var dbManager = DatabaseManager.shared
     @State private var ws = WebSocketManager.shared
@@ -13,37 +12,70 @@ struct AccountPageView: View {
     @State private var people: [Person] = []
     @State private var showClearCacheAlert = false
     @State private var showLogoutAlert = false
-    @Environment(ScrollState.self) private var scrollState
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    // Profile header
-                    profileHeader
+            Form {
+                Section("Profile") {
+                    HStack(spacing: 12) {
+                        Image(systemName: "person.crop.circle.fill")
+                            .font(.largeTitle)
+                            .foregroundStyle(AppTheme.blue)
 
-                    // Stats cards
-                    statsSection
-
-                    // Quick actions
-                    actionsSection
-
-                    // App info
-                    appSection
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(authManager.user?.username ?? "Movie Manager")
+                                .font(.headline)
+                            Text(authManager.user?.email ?? "")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 100)
-            }
-            .scrollIndicators(.hidden)
-            .onScrollGeometryChange(for: CGFloat.self) { geo in
-                geo.contentOffset.y
-            } action: { _, offset in
-                withAnimation(.spring(duration: 0.35)) {
-                    scrollState.update(offset: offset)
+
+                Section("Statistics") {
+                    LabeledContent("Total Movies") { Text("\(movies.count)") }
+                    LabeledContent("To Watch") {
+                        Text("\(movies.filter { $0.status == "to_watch" }.count)")
+                    }
+                    LabeledContent("Watched") {
+                        Text("\(movies.filter { $0.status == "watched" }.count)")
+                    }
+                    LabeledContent("Recommenders") { Text("\(people.count)") }
+                }
+
+                Section("Quick Actions") {
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+
+                    NavigationLink {
+                        DevToolsView()
+                    } label: {
+                        Label("Developer Labs", systemImage: "hammer")
+                    }
+
+                    Button(role: .destructive) {
+                        showClearCacheAlert = true
+                    } label: {
+                        Label("Clear Local Cache", systemImage: "trash")
+                    }
+
+                    Button(role: .destructive) {
+                        showLogoutAlert = true
+                    } label: {
+                        Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+                    }
+                }
+
+                Section("App") {
+                    LabeledContent("Version") { Text("1.0.0") }
+                    LabeledContent("Cached Movies") { Text("\(dbManager.movieCount)") }
+                    LabeledContent("Cached People") { Text("\(dbManager.peopleCount)") }
+                    LabeledContent("Sync Status") { Text(ws.isConnected ? "Connected" : "Disconnected") }
                 }
             }
-            .background { PageBackground() }
             .navigationTitle("Account")
             .toolbar {
                 if let onClose {
@@ -78,206 +110,6 @@ struct AccountPageView: View {
         }
     }
 
-    // MARK: - Profile Header
-
-    private var profileHeader: some View {
-        FrostedCard {
-            HStack(spacing: 14) {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.blue, .purple],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 56, height: 56)
-                    .overlay(
-                        Text(userInitials)
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(authManager.user?.username ?? "Movie Manager")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(AppTheme.textPrimary)
-                    Text(authManager.user?.email ?? "")
-                        .font(.subheadline)
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
-
-                Spacer()
-            }
-            .padding(14)
-        }
-    }
-
-    private var userInitials: String {
-        guard let name = authManager.user?.username, !name.isEmpty else { return "MM" }
-        return String(name.prefix(2)).uppercased()
-    }
-
-    // MARK: - Stats Section
-
-    private var statsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Statistics")
-                .font(.headline)
-                .foregroundStyle(AppTheme.textPrimary)
-
-            FrostedCard {
-                LazyVGrid(columns: [.init(.flexible()), .init(.flexible())], spacing: 0) {
-                    statCell(
-                        value: "\(movies.count)",
-                        label: "Total Movies",
-                        icon: "film.fill",
-                        color: .blue
-                    )
-                    statCell(
-                        value: "\(movies.filter { $0.status == "to_watch" }.count)",
-                        label: "To Watch",
-                        icon: "bookmark.fill",
-                        color: .orange
-                    )
-                    statCell(
-                        value: "\(movies.filter { $0.status == "watched" }.count)",
-                        label: "Watched",
-                        icon: "checkmark.circle.fill",
-                        color: .green
-                    )
-                    statCell(
-                        value: "\(people.count)",
-                        label: "Recommenders",
-                        icon: "person.2.fill",
-                        color: .purple
-                    )
-                }
-                .padding(.vertical, 12)
-            }
-        }
-    }
-
-    // MARK: - Actions Section
-
-    private var actionsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Quick Actions")
-                .font(.headline)
-                .foregroundStyle(AppTheme.textPrimary)
-
-            FrostedCard {
-                VStack(spacing: 0) {
-                    NavigationLink {
-                        SettingsView()
-                    } label: {
-                        actionRow(icon: "gearshape.fill", title: "Settings", color: .gray)
-                    }
-
-                    DividerLine()
-
-                    NavigationLink {
-                        DevToolsView()
-                    } label: {
-                        actionRow(icon: "hammer.fill", title: "Developer Labs", color: .orange)
-                    }
-
-                    DividerLine()
-
-                    Button {
-                        showClearCacheAlert = true
-                    } label: {
-                        actionRow(icon: "trash.fill", title: "Clear Local Cache", color: .red)
-                    }
-
-                    DividerLine()
-
-                    Button {
-                        showLogoutAlert = true
-                    } label: {
-                        actionRow(
-                            icon: "rectangle.portrait.and.arrow.right",
-                            title: "Sign Out",
-                            color: .red
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    // MARK: - App Section
-
-    private var appSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("App")
-                .font(.headline)
-                .foregroundStyle(AppTheme.textPrimary)
-
-            FrostedCard {
-                VStack(spacing: 0) {
-                    infoRow(label: "Version", value: "1.0.0")
-                    DividerLine()
-                    infoRow(label: "Cached Movies", value: "\(dbManager.movieCount)")
-                    DividerLine()
-                    infoRow(label: "Cached People", value: "\(dbManager.peopleCount)")
-                    DividerLine()
-                    infoRow(
-                        label: "Sync Status",
-                        value: ws.isConnected ? "Connected" : "Disconnected"
-                    )
-                }
-            }
-        }
-    }
-
-    // MARK: - Helpers
-
-    private func statCell(value: String, label: String, icon: String, color: Color) -> some View {
-        VStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundStyle(color)
-            Text(value)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(AppTheme.textPrimary)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(AppTheme.textSecondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-    }
-
-    private func actionRow(icon: String, title: String, color: Color) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 16))
-                .foregroundStyle(color)
-                .frame(width: 24)
-            Text(title)
-                .font(.body)
-                .foregroundStyle(AppTheme.textPrimary)
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(AppTheme.textTertiary)
-        }
-        .padding(14)
-    }
-
-    private func infoRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(AppTheme.textPrimary)
-            Spacer()
-            Text(value)
-                .foregroundStyle(AppTheme.textSecondary)
-        }
-        .font(.subheadline)
-        .padding(14)
-    }
-
     private func loadData() async {
         await NetworkService.shared.fetchMovies()
         movies = NetworkService.shared.movies
@@ -301,7 +133,7 @@ struct SettingsView: View {
                 Toggle("Haptic Feedback", isOn: $haptics)
             }
 
-            Section("Privacy & Security") {
+            Section("Privacy and Security") {
                 Toggle(isOn: $faceIDEnabled) {
                     HStack(spacing: 12) {
                         Image(systemName: bioManager.biometryIcon)
@@ -321,18 +153,8 @@ struct SettingsView: View {
             }
 
             Section("About") {
-                HStack {
-                    Text("Version")
-                    Spacer()
-                    Text("1.0.0 (Build 26)")
-                        .foregroundStyle(.secondary)
-                }
-                HStack {
-                    Text("Platform")
-                    Spacer()
-                    Text("iOS 26")
-                        .foregroundStyle(.secondary)
-                }
+                LabeledContent("Version") { Text("1.0.0 (Build 26)").foregroundStyle(.secondary) }
+                LabeledContent("Platform") { Text("iOS 26").foregroundStyle(.secondary) }
             }
         }
         .navigationTitle("Settings")
@@ -351,24 +173,28 @@ struct DevToolsView: View {
     @State private var logURL = FileLogStore.shared.exportURL()
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("Section", selection: $selectedSection) {
-                Label("SQLite", systemImage: "cylinder.split.1x2").tag(0)
-                Label("WebSocket", systemImage: "bolt.horizontal").tag(1)
-                Label("Logs", systemImage: "text.alignleft").tag(2)
+        List {
+            Section {
+                Picker("Section", selection: $selectedSection) {
+                    Label("SQLite", systemImage: "cylinder.split.1x2").tag(0)
+                    Label("WebSocket", systemImage: "bolt.horizontal").tag(1)
+                    Label("Logs", systemImage: "text.alignleft").tag(2)
+                }
+                .pickerStyle(.segmented)
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
 
             switch selectedSection {
-            case 0: sqliteSection
-            case 1: webSocketSection
-            case 2: logsSection
-            default: EmptyView()
+            case 0:
+                sqliteContent
+            case 1:
+                webSocketContent
+            case 2:
+                logsContent
+            default:
+                EmptyView()
             }
         }
-        .background { PageBackground() }
+        .listStyle(.insetGrouped)
         .navigationTitle("Developer Labs")
         .toolbarTitleDisplayMode(.inline)
         .onAppear {
@@ -377,212 +203,163 @@ struct DevToolsView: View {
         }
     }
 
-    // MARK: - SQLite Section
+    // MARK: - SQLite
 
-    private var sqliteSection: some View {
-        List {
+    @ViewBuilder
+    private var sqliteContent: some View {
+        Section {
+            Label("GRDB.swift", systemImage: "cylinder.split.1x2.fill")
+            Text("Type-safe SQLite wrapper")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+
+        Section("Stats") {
+            LabeledContent("Cached Movies") { Text("\(dbManager.movieCount)") }
+            LabeledContent("Cached People") { Text("\(dbManager.peopleCount)") }
+        }
+
+        if dbManager.movieCount > 0 || dbManager.peopleCount > 0 {
             Section {
-                HStack(spacing: 12) {
-                    Image(systemName: "cylinder.split.1x2.fill")
-                        .font(.title)
-                        .foregroundStyle(.blue)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("GRDB.swift")
-                            .font(.headline)
-                        Text("Type-safe SQLite wrapper")
-                            .font(.caption)
-                            .foregroundStyle(AppTheme.textSecondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-
-            Section("Stats") {
-                HStack {
-                    Text("Cached Movies")
-                    Spacer()
-                    Text("\(dbManager.movieCount)")
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
-                HStack {
-                    Text("Cached People")
-                    Spacer()
-                    Text("\(dbManager.peopleCount)")
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
-            }
-
-            Section {
-                if dbManager.movieCount > 0 || dbManager.peopleCount > 0 {
-                    Button(role: .destructive) {
-                        withAnimation { dbManager.clearAll() }
-                    } label: {
-                        Label("Clear All Data", systemImage: "trash")
-                    }
+                Button("Clear All Data", role: .destructive) {
+                    withAnimation { dbManager.clearAll() }
                 }
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 
-    // MARK: - WebSocket Section
+    // MARK: - WebSocket
 
-    private var webSocketSection: some View {
-        VStack(spacing: 0) {
-            List {
-                Section("Connection") {
-                    HStack {
-                        Circle()
-                            .fill(ws.isConnected ? .green : .red)
-                            .frame(width: 10, height: 10)
-                        Text(ws.isConnected ? "Connected" : "Disconnected")
-                            .font(.subheadline)
-                        Spacer()
+    @ViewBuilder
+    private var webSocketContent: some View {
+        Section("Connection") {
+            HStack {
+                Circle()
+                    .fill(ws.isConnected ? .green : .red)
+                    .frame(width: 10, height: 10)
+                Text(ws.isConnected ? "Connected" : "Disconnected")
+                Spacer()
 
-                        if ws.isConnected {
-                            Button("Ping") { ws.ping() }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                        }
-
-                        Button(ws.isConnected ? "Disconnect" : "Connect") {
-                            if ws.isConnected { ws.disconnect() }
-                            else { ws.connect() }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(ws.isConnected ? .red : .green)
+                if ws.isConnected {
+                    Button("Ping") { ws.ping() }
+                        .buttonStyle(.bordered)
                         .controlSize(.small)
-                    }
+                }
 
-                    if let err = ws.lastError {
-                        Label(err, systemImage: "exclamationmark.triangle")
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                Button(ws.isConnected ? "Disconnect" : "Connect") {
+                    if ws.isConnected {
+                        ws.disconnect()
+                    } else {
+                        ws.connect()
+                    }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(ws.isConnected ? .red : .green)
+                .controlSize(.small)
+            }
+
+            if let err = ws.lastError {
+                Label(err, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+
+        Section("Messages (\(ws.messages.count))") {
+            if ws.messages.isEmpty {
+                ContentUnavailableView(
+                    "No Messages",
+                    systemImage: "bubble.left.and.bubble.right",
+                    description: Text("Connect and send a message.")
+                )
+            } else {
+                ForEach(ws.messages) { msg in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 8) {
+                            Image(systemName: msg.isOutgoing ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                                .foregroundStyle(msg.isOutgoing ? .blue : .green)
+                            Text(msg.text)
+                        }
+                        Text(msg.timestamp.formatted(.dateTime.hour().minute().second()))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
-                Section("Messages (\(ws.messages.count))") {
-                    if ws.messages.isEmpty {
-                        ContentUnavailableView(
-                            "No Messages",
-                            systemImage: "bubble.left.and.bubble.right",
-                            description: Text("Connect and send a message.")
-                        )
-                    } else {
-                        ForEach(ws.messages) { msg in
-                            HStack(alignment: .top, spacing: 8) {
-                                Image(systemName: msg.isOutgoing ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
-                                    .foregroundStyle(msg.isOutgoing ? .blue : .green)
-                                    .font(.caption)
-                                    .padding(.top, 2)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(msg.text).font(.subheadline)
-                                    Text(msg.timestamp.formatted(.dateTime.hour().minute().second()))
-                                        .font(.caption2)
-                                        .foregroundStyle(AppTheme.textTertiary)
-                                }
-                            }
-                        }
-
-                        Button("Clear Messages") {
-                            withAnimation { ws.clearMessages() }
-                        }
-                        .foregroundStyle(.red)
-                    }
+                Button("Clear Messages", role: .destructive) {
+                    withAnimation { ws.clearMessages() }
                 }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
+        }
 
-            // Input bar
-            if ws.isConnected {
-                HStack(spacing: 10) {
-                    TextField("Type a message...", text: $wsInput)
-                        .textFieldStyle(.plain)
-                        .padding(10)
-                        .glassEffect(.regular, in: .capsule)
-
-                    Button {
-                        guard !wsInput.isEmpty else { return }
-                        ws.send(wsInput)
-                        wsInput = ""
-                    } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 32))
-                            .foregroundStyle(wsInput.isEmpty ? .gray : AppTheme.blue)
-                    }
-                    .disabled(wsInput.isEmpty)
+        if ws.isConnected {
+            Section("Send Message") {
+                TextField("Type a message...", text: $wsInput)
+                Button("Send") {
+                    guard !wsInput.isEmpty else { return }
+                    ws.send(wsInput)
+                    wsInput = ""
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(.ultraThinMaterial)
+                .disabled(wsInput.isEmpty)
             }
         }
     }
 
-    // MARK: - Logs Section
+    // MARK: - Logs
 
-    private var logsSection: some View {
-        List {
-            Section("Console") {
-                Text("Live logs are written via os.Logger and can be viewed with idevicesyslog.")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.textSecondary)
-                Text("idevicesyslog | grep -i \"\(Bundle.main.bundleIdentifier ?? "com.moviemanager.mobileswift")\"")
-                    .font(.system(.footnote, design: .monospaced))
-                    .textSelection(.enabled)
-            }
+    @ViewBuilder
+    private var logsContent: some View {
+        Section("Console") {
+            Text("Live logs are written via os.Logger and can be viewed with idevicesyslog.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Text("idevicesyslog | grep -i \"\(Bundle.main.bundleIdentifier ?? "com.moviemanager.mobileswift")\"")
+                .font(.system(.footnote, design: .monospaced))
+                .textSelection(.enabled)
+        }
 
-            Section("Logging") {
-                #if DEBUG
-                Toggle("Enable verbose logging", isOn: $loggingEnabled)
-                    .onChange(of: loggingEnabled) { _, newValue in
-                        DebugSettings.loggingEnabled = newValue
-                        if newValue {
-                            AppLog.info("🧪 [Debug] Verbose logging enabled", category: .debug)
-                        } else {
-                            AppLog.warning("🧪 [Debug] Verbose logging disabled", category: .debug)
-                        }
+        Section("Logging") {
+            #if DEBUG
+            Toggle("Enable verbose logging", isOn: $loggingEnabled)
+                .onChange(of: loggingEnabled) { _, newValue in
+                    DebugSettings.loggingEnabled = newValue
+                    if newValue {
+                        AppLog.info("[Debug] Verbose logging enabled", category: .debug)
+                    } else {
+                        AppLog.warning("[Debug] Verbose logging disabled", category: .debug)
                     }
-
-                Button {
-                    AppLog.debug("🧪 [Debug] Manual test log entry", category: .debug)
-                    logURL = FileLogStore.shared.exportURL()
-                } label: {
-                    Label("Write Test Log Entry", systemImage: "pencil.and.list.clipboard")
                 }
-                #else
-                Text("Verbose logging controls are available in Debug builds.")
-                    .font(.footnote)
-                    .foregroundStyle(AppTheme.textSecondary)
-                #endif
+
+            Button {
+                AppLog.debug("[Debug] Manual test log entry", category: .debug)
+                logURL = FileLogStore.shared.exportURL()
+            } label: {
+                Label("Write Test Log Entry", systemImage: "pencil.and.list.clipboard")
+            }
+            #else
+            Text("Verbose logging controls are available in Debug builds.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            #endif
+        }
+
+        Section("Export") {
+            LabeledContent("Log File") {
+                Text(logURL.lastPathComponent)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
-            Section("Export") {
-                HStack {
-                    Text("Log File")
-                    Spacer()
-                    Text(logURL.lastPathComponent)
-                        .font(.caption)
-                        .foregroundStyle(AppTheme.textSecondary)
-                }
+            ShareLink(item: logURL) {
+                Label("Export Logs", systemImage: "square.and.arrow.up")
+            }
 
-                ShareLink(item: logURL) {
-                    Label("Export Logs", systemImage: "square.and.arrow.up")
-                }
-
-                Button(role: .destructive) {
-                    FileLogStore.shared.clear()
-                    AppLog.warning("🧪 [Debug] Log file cleared", category: .debug)
-                    logURL = FileLogStore.shared.exportURL()
-                } label: {
-                    Label("Clear Log File", systemImage: "trash")
-                }
+            Button("Clear Log File", role: .destructive) {
+                FileLogStore.shared.clear()
+                AppLog.warning("[Debug] Log file cleared", category: .debug)
+                logURL = FileLogStore.shared.exportURL()
             }
         }
-        .listStyle(.insetGrouped)
-        .scrollContentBackground(.hidden)
     }
 }
 
