@@ -49,8 +49,11 @@ export default function MovieDetailContainer({
   return (
     <>
       <div className="bg-ios-bg min-h-full flex flex-col">
-        <header className="app-panel-header">
-          <button onClick={onClose} className="app-panel-back-button">
+        <header className="sticky top-0 z-[1] border-b border-[var(--color-ios-separator)] bg-[rgba(0,0,0,0.75)] px-4 py-2.5 backdrop-blur-[8px]">
+          <button
+            onClick={onClose}
+            className="inline-flex items-center gap-1 rounded-[10px] bg-white/10 px-2.5 py-1.5 text-[0.85rem] font-semibold text-[var(--color-ios-label)]"
+          >
             <ChevronRight className="w-5 h-5 rotate-180" />
             <span>Close</span>
           </button>

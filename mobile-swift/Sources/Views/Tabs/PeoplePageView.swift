@@ -8,20 +8,36 @@ struct PeoplePageView: View {
         case trusted = "Trusted"
     }
 
-    var onAddPersonTap: (() -> Void)? = nil
+    enum SortOption: String, CaseIterable, Identifiable {
+        case name = "Name"
+        case mostMovies = "Most Movies"
+        case trustedFirst = "Trusted First"
+
+        var id: String { rawValue }
+    }
+
     var onAccountTap: (() -> Void)? = nil
 
     @State private var people: [Person] = []
+    @State private var searchText = ""
+    @State private var isSearchPresented = false
     @State private var filter: TrustedFilter = .all
+    @State private var sortBy: SortOption = .name
+    @State private var showFilters = false
 
     private var filteredPeople: [Person] {
         var result = people
+
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty {
+            result = result.filter { $0.name.localizedCaseInsensitiveContains(trimmedQuery) }
+        }
 
         if filter == .trusted {
             result = result.filter { $0.isTrusted }
         }
 
-        return result
+        return sortedPeople(result)
     }
 
     private var trustedCount: Int {
@@ -31,20 +47,16 @@ struct PeoplePageView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Filter") {
-                    Picker("Filter", selection: $filter) {
-                        Text("All (\(people.count))").tag(TrustedFilter.all)
-                        Text("Trusted (\(trustedCount))").tag(TrustedFilter.trusted)
-                    }
-                    .pickerStyle(.segmented)
-                }
-
                 Section {
                     if filteredPeople.isEmpty {
                         ContentUnavailableView(
-                            "No People",
+                            searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No People" : "No Results",
                             systemImage: "person.2.slash",
-                            description: Text("Add people to track who suggests movies.")
+                            description: Text(
+                                searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? "Add people to track who suggests movies."
+                                    : "Try a different search term or clear filters."
+                            )
                         )
                     } else {
                         ForEach(filteredPeople) { person in
@@ -99,6 +111,11 @@ struct PeoplePageView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("People")
             .navigationBarTitleDisplayMode(.large)
+            .searchable(
+                text: $searchText,
+                isPresented: $isSearchPresented,
+                prompt: "Search people"
+            )
             .refreshable {
                 await loadPeople()
             }
@@ -107,12 +124,20 @@ struct PeoplePageView: View {
             }
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    if let onAddPersonTap {
-                        Button(action: onAddPersonTap) {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel("Add person")
+                    Button {
+                        isSearchPresented = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
                     }
+                    .accessibilityLabel("Search people")
+
+                    Button {
+                        isSearchPresented = false
+                        showFilters = true
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                    }
+                    .accessibilityLabel("Sort and filter")
 
                     if let onAccountTap {
                         Button(action: onAccountTap) {
@@ -122,12 +147,100 @@ struct PeoplePageView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showFilters) {
+                PeopleFilterSortSheet(
+                    sortBy: $sortBy,
+                    filter: $filter,
+                    totalPeopleCount: people.count,
+                    trustedCount: trustedCount
+                )
+                .presentationDetents([.medium])
+            }
         }
     }
 
     private func loadPeople() async {
         await NetworkService.shared.fetchPeople()
         people = NetworkService.shared.people
+    }
+
+    private func sortedPeople(_ input: [Person]) -> [Person] {
+        switch sortBy {
+        case .name:
+            return input.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        case .mostMovies:
+            return input.sorted {
+                if $0.movieCount == $1.movieCount {
+                    return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+                }
+                return $0.movieCount > $1.movieCount
+            }
+        case .trustedFirst:
+            return input.sorted {
+                if $0.isTrusted != $1.isTrusted {
+                    return $0.isTrusted && !$1.isTrusted
+                }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        }
+    }
+}
+
+// MARK: - People Filter/Sort Sheet
+
+private struct PeopleFilterSortSheet: View {
+    @Binding var sortBy: PeoplePageView.SortOption
+    @Binding var filter: PeoplePageView.TrustedFilter
+    let totalPeopleCount: Int
+    let trustedCount: Int
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Sort By") {
+                    Picker("Sort By", selection: $sortBy) {
+                        ForEach(PeoplePageView.SortOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                }
+
+                Section("Filter") {
+                    Picker("People", selection: $filter) {
+                        Text("All (\(totalPeopleCount))").tag(PeoplePageView.TrustedFilter.all)
+                        Text("Trusted (\(trustedCount))").tag(PeoplePageView.TrustedFilter.trusted)
+                    }
+                    .pickerStyle(.inline)
+                }
+
+                Section {
+                    Button("Reset", role: .destructive) {
+                        sortBy = .name
+                        filter = .all
+                    }
+                }
+            }
+            .navigationTitle("Sort and Filter")
+            .toolbarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                    }
+                    .accessibilityLabel("Close")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .bold()
+                }
+            }
+        }
     }
 }
 

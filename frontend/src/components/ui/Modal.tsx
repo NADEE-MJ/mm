@@ -33,18 +33,31 @@ export default function Modal({
   }
 
   return (
-    <div className="app-modal-root" role="dialog" aria-modal="true" aria-label={title || "Dialog"}>
-      <div className="app-modal-backdrop" onClick={onClose} />
-      <div className="app-modal" style={{ maxWidth }}>
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title || "Dialog"}
+    >
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div
+        className="relative z-[1] flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-[var(--color-ios-separator)] bg-[#0f0f0f]"
+        style={{ maxWidth }}
+      >
         {(title || onClose) && (
-          <header className="app-modal-header">
-            <h2 className="app-modal-title">{title}</h2>
-            <button type="button" className="app-icon-button" onClick={onClose} aria-label="Close">
+          <header className="flex items-center justify-between gap-4 border-b border-[var(--color-ios-separator)] px-4 py-3.5">
+            <h2 className="m-0 text-base font-bold">{title}</h2>
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-white/10"
+              onClick={onClose}
+              aria-label="Close"
+            >
               <X className="w-4 h-4" />
             </button>
           </header>
         )}
-        <div className="app-modal-content">{children}</div>
+        <div className="overflow-auto p-4">{children}</div>
       </div>
     </div>
   );

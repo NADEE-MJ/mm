@@ -61,7 +61,7 @@ export default function FilterSheet({
             <select
               value={filterRecommender}
               onChange={(e) => setFilterRecommender(e.target.value)}
-              className="ios-input"
+              className="ios-input app-select"
             >
               <option value="">All Recommenders</option>
               {recommenders.map((name) => (

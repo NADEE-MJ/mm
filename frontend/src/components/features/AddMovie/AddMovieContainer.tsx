@@ -194,7 +194,10 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
     <div className="flex flex-col min-h-[62vh]">
       {selectedMovie && (
         <div className="mb-4">
-          <button onClick={() => setSelectedMovie(null)} className="app-inline-back-button">
+          <button
+            onClick={() => setSelectedMovie(null)}
+            className="inline-flex items-center gap-1 rounded-[10px] bg-white/10 px-2.5 py-1.5 text-[0.85rem] font-semibold text-[var(--color-ios-label)]"
+          >
             <ChevronLeft className="w-4 h-4" />
             <span>Back to Search</span>
           </button>

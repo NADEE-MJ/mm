@@ -3,11 +3,12 @@ import SwiftUI
 // MARK: - Home Page
 
 struct HomePageView: View {
-    var onAddMovieTap: (() -> Void)? = nil
     var onAccountTap: (() -> Void)? = nil
 
     @State private var allMovies: [Movie] = []
     @State private var isLoading = false
+    @State private var searchText = ""
+    @State private var isSearchPresented = false
     @State private var selectedStatus = "to_watch"
     @State private var sortBy = "dateRecommended"
     @State private var showFilters = false
@@ -24,6 +25,23 @@ struct HomePageView: View {
 
     private var filteredMovies: [Movie] {
         var result = allMovies.filter { $0.status == selectedStatus }
+
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedQuery.isEmpty {
+            let query = trimmedQuery.lowercased()
+            result = result.filter { movie in
+                let searchableValues: [String] = [
+                    movie.title,
+                    movie.overview ?? "",
+                    movie.director ?? "",
+                    movie.genres.joined(separator: " "),
+                    movie.recommendations.map(\.recommender).joined(separator: " "),
+                ]
+                .map { $0.lowercased() }
+
+                return searchableValues.contains { $0.contains(query) }
+            }
+        }
 
         if let recommender = filterRecommender {
             result = result.filter { movie in
@@ -47,7 +65,8 @@ struct HomePageView: View {
     }
 
     private var toWatchFooterMessage: String? {
-        guard selectedStatus == "to_watch" else { return nil }
+        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard selectedStatus == "to_watch", trimmedQuery.isEmpty else { return nil }
 
         if filteredMovies.count <= 3 {
             return "Hey, ask your friends for more recommendations."
@@ -56,10 +75,6 @@ struct HomePageView: View {
             return "Hey buddy, you got a lot of movies to watch."
         }
         return "Solid queue. Keep chipping away."
-    }
-
-    private var activeFiltersCount: Int {
-        [filterRecommender].compactMap { $0 }.count
     }
 
     var body: some View {
@@ -72,23 +87,6 @@ struct HomePageView: View {
                         }
                     }
                     .pickerStyle(.segmented)
-
-                    Button {
-                        showFilters = true
-                    } label: {
-                        HStack {
-                            Label("Sort and Filter", systemImage: "line.3.horizontal.decrease.circle")
-                            Spacer()
-                            if activeFiltersCount > 0 {
-                                Text("\(activeFiltersCount)")
-                                    .font(.caption.bold())
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(.tint, in: Capsule())
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                    }
                 }
 
                 if isLoading && allMovies.isEmpty {
@@ -102,12 +100,14 @@ struct HomePageView: View {
                 } else if filteredMovies.isEmpty {
                     Section {
                         ContentUnavailableView(
-                            "No Movies",
+                            searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Movies" : "No Results",
                             systemImage: "film",
                             description: Text(
-                                selectedStatus == "to_watch"
+                                searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? (selectedStatus == "to_watch"
                                     ? "Add your first movie to get started."
-                                    : "Movies will appear here once watched."
+                                    : "Movies will appear here once watched.")
+                                    : "Try a different search term or clear filters."
                             )
                         )
                     }
@@ -180,6 +180,11 @@ struct HomePageView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("Movies")
             .navigationBarTitleDisplayMode(.large)
+            .searchable(
+                text: $searchText,
+                isPresented: $isSearchPresented,
+                prompt: "Search movies"
+            )
             .refreshable {
                 await loadAllMovies()
             }
@@ -193,12 +198,20 @@ struct HomePageView: View {
             }
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    if let onAddMovieTap {
-                        Button(action: onAddMovieTap) {
-                            Image(systemName: "plus")
-                        }
-                        .accessibilityLabel("Add movie")
+                    Button {
+                        isSearchPresented = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
                     }
+                    .accessibilityLabel("Search movies")
+
+                    Button {
+                        isSearchPresented = false
+                        showFilters = true
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                    }
+                    .accessibilityLabel("Sort and filter")
 
                     if let onAccountTap {
                         Button(action: onAccountTap) {

@@ -29,7 +29,21 @@ export function formatRating(rating) {
  * Get poster URL or placeholder
  */
 export function getPoster(posterUrl) {
-  return posterUrl || POSTER_PLACEHOLDER;
+  const normalizedPoster = String(posterUrl || "").trim();
+
+  if (!normalizedPoster || normalizedPoster.toUpperCase() === "N/A") {
+    return POSTER_PLACEHOLDER;
+  }
+
+  if (normalizedPoster.startsWith("//")) {
+    return `https:${normalizedPoster}`;
+  }
+
+  if (normalizedPoster.startsWith("http://")) {
+    return `https://${normalizedPoster.slice("http://".length)}`;
+  }
+
+  return normalizedPoster;
 }
 
 /**

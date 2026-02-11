@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  ChevronLeft,
   Star,
   StarOff,
   Film,
@@ -88,12 +89,42 @@ export default function PersonDetailPage({ movies = [] }) {
     await updatePerson(person.name, updates);
   };
 
+  const handleBackToPeople = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate("/people");
+  };
+
   if (loading) {
-    return <p className="text-ios-secondary-label">Loading recommender...</p>;
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={handleBackToPeople}
+          className="inline-flex items-center gap-1 rounded-[10px] bg-white/10 px-2.5 py-1.5 text-[0.85rem] font-semibold text-[var(--color-ios-label)]"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Back to Recommenders</span>
+        </button>
+        <p className="text-ios-secondary-label">Loading recommender...</p>
+      </div>
+    );
   }
 
   if (!person) {
-    return <p className="text-ios-secondary-label">Recommender not found.</p>;
+    return (
+      <div className="space-y-4">
+        <button
+          onClick={handleBackToPeople}
+          className="inline-flex items-center gap-1 rounded-[10px] bg-white/10 px-2.5 py-1.5 text-[0.85rem] font-semibold text-[var(--color-ios-label)]"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Back to Recommenders</span>
+        </button>
+        <p className="text-ios-secondary-label">Recommender not found.</p>
+      </div>
+    );
   }
 
   const avatarColor = person.color || IOS_COLORS.gray;
@@ -116,6 +147,14 @@ export default function PersonDetailPage({ movies = [] }) {
 
   return (
     <div className="space-y-6">
+      <button
+        onClick={handleBackToPeople}
+        className="inline-flex items-center gap-1 rounded-[10px] bg-white/10 px-2.5 py-1.5 text-[0.85rem] font-semibold text-[var(--color-ios-label)]"
+      >
+        <ChevronLeft className="w-4 h-4" />
+        <span>Back to Recommenders</span>
+      </button>
+
       <div className="ios-card p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">

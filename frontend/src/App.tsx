@@ -17,13 +17,12 @@ import PeoplePage from "./pages/PeoplePage";
 import ListsPage from "./pages/ListsPage";
 import AccountPage from "./pages/AccountPage";
 import PersonDetailPage from "./pages/PersonDetailPage";
-import StatsPage from "./pages/StatsPage";
 
 import { usePeople } from "./hooks/usePeople";
 
 function LoadingScreen({ label = "Loading..." }) {
   return (
-    <div className="app-loading-screen">
+    <div className="flex min-h-screen flex-col items-center justify-center">
       <RefreshCw className="w-8 h-8 animate-spin text-ios-blue" />
       <p className="text-ios-secondary-label mt-3">{label}</p>
     </div>
@@ -92,7 +91,7 @@ function AppContent() {
   }
 
   return (
-    <AppShell onAddMovie={() => setShowAddMovie(true)} panelOpen={Boolean(selectedMovieId)}>
+    <AppShell panelOpen={Boolean(selectedMovieId)}>
       <Routes>
         <Route
           path="/"
@@ -101,6 +100,7 @@ function AppContent() {
               movies={movies}
               onMovieClick={(movie) => setSelectedMovieId(movie.imdbId)}
               onRefresh={handleRefresh}
+              onAddMovie={() => setShowAddMovie(true)}
             />
           }
         />
@@ -110,7 +110,6 @@ function AppContent() {
           path="/lists"
           element={<ListsPage movies={movies} onMovieClick={(movie) => setSelectedMovieId(movie.imdbId)} />}
         />
-        <Route path="/stats" element={<StatsPage movies={movies} user={user} />} />
         <Route path="/account" element={<AccountPage movies={movies} user={user} logout={logout} />} />
       </Routes>
 
