@@ -28,7 +28,7 @@ export const API_LIMITS = {
   OMDB_DAILY_LIMIT: 1000, // 1000 requests per day
 };
 
-export const POSTER_PLACEHOLDER = "https://via.placeholder.com/500x750?text=No+Poster";
+export const POSTER_PLACEHOLDER = "/poster-placeholder.svg";
 
 // Default recommender options
 export const DEFAULT_RECOMMENDERS = [

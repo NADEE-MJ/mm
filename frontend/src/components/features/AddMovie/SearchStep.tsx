@@ -16,14 +16,14 @@ export default function SearchStep({
       {/* Search Form */}
       <form onSubmit={handleSearch}>
         <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-ios-tertiary-label" />
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[1.1rem] w-[1.1rem] -translate-y-1/2 text-[var(--color-ios-label-tertiary)]" />
           <input
             ref={searchInputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search movies..."
-            className="ios-input pl-12 pr-20"
+            className="ios-input pl-[2.65rem] pr-[6.2rem]"
             autoComplete="off"
           />
           <button

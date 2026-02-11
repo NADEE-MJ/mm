@@ -37,7 +37,7 @@ export default function DownvoteModal({ isOpen, onClose, peopleNames, onAdd }) {
               setSelectedPerson(null);
             }}
             placeholder="Search or enter name..."
-            className="ios-input pl-12"
+            className="ios-input input-with-leading-icon"
             autoComplete="off"
           />
         </div>

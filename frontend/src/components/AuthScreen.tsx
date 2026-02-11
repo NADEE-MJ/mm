@@ -103,7 +103,7 @@ export default function AuthScreen() {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   required
-                  className="ios-input pl-12"
+                  className="ios-input input-with-leading-icon"
                 />
               </div>
             </div>
@@ -123,7 +123,7 @@ export default function AuthScreen() {
                     placeholder="Choose a username"
                     required
                     minLength={3}
-                    className="ios-input pl-12"
+                    className="ios-input input-with-leading-icon"
                   />
                 </div>
               </div>
@@ -143,7 +143,7 @@ export default function AuthScreen() {
                   placeholder="••••••••"
                   required
                   minLength={mode === "register" ? 6 : 1}
-                  className="ios-input pl-12"
+                  className="ios-input input-with-leading-icon"
                 />
               </div>
             </div>
@@ -162,7 +162,7 @@ export default function AuthScreen() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    className="ios-input pl-12"
+                    className="ios-input input-with-leading-icon"
                   />
                 </div>
               </div>

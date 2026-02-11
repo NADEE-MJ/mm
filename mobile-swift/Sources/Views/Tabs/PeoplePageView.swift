@@ -16,11 +16,11 @@ struct PeoplePageView: View {
         var id: String { rawValue }
     }
 
-    let searchText: String
-    let filterTrigger: Int
     var onAccountTap: (() -> Void)? = nil
 
     @State private var people: [Person] = []
+    @State private var searchText = ""
+    @State private var isSearchPresented = false
     @State private var filter: TrustedFilter = .all
     @State private var sortBy: SortOption = .name
     @State private var showFilters = false
@@ -111,17 +111,34 @@ struct PeoplePageView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("People")
             .navigationBarTitleDisplayMode(.large)
+            .searchable(
+                text: $searchText,
+                isPresented: $isSearchPresented,
+                prompt: "Search people"
+            )
             .refreshable {
                 await loadPeople()
             }
             .task {
                 await loadPeople()
             }
-            .onChange(of: filterTrigger) { _, _ in
-                showFilters = true
-            }
             .toolbar {
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        isSearchPresented = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .accessibilityLabel("Search people")
+
+                    Button {
+                        isSearchPresented = false
+                        showFilters = true
+                    } label: {
+                        Image(systemName: "line.3.horizontal.decrease.circle")
+                    }
+                    .accessibilityLabel("Sort and filter")
+
                     if let onAccountTap {
                         Button(action: onAccountTap) {
                             Image(systemName: "person.crop.circle")
@@ -302,5 +319,5 @@ private struct PersonDetailView: View {
 }
 
 #Preview {
-    PeoplePageView(searchText: "", filterTrigger: 0)
+    PeoplePageView()
 }

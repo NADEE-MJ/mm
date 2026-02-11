@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { X } from "lucide-react";
 import { useMoviesContext } from "../contexts/MoviesContext";
 import { usePeople } from "../hooks/usePeople";
 import { MOVIE_STATUS, RATING_THRESHOLD, VOTE_TYPE } from "../utils/constants";
@@ -95,15 +94,10 @@ export default function MovieDetailPanel({ imdbId, onClose }) {
 
   return (
     <>
-      <div className="movie-detail-panel-root">
-        <div className="movie-detail-panel-dim" />
-        <section className="movie-detail-panel-shell">
-          <button type="button" onClick={onClose} className="movie-detail-close-button" aria-label="Close panel">
-            <X className="w-4 h-4" />
-          </button>
-
+      <div className="pointer-events-none fixed inset-0 z-[45]">
+        <section className="pointer-events-auto fixed right-0 top-0 h-screen w-[min(500px,100vw)] overflow-y-auto border-l border-[var(--color-ios-separator)] bg-[#0b0b0b] animate-[panel-slide-in_0.2s_ease-out] max-md:w-screen min-[1600px]:w-[min(540px,100vw)]">
           {!movie ? (
-            <div className="movie-detail-empty">Movie not found.</div>
+            <div className="px-4 py-12 text-center text-[var(--color-ios-label-secondary)]">Movie not found.</div>
           ) : (
             <MovieDetail
               movie={movie}
