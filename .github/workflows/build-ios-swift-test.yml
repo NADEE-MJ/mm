@@ -223,7 +223,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
-          gh pr comment ${{ github.event.pull_request.number }} --body "✅ [Build artifacts](${ARTIFACTS_URL})"
+          gh pr comment ${{ github.event.pull_request.number }} --body "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})"
 
       - name: Publish latest IPA release
         if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')) && github.ref == 'refs/heads/main'
@@ -277,22 +277,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          gh pr comment ${{ github.event.pull_request.number }} --body "❌ [Failed build](${WORKFLOW_URL})"
+          gh pr comment ${{ github.event.pull_request.number }} --body "❌ ${{ github.workflow }}: [Failed build](${WORKFLOW_URL})"
 
       - name: Build summary
         if: success() && github.event_name == 'workflow_dispatch'
         run: |
           ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
-          echo "✅ [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
 
       - name: PR check summary
         if: success() && github.event_name == 'pull_request'
         run: |
           ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
-          echo "✅ [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Push summary
         if: success() && github.event_name == 'push'
         run: |
           ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
-          echo "✅ [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"

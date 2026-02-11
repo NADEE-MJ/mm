@@ -93,7 +93,7 @@ struct RootTabHostView: View {
             }
         }
         .tint(AppTheme.blue)
-        .tabBarMinimizeBehavior(.onScroll)
+        .tabBarMinimizeBehavior(.automatic)
         .tabViewBottomAccessory(isEnabled: !isSearchEditing) {
             bottomAccessory
         }
