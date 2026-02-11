@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 750" role="img" aria-label="No poster available">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#191919" />
+      <stop offset="100%" stop-color="#0d0d0d" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%" stop-color="#dba506" />
+      <stop offset="100%" stop-color="#b88a05" />
+    </linearGradient>
+  </defs>
+
+  <rect width="500" height="750" fill="url(#bg)" />
+  <rect x="84" y="120" width="332" height="510" rx="20" fill="#111111" stroke="#2e2e2e" stroke-width="4" />
+  <rect x="84" y="120" width="332" height="18" rx="9" fill="url(#accent)" opacity="0.75" />
+
+  <rect x="190" y="278" width="120" height="90" rx="12" fill="#222222" />
+  <circle cx="225" cy="310" r="12" fill="#3a3a3a" />
+  <path d="M203 356L237 328L257 344L281 322L297 356Z" fill="#3a3a3a" />
+
+  <text x="250" y="430" text-anchor="middle" font-size="34" font-family="Arial, sans-serif" fill="#d0d0d0" font-weight="700">
+    NO POSTER
+  </text>
+  <text x="250" y="466" text-anchor="middle" font-size="18" font-family="Arial, sans-serif" fill="#8e8e93">
+    image unavailable
+  </text>
+</svg>

@@ -222,27 +222,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
-          
-          COMMENT=$(cat <<EOF
-          ## ✅ iOS Swift Test Build Complete
-          
-          Your build has finished successfully!
-          
-          | Property | Value |
-          |----------|-------|
-          | Branch | \`${{ github.head_ref }}\` |
-          | IPA | \`${{ env.IPA_NAME }}\` |
-          | Size | ${IPA_SIZE} |
-          | Release Tag | \`${{ env.RELEASE_TAG }}\` |
-          
-          **[📦 Download from Release](${{ env.RELEASE_URL }})**
-          
-          The IPA is available for download from the release page above. No authentication required!
-          EOF
-          )
-          
-          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          gh pr comment ${{ github.event.pull_request.number }} --body "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})"
 
       - name: Publish latest IPA release
         if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')) && github.ref == 'refs/heads/main'
@@ -296,78 +277,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          
-          # Extract last 50 lines of build log if it exists
-          if [ -f ios-test-swift/build.log ]; then
-            BUILD_LOG_EXCERPT=$(tail -50 ios-test-swift/build.log | sed 's/```/`~`/g')
-          else
-            BUILD_LOG_EXCERPT="Build log not available"
-          fi
-          
-          COMMENT=$(cat <<EOF
-          ## ❌ iOS Swift Test Build Failed
-          
-          @copilot The build has failed on this PR. Please investigate and fix the issue.
-          
-          | Property | Value |
-          |----------|-------|
-          | Branch | \`${{ github.head_ref }}\` |
-          | Workflow | iOS Swift Test Build |
-          | Commit | \`${{ github.sha }}\` |
-          
-          **[📋 View Full Logs](${WORKFLOW_URL})**
-          
-          ### Build Log Excerpt (last 50 lines):
-          \`\`\`
-          ${BUILD_LOG_EXCERPT}
-          \`\`\`
-          
-          The full build log is available as an artifact on the workflow run page (retained for 7 days).
-          EOF
-          )
-          
-          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
+          gh pr comment ${{ github.event.pull_request.number }} --body "❌ ${{ github.workflow }}: [Failed build](${WORKFLOW_URL})"
 
       - name: Build summary
         if: success() && github.event_name == 'workflow_dispatch'
         run: |
-          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
-          RELEASE_VALUE="${{ env.RELEASE_URL }}"
-          if [ -z "$RELEASE_VALUE" ]; then
-            RELEASE_VALUE="not published (publish_release=false or non-main branch)"
-          fi
-
-          echo "## iOS Swift Test Build Successful" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| IPA | ${{ env.IPA_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Size | $IPA_SIZE |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifact | ios-swift-test-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Release | $RELEASE_VALUE |" >> "$GITHUB_STEP_SUMMARY"
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
 
       - name: PR check summary
         if: success() && github.event_name == 'pull_request'
         run: |
-          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
-          echo "## ✅ iOS Swift Test Build Passed" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Branch | ${{ github.head_ref }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| IPA | ${{ env.IPA_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Size | $IPA_SIZE |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifact | ios-swift-test-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Push summary
         if: success() && github.event_name == 'push'
         run: |
-          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
-          echo "## ✅ iOS Swift Test Build & Release Complete" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|----------|-------|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| IPA | ${{ env.IPA_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Size | $IPA_SIZE |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifact | ios-swift-test-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Release | ${{ env.RELEASE_URL }} |" >> "$GITHUB_STEP_SUMMARY"
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
