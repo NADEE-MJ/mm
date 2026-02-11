@@ -203,25 +203,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          IPA_SIZE=$(du -h "${{ env.IPA_PATH }}" | cut -f1)
-
-          COMMENT=$(cat <<EOF
-          ## ✅ Landmarks Build Complete
-
-          Your build has finished successfully.
-
-          | Property | Value |
-          |----------|-------|
-          | Branch | \`${{ github.head_ref }}\` |
-          | IPA | \`${{ env.IPA_NAME }}\` |
-          | Size | ${IPA_SIZE} |
-          | Release Tag | \`${{ env.RELEASE_TAG }}\` |
-
-          **[📦 Download from Release](${{ env.RELEASE_URL }})**
-          EOF
-          )
-
-          gh pr comment ${{ github.event.pull_request.number }} --body "$COMMENT"
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          gh pr comment ${{ github.event.pull_request.number }} --body "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})"
 
       - name: Publish latest IPA release
         if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')) && github.ref == 'refs/heads/main'
@@ -272,8 +255,5 @@ jobs:
       - name: Workflow summary
         if: success()
         run: |
-          echo "## ✅ Landmarks Build Passed" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Property | Value |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Artifact | landmarks-unsigned-ipa |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| IPA | ${{ env.IPA_NAME }} |" >> "$GITHUB_STEP_SUMMARY"
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
