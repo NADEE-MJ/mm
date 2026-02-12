@@ -3,8 +3,6 @@ import SwiftUI
 // MARK: - Home Page
 
 struct HomePageView: View {
-    var onAccountTap: (() -> Void)? = nil
-
     @State private var allMovies: [Movie] = []
     @State private var isLoading = false
     @State private var searchText = ""
@@ -183,6 +181,7 @@ struct HomePageView: View {
             .searchable(
                 text: $searchText,
                 isPresented: $isSearchPresented,
+                placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Search movies"
             )
             .refreshable {
@@ -197,28 +196,13 @@ struct HomePageView: View {
                 }
             }
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        isSearchPresented = true
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                    }
-                    .accessibilityLabel("Search movies")
-
-                    Button {
-                        isSearchPresented = false
                         showFilters = true
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
                     }
                     .accessibilityLabel("Sort and filter")
-
-                    if let onAccountTap {
-                        Button(action: onAccountTap) {
-                            Image(systemName: "person.crop.circle")
-                        }
-                        .accessibilityLabel("Open account")
-                    }
                 }
             }
             .sheet(isPresented: $showFilters) {
@@ -228,7 +212,7 @@ struct HomePageView: View {
                     recommenders: allRecommenders,
                     status: selectedStatus
                 )
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
             }
         }
     }

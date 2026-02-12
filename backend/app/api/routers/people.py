@@ -28,7 +28,30 @@ async def get_people(
     db: Session = Depends(get_db),
 ):
     """Get all people for the current user."""
-    return db.query(Person).filter(Person.user_id == user.id).all()
+    people = db.query(Person).filter(Person.user_id == user.id).all()
+
+    # Add movie count for each person
+    result = []
+    for person in people:
+        movie_count = (
+            db.query(Recommendation)
+            .filter(Recommendation.person == person.name, Recommendation.user_id == user.id)
+            .count()
+        )
+
+        person_dict = {
+            "name": person.name,
+            "user_id": person.user_id,
+            "is_trusted": person.is_trusted,
+            "is_default": person.is_default,
+            "color": person.color,
+            "emoji": person.emoji,
+            "last_modified": person.last_modified,
+            "movie_count": movie_count,
+        }
+        result.append(person_dict)
+
+    return result
 
 
 @router.post("", response_model=PersonResponse, status_code=status.HTTP_201_CREATED)

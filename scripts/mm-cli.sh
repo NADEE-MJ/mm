@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND_DIR="$ROOT_DIR/frontend"
 BACKEND_DIR="$ROOT_DIR/backend"
-MOBILE_DIR="$ROOT_DIR/mobile"
+MOBILE_SWIFT_DIR="$ROOT_DIR/mobile-swift"
 
 log() {
   echo "[mm-cli] $*"
@@ -36,19 +36,11 @@ install_backend() {
   run_in_dir "$BACKEND_DIR" uv sync
 }
 
-install_mobile() {
-  require_cmd npm
-  log "Installing mobile dependencies"
-  run_in_dir "$MOBILE_DIR" npm install
-}
-
 install_sync() {
   require_cmd npm
   require_cmd uv
   log "Syncing frontend dependencies (npm ci)"
   run_in_dir "$FRONTEND_DIR" npm ci
-  log "Syncing mobile dependencies (npm ci)"
-  run_in_dir "$MOBILE_DIR" npm ci
   log "Syncing backend dependencies (uv sync)"
   run_in_dir "$BACKEND_DIR" uv sync
   log "All dependencies synced"
@@ -184,18 +176,128 @@ backend_start() {
   run_in_dir "$BACKEND_DIR" "${cmd[@]}"
 }
 
-mobile_start() {
-  require_cmd npx
-  log "Starting Expo dev server"
-  run_in_dir "$MOBILE_DIR" npm start -- "$@"
-}
-
-
 stack_install() {
   install_frontend
   install_backend
-  install_mobile
   log "All dependencies installed"
+}
+
+swift_xcodegen() {
+  require_cmd xcodegen
+  log "Generating Xcode project from project.yml"
+  run_in_dir "$MOBILE_SWIFT_DIR" xcodegen generate
+  log "Xcode project generated"
+}
+
+swift_build() {
+  require_cmd xcodebuild
+  local scheme="MobileSwift"
+  local configuration="Debug"
+  local destination="platform=iOS Simulator,name=iPhone 17 Pro"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --scheme)
+        scheme="$2"
+        shift 2
+        ;;
+      --configuration)
+        configuration="$2"
+        shift 2
+        ;;
+      --destination)
+        destination="$2"
+        shift 2
+        ;;
+      *)
+        log "Unknown swift:build option: $1"
+        exit 1
+        ;;
+    esac
+  done
+
+  log "Building Swift app (scheme=$scheme, config=$configuration)"
+  run_in_dir "$MOBILE_SWIFT_DIR" xcodebuild -project MobileSwift.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" build
+}
+
+swift_run() {
+  require_cmd xcodebuild
+  local scheme="MobileSwift"
+  local configuration="Debug"
+  local destination="platform=iOS Simulator,name=iPhone 17 Pro"
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --scheme)
+        scheme="$2"
+        shift 2
+        ;;
+      --configuration)
+        configuration="$2"
+        shift 2
+        ;;
+      --destination)
+        destination="$2"
+        shift 2
+        ;;
+      *)
+        log "Unknown swift:run option: $1"
+        exit 1
+        ;;
+    esac
+  done
+
+  log "Building and running Swift app in simulator (scheme=$scheme, config=$configuration)"
+
+  # Build and get the app path
+  local build_dir="$MOBILE_SWIFT_DIR/build"
+  run_in_dir "$MOBILE_SWIFT_DIR" xcodebuild -project MobileSwift.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" -derivedDataPath "$build_dir" build
+
+  # Find the app bundle
+  local app_path=$(find "$build_dir" -name "*.app" -type d | head -n 1)
+
+  if [[ -z "$app_path" ]]; then
+    log "Failed to find built app bundle"
+    exit 1
+  fi
+
+  log "Installing and launching app"
+  # Boot the simulator if needed
+  local device_id=$(xcrun simctl list devices | grep "iPhone 17 Pro" | grep -v "unavailable" | head -n 1 | sed 's/.*(\([^)]*\)).*/\1/')
+  if [[ -n "$device_id" ]]; then
+    xcrun simctl boot "$device_id" 2>/dev/null || true
+    xcrun simctl install "$device_id" "$app_path"
+    xcrun simctl launch "$device_id" "com.moviemanager.mobileswift"
+    log "App launched in simulator"
+  else
+    log "Could not find iPhone 17 Pro simulator"
+    exit 1
+  fi
+}
+
+simulator_list() {
+  require_cmd xcrun
+  log "Available iOS simulators:"
+  xcrun simctl list devices iOS
+}
+
+simulator_boot() {
+  require_cmd xcrun
+  local device_name="${1:-iPhone 17 Pro}"
+
+  log "Booting simulator: $device_name"
+  local device_id=$(xcrun simctl list devices | grep "$device_name" | grep -v "unavailable" | head -n 1 | sed 's/.*(\([^)]*\)).*/\1/')
+
+  if [[ -z "$device_id" ]]; then
+    log "Simulator not found: $device_name"
+    log "Available simulators:"
+    xcrun simctl list devices iOS
+    exit 1
+  fi
+
+  xcrun simctl boot "$device_id" 2>/dev/null || log "Simulator already booted"
+  open -a Simulator
+  log "Simulator booted: $device_name ($device_id)"
 }
 
 stack_start() {
@@ -208,16 +310,19 @@ usage() {
 Usage: $(basename "$0") <command>
 
 Commands:
-  install:all        Install frontend, backend, and mobile dependencies
+  install:all        Install frontend and backend dependencies
   install:frontend   Install only frontend dependencies
   install:backend    Install only backend dependencies
-  install:mobile     Install only mobile dependencies
-  install:sync       Sync frontend (npm ci), mobile (npm ci), and backend (uv sync) dependencies from lock files
+  install:sync       Sync frontend (npm ci) and backend (uv sync) dependencies from lock files
   build:frontend     Build the frontend bundle
   frontend:dev       Start the frontend dev server (opts: --host, --port, use -- to pass extra Vite args)
   backend:migrate    Apply the latest Alembic migrations
   backend:start      Start the FastAPI backend (opts: --host, --port, --no-reload, use -- for uvicorn args)
-  mobile:start       Start the Expo dev server (extra args forwarded)
+  swift:xcodegen     Generate Xcode project from project.yml
+  swift:build        Build the Swift iOS app (opts: --scheme, --configuration, --destination)
+  swift:run          Build and run the Swift iOS app in simulator (opts: --scheme, --configuration, --destination)
+  simulator:list     List available iOS simulators
+  simulator:boot     Boot an iOS simulator (default: iPhone 17 Pro, or pass device name)
   start              Build frontend, then start backend (accepts backend:start opts)
   help               Show this message
 USAGE
@@ -236,9 +341,6 @@ case "$COMMAND" in
   install:backend)
     install_backend
     ;;
-  install:mobile)
-    install_mobile
-    ;;
   install:sync)
     install_sync
     ;;
@@ -254,8 +356,20 @@ case "$COMMAND" in
   backend:start)
     backend_start "$@"
     ;;
-  mobile:start)
-    mobile_start "$@"
+  swift:xcodegen)
+    swift_xcodegen
+    ;;
+  swift:build)
+    swift_build "$@"
+    ;;
+  swift:run|swift:dev)
+    swift_run "$@"
+    ;;
+  simulator:list)
+    simulator_list
+    ;;
+  simulator:boot)
+    simulator_boot "$@"
     ;;
   start|stack:start)
     stack_start "$@"

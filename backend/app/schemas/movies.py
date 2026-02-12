@@ -17,6 +17,16 @@ class RecommendationCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class BulkRecommendationCreate(BaseModel):
+    people: List[str]
+    date_recommended: Optional[float] = None
+    vote_type: str = "upvote"  # 'upvote' or 'downvote'
+    tmdb_data: Optional[dict] = None
+    omdb_data: Optional[dict] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class RecommendationResponse(BaseModel):
     id: int
     imdb_id: str

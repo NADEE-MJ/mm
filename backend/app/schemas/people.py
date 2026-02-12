@@ -27,6 +27,7 @@ class PersonResponse(BaseModel):
     color: Optional[str] = None
     emoji: Optional[str] = None
     last_modified: Optional[float] = None
+    movie_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
 

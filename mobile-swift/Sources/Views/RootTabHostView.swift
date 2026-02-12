@@ -7,6 +7,7 @@ struct RootTabHostView: View {
         case movies
         case people
         case add
+        case account
     }
 
     @State private var selectedTab: RootTab = .movies
@@ -14,32 +15,31 @@ struct RootTabHostView: View {
 
     @State private var showAddMovie = false
     @State private var showAddPerson = false
-    @State private var showAccount = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
             Tab("Movies", systemImage: TabItem.home.icon, value: RootTab.movies) {
-                HomePageView(onAccountTap: {
-                    showAccount = true
-                })
+                HomePageView()
             }
 
             Tab("People", systemImage: TabItem.people.icon, value: RootTab.people) {
-                PeoplePageView(onAccountTap: {
-                    showAccount = true
-                })
+                PeoplePageView()
             }
 
             Tab("Add", systemImage: "plus", value: RootTab.add, role: .search) {
                 Color.clear
                     .accessibilityHidden(true)
             }
+
+            Tab("Account", systemImage: "person.crop.circle", value: RootTab.account) {
+                AccountPageView()
+            }
         }
         .tint(AppTheme.blue)
         .tabBarMinimizeBehavior(.onScrollDown)
         .onChange(of: selectedTab) { oldValue, newValue in
             switch newValue {
-            case .movies, .people:
+            case .movies, .people, .account:
                 lastContentTab = newValue
             case .add:
                 let sourceTab = oldValue == .add ? lastContentTab : oldValue
@@ -58,15 +58,11 @@ struct RootTabHostView: View {
             )
             .presentationDetents([.large])
         }
-        .sheet(isPresented: $showAccount) {
-            AccountPageView(onClose: { showAccount = false })
-                .presentationDetents([.large])
-        }
     }
 
     private func triggerAddFlow(for tab: RootTab) {
         switch tab {
-        case .movies:
+        case .movies, .account:
             showAddMovie = true
         case .people:
             showAddPerson = true

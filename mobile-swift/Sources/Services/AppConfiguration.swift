@@ -11,12 +11,24 @@ enum AppConfiguration {
 
         guard let components = URLComponents(string: raw),
               let scheme = components.scheme?.lowercased(),
-              scheme == "https",
-              let host = components.host?.lowercased(),
+              let host = components.host?.lowercased()
+        else {
+            fatalError("Invalid API_BASE_URL '\(raw)'. Expected valid URL.")
+        }
+
+        #if DEBUG
+        // Debug builds: allow http/https and localhost
+        guard ["http", "https"].contains(scheme) else {
+            fatalError("Invalid API_BASE_URL '\(raw)'. Expected http or https scheme.")
+        }
+        #else
+        // Release builds: require https and non-localhost
+        guard scheme == "https",
               !["localhost", "127.0.0.1", "::1"].contains(host)
         else {
             fatalError("Invalid API_BASE_URL '\(raw)'. Expected non-localhost https URL.")
         }
+        #endif
 
         var normalizedComponents = components
         normalizedComponents.query = nil
@@ -44,7 +56,8 @@ enum AppConfiguration {
         }
 
         var wsComponents = apiComponents
-        wsComponents.scheme = "wss"
+        // Use ws:// for http and wss:// for https
+        wsComponents.scheme = apiComponents.scheme == "https" ? "wss" : "ws"
         wsComponents.path = "/ws/sync"
         wsComponents.query = nil
         wsComponents.fragment = nil

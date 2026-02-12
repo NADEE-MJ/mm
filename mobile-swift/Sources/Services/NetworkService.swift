@@ -477,6 +477,20 @@ private struct AddRecommendationRequest: Encodable {
     }
 }
 
+private struct BulkAddRecommendationRequest: Encodable {
+    let people: [String]
+    let voteType: String
+    let tmdbData: TMDBDetailPayload?
+    let omdbData: OMDBDetailPayload?
+
+    enum CodingKeys: String, CodingKey {
+        case people
+        case voteType = "vote_type"
+        case tmdbData = "tmdb_data"
+        case omdbData = "omdb_data"
+    }
+}
+
 private struct UpdateMovieStatusRequest: Encodable {
     let status: String
     let customListId: String?
@@ -595,6 +609,44 @@ final class NetworkService {
         )
     }
 
+    func addMovieBulk(tmdbId: Int, recommenders: [String]) async -> Bool {
+        let trimmedRecommenders = recommenders.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        guard !trimmedRecommenders.isEmpty else {
+            lastError = "At least one recommender is required"
+            return false
+        }
+
+        guard let tmdbDetails = await fetchTMDBDetails(tmdbId: tmdbId) else {
+            return false
+        }
+
+        guard let imdbId = tmdbDetails.imdbId, !imdbId.isEmpty else {
+            lastError = "TMDB details are missing imdbId"
+            AppLog.error("🌐 [NetworkService] Missing imdbId in TMDB details for tmdbId=\(tmdbId)", category: .network)
+            return false
+        }
+
+        let omdbDetails = await fetchOMDBDetails(imdbId: imdbId)
+
+        guard let encodedImdb = imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            lastError = "Invalid imdb id: \(imdbId)"
+            return false
+        }
+
+        let body = BulkAddRecommendationRequest(
+            people: trimmedRecommenders,
+            voteType: "upvote",
+            tmdbData: tmdbDetails,
+            omdbData: omdbDetails
+        )
+
+        return await post(
+            "\(baseURL)/movies/\(encodedImdb)/recommendations/bulk",
+            body: body,
+            validStatusCodes: [200, 201]
+        )
+    }
+
     func updateMovie(movie: Movie, rating: Int?, status: String?) async {
         guard let encodedImdb = movie.imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             lastError = "Invalid imdb id: \(movie.imdbId)"
@@ -675,6 +727,27 @@ final class NetworkService {
         } else {
             lastError = "Failed to decode people response"
             AppLog.warning("🌐 [NetworkService] Could not decode /people response", category: .network)
+        }
+    }
+
+    func fetchPersonMovies(personName: String) async -> [Movie] {
+        guard let encodedName = personName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            lastError = "Invalid person name"
+            return []
+        }
+
+        guard let data = await get("\(baseURL)/people/\(encodedName)/stats") else { return [] }
+
+        struct PersonStats: Decodable {
+            let movies: [Movie]
+        }
+
+        if let decoded = try? JSONDecoder().decode(PersonStats.self, from: data) {
+            return decoded.movies
+        } else {
+            lastError = "Failed to decode person stats response"
+            AppLog.warning("🌐 [NetworkService] Could not decode /people/\(personName)/stats response", category: .network)
+            return []
         }
     }
 

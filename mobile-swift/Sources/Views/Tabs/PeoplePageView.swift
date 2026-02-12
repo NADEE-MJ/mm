@@ -16,8 +16,6 @@ struct PeoplePageView: View {
         var id: String { rawValue }
     }
 
-    var onAccountTap: (() -> Void)? = nil
-
     @State private var people: [Person] = []
     @State private var searchText = ""
     @State private var isSearchPresented = false
@@ -114,6 +112,7 @@ struct PeoplePageView: View {
             .searchable(
                 text: $searchText,
                 isPresented: $isSearchPresented,
+                placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Search people"
             )
             .refreshable {
@@ -123,28 +122,13 @@ struct PeoplePageView: View {
                 await loadPeople()
             }
             .toolbar {
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        isSearchPresented = true
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                    }
-                    .accessibilityLabel("Search people")
-
-                    Button {
-                        isSearchPresented = false
                         showFilters = true
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease.circle")
                     }
                     .accessibilityLabel("Sort and filter")
-
-                    if let onAccountTap {
-                        Button(action: onAccountTap) {
-                            Image(systemName: "person.crop.circle")
-                        }
-                        .accessibilityLabel("Open account")
-                    }
                 }
             }
             .sheet(isPresented: $showFilters) {
@@ -154,7 +138,7 @@ struct PeoplePageView: View {
                     totalPeopleCount: people.count,
                     trustedCount: trustedCount
                 )
-                .presentationDetents([.medium])
+                .presentationDetents([.large])
             }
         }
     }
@@ -282,6 +266,7 @@ private struct PersonDetailView: View {
     let person: Person
     let onUpdate: () async -> Void
     @State private var isTrusted: Bool
+    @State private var recommendedMovies: [Movie] = []
 
     init(person: Person, onUpdate: @escaping () async -> Void) {
         self.person = person
@@ -312,8 +297,125 @@ private struct PersonDetailView: View {
                         }
                     }
             }
+
+            if !recommendedMovies.isEmpty {
+                Section("Movies Recommended (\(recommendedMovies.count))") {
+                    ForEach(recommendedMovies) { movie in
+                        NavigationLink {
+                            MovieDetailView(movie: movie)
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                AsyncImage(url: movie.posterURL) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                    case .failure, .empty:
+                                        ZStack {
+                                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                .fill(.secondary.opacity(0.2))
+                                            Image(systemName: "film")
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    @unknown default:
+                                        Color.secondary.opacity(0.2)
+                                    }
+                                }
+                                .frame(width: 40, height: 60)
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(movie.title)
+                                        .font(.headline)
+                                    if let year = movie.releaseDate?.prefix(4) {
+                                        Text(String(year))
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    if let rating = movie.voteAverage {
+                                        Label(String(format: "%.1f", rating), systemImage: "star.fill")
+                                            .font(.caption2)
+                                            .foregroundStyle(.yellow)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle(person.name)
+        .toolbarTitleDisplayMode(.inline)
+        .task {
+            await loadRecommendedMovies()
+        }
+    }
+
+    private func loadRecommendedMovies() async {
+        recommendedMovies = await NetworkService.shared.fetchPersonMovies(personName: person.name)
+    }
+}
+
+// MARK: - Movie Detail View (for navigation from person detail)
+
+private struct MovieDetailView: View {
+    let movie: Movie
+
+    var body: some View {
+        Form {
+            Section {
+                AsyncImage(url: movie.posterURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    case .failure, .empty:
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(.secondary.opacity(0.15))
+                            Image(systemName: "film")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                        }
+                    @unknown default:
+                        Color.secondary.opacity(0.15)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 200)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+
+            Section("Details") {
+                LabeledContent("Title") {
+                    Text(movie.title)
+                }
+                if let year = movie.releaseDate?.prefix(4) {
+                    LabeledContent("Year") {
+                        Text(String(year))
+                    }
+                }
+                LabeledContent("Status") {
+                    Text(movie.status == "to_watch" ? "To Watch" : "Watched")
+                }
+            }
+
+            if let overview = movie.overview, !overview.isEmpty {
+                Section("Overview") {
+                    Text(overview)
+                }
+            }
+
+            if !movie.recommendations.isEmpty {
+                Section("Recommended By") {
+                    ForEach(Array(movie.recommendations.enumerated()), id: \.offset) { _, rec in
+                        Text(rec.recommender)
+                    }
+                }
+            }
+        }
+        .navigationTitle("Movie")
         .toolbarTitleDisplayMode(.inline)
     }
 }

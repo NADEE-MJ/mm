@@ -8,6 +8,7 @@ from typing import List
 
 from auth import get_required_user
 from app.schemas.movies import (
+    BulkRecommendationCreate,
     MovieResponse,
     MovieStatusUpdate,
     RecommendationCreate,
@@ -100,6 +101,83 @@ async def add_recommendation(
         await notify_people_change(user.id)
 
     return db_recommendation
+
+
+@router.post(
+    "/{imdb_id}/recommendations/bulk",
+    response_model=List[RecommendationResponse],
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_bulk_recommendations(
+    imdb_id: str,
+    bulk_recommendation: BulkRecommendationCreate,
+    user: User = Depends(get_required_user),
+    db: Session = Depends(get_db),
+):
+    """Add multiple recommendations for a movie at once."""
+    movie, created = get_or_create_movie_with_state(
+        db, user.id, imdb_id, bulk_recommendation.tmdb_data, bulk_recommendation.omdb_data
+    )
+
+    recommendations = []
+    created_people = set()
+
+    for person_name in bulk_recommendation.people:
+        existing = (
+            db.query(Recommendation)
+            .filter(
+                Recommendation.imdb_id == imdb_id,
+                Recommendation.user_id == user.id,
+                Recommendation.person == person_name,
+            )
+            .first()
+        )
+
+        if existing:
+            # Update existing recommendation
+            existing.vote_type = bulk_recommendation.vote_type
+            existing.date_recommended = bulk_recommendation.date_recommended or time.time()
+            db_recommendation = existing
+        else:
+            # Create new recommendation
+            db_recommendation = Recommendation(
+                imdb_id=imdb_id,
+                user_id=user.id,
+                person=person_name,
+                date_recommended=bulk_recommendation.date_recommended or time.time(),
+                vote_type=bulk_recommendation.vote_type,
+            )
+            db.add(db_recommendation)
+
+        # Ensure person exists
+        person = (
+            db.query(Person)
+            .filter(Person.name == person_name, Person.user_id == user.id)
+            .first()
+        )
+        if not person:
+            person = Person(name=person_name, user_id=user.id, is_trusted=False)
+            db.add(person)
+            created_people.add(person_name)
+
+        recommendations.append(db_recommendation)
+
+    movie.last_modified = time.time()
+    db.commit()
+
+    # Refresh all recommendations
+    for rec in recommendations:
+        db.refresh(rec)
+
+    # Send notifications
+    if created:
+        await notify_movie_added(user.id, imdb_id)
+    else:
+        await notify_movie_change(user.id, imdb_id)
+    if created_people:
+        await notify_people_change(user.id)
+
+    return recommendations
 
 
 @router.delete(

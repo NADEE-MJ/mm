@@ -8,13 +8,16 @@
     "install:all": "bash scripts/mm-cli.sh install:all",
     "install:frontend": "bash scripts/mm-cli.sh install:frontend",
     "install:backend": "bash scripts/mm-cli.sh install:backend",
-    "install:mobile": "bash scripts/mm-cli.sh install:mobile",
     "install:sync": "bash scripts/mm-cli.sh install:sync",
     "build:frontend": "bash scripts/mm-cli.sh build:frontend",
     "frontend:dev": "bash scripts/mm-cli.sh frontend:dev",
     "backend:migrate": "bash scripts/mm-cli.sh backend:migrate",
     "backend:start": "bash scripts/mm-cli.sh backend:start",
-    "mobile:start": "bash scripts/mm-cli.sh mobile:start",
+    "swift:xcodegen": "bash scripts/mm-cli.sh swift:xcodegen",
+    "swift:build": "bash scripts/mm-cli.sh swift:build",
+    "swift:run": "bash scripts/mm-cli.sh swift:run",
+    "simulator:list": "bash scripts/mm-cli.sh simulator:list",
+    "simulator:boot": "bash scripts/mm-cli.sh simulator:boot",
     "start": "bash scripts/mm-cli.sh start"
   }
 }

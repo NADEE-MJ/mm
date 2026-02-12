@@ -6,16 +6,18 @@ struct AddMoviePageView: View {
     let onClose: () -> Void
 
     @State private var searchResults: [TMDBMovie] = []
-    @State private var isSearching = false
+    @State private var isLoadingResults = false
     @State private var selectedMovie: TMDBMovie?
-    @State private var recommenderName = ""
+    @State private var selectedRecommenders: Set<String> = []
     @State private var people: [Person] = []
     @State private var searchText = ""
+    @State private var isSearchPresented = true
+    @State private var existingMovieTmdbIds: Set<Int> = []
 
     var body: some View {
         NavigationStack {
             List {
-                if isSearching {
+                if isLoadingResults {
                     Section {
                         HStack {
                             Spacer()
@@ -38,12 +40,16 @@ struct AddMoviePageView: View {
                 } else {
                     Section("\(searchResults.count) results") {
                         ForEach(searchResults) { movie in
+                            let isAlreadyAdded = existingMovieTmdbIds.contains(movie.id)
                             Button {
-                                selectedMovie = movie
+                                if !isAlreadyAdded {
+                                    selectedMovie = movie
+                                }
                             } label: {
-                                SearchResultRow(movie: movie)
+                                SearchResultRow(movie: movie, isAlreadyAdded: isAlreadyAdded)
                             }
                             .buttonStyle(.plain)
+                            .disabled(isAlreadyAdded)
                         }
                     }
                 }
@@ -51,7 +57,7 @@ struct AddMoviePageView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("Add Movie")
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, prompt: "Search movies on TMDB")
+            .searchable(text: $searchText, isPresented: $isSearchPresented, prompt: "Search movies on TMDB")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
@@ -65,37 +71,43 @@ struct AddMoviePageView: View {
                 let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else {
                     searchResults = []
-                    isSearching = false
+                    isLoadingResults = false
                     return
                 }
 
-                isSearching = true
+                isLoadingResults = true
                 try? await Task.sleep(for: .milliseconds(350))
                 guard !Task.isCancelled else { return }
                 searchResults = await NetworkService.shared.searchMovies(query: trimmed)
-                isSearching = false
+                isLoadingResults = false
             }
             .task {
                 await NetworkService.shared.fetchPeople()
                 people = NetworkService.shared.people
+                await NetworkService.shared.fetchMovies()
+                existingMovieTmdbIds = Set(NetworkService.shared.movies.compactMap { $0.tmdbId })
             }
             .sheet(item: $selectedMovie, onDismiss: {
-                recommenderName = ""
+                selectedRecommenders = []
             }) { movie in
                 AddMovieSheet(
                     movie: movie,
-                    recommenderName: $recommenderName,
-                    people: people
-                ) {
-                    Task {
-                        _ = await NetworkService.shared.addMovie(
-                            tmdbId: movie.id,
-                            recommender: recommenderName
-                        )
-                        selectedMovie = nil
-                        recommenderName = ""
+                    selectedRecommenders: $selectedRecommenders,
+                    people: people,
+                    onAdd: {
+                        Task {
+                            _ = await NetworkService.shared.addMovieBulk(
+                                tmdbId: movie.id,
+                                recommenders: Array(selectedRecommenders)
+                            )
+                            selectedMovie = nil
+                            selectedRecommenders = []
+                            // Refresh the existing movies list
+                            await NetworkService.shared.fetchMovies()
+                            existingMovieTmdbIds = Set(NetworkService.shared.movies.compactMap { $0.tmdbId })
+                        }
                     }
-                }
+                )
                 .presentationDetents([.medium])
             }
         }
@@ -106,6 +118,7 @@ struct AddMoviePageView: View {
 
 private struct SearchResultRow: View {
     let movie: TMDBMovie
+    let isAlreadyAdded: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -151,11 +164,17 @@ private struct SearchResultRow: View {
                         .font(.caption)
                         .foregroundStyle(.yellow)
                 }
+
+                if isAlreadyAdded {
+                    Label("Already Added", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
             }
 
             Spacer()
-            Image(systemName: "plus.circle.fill")
-                .foregroundStyle(AppTheme.blue)
+            Image(systemName: isAlreadyAdded ? "checkmark.circle.fill" : "plus.circle.fill")
+                .foregroundStyle(isAlreadyAdded ? .green : AppTheme.blue)
         }
         .padding(.vertical, 2)
     }
@@ -165,72 +184,145 @@ private struct SearchResultRow: View {
 
 private struct AddMovieSheet: View {
     let movie: TMDBMovie
-    @Binding var recommenderName: String
+    @Binding var selectedRecommenders: Set<String>
     let people: [Person]
     let onAdd: () -> Void
     @Environment(\.dismiss) private var dismiss
-
-    private var recommenderSelection: Binding<String> {
-        Binding(
-            get: { people.contains(where: { $0.name == recommenderName }) ? recommenderName : "" },
-            set: { recommenderName = $0 }
-        )
-    }
+    @State private var isAdding = false
+    @State private var newPersonName = ""
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Movie") {
-                    HStack(alignment: .top, spacing: 12) {
-                        AsyncImage(url: movie.posterURL) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                            case .failure, .empty:
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(.secondary.opacity(0.2))
-                                    Image(systemName: "film")
+            ZStack {
+                Form {
+                    Section("Movie") {
+                        HStack(alignment: .top, spacing: 12) {
+                            AsyncImage(url: movie.posterURL) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                case .failure, .empty:
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(.secondary.opacity(0.2))
+                                        Image(systemName: "film")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                @unknown default:
+                                    Color.secondary.opacity(0.2)
+                                }
+                            }
+                            .frame(width: 64, height: 96)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(movie.title)
+                                    .font(.headline)
+
+                                if let year = movie.releaseDate?.prefix(4) {
+                                    Text(String(year))
                                         .foregroundStyle(.secondary)
                                 }
-                            @unknown default:
-                                Color.secondary.opacity(0.2)
+
+                                if let rating = movie.voteAverage {
+                                    Label(String(format: "%.1f", rating), systemImage: "star.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.yellow)
+                                }
                             }
                         }
-                        .frame(width: 64, height: 96)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
 
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(movie.title)
-                                .font(.headline)
-
-                            if let year = movie.releaseDate?.prefix(4) {
-                                Text(String(year))
-                                    .foregroundStyle(.secondary)
+                    Section {
+                        HStack {
+                            TextField("Add new person", text: $newPersonName)
+                                .textInputAutocapitalization(.words)
+                            Button {
+                                let trimmed = newPersonName.trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard !trimmed.isEmpty else { return }
+                                selectedRecommenders.insert(trimmed)
+                                newPersonName = ""
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundStyle(AppTheme.blue)
                             }
+                            .disabled(newPersonName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        }
+                    } header: {
+                        Text("Add New Person")
+                    } footer: {
+                        Text("Type a name and tap + to add")
+                    }
 
-                            if let rating = movie.voteAverage {
-                                Label(String(format: "%.1f", rating), systemImage: "star.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.yellow)
+                    Section("Recommended By") {
+                        // Show selected people (both existing and new)
+                        let customPeople = selectedRecommenders.filter { name in
+                            !people.contains { $0.name == name }
+                        }
+
+                        if !customPeople.isEmpty {
+                            ForEach(Array(customPeople).sorted(), id: \.self) { personName in
+                                Button {
+                                    selectedRecommenders.remove(personName)
+                                } label: {
+                                    HStack {
+                                        Text(personName)
+                                            .foregroundStyle(.primary)
+                                        Spacer()
+                                        Image(systemName: "checkmark")
+                                            .foregroundStyle(.blue)
+                                        Image(systemName: "person.badge.plus")
+                                            .foregroundStyle(.green)
+                                            .font(.caption)
+                                    }
+                                }
                             }
+                        }
+
+                        // Show existing people
+                        if !people.isEmpty {
+                            ForEach(people) { person in
+                                Button {
+                                    if selectedRecommenders.contains(person.name) {
+                                        selectedRecommenders.remove(person.name)
+                                    } else {
+                                        selectedRecommenders.insert(person.name)
+                                    }
+                                } label: {
+                                    HStack {
+                                        Text(person.name)
+                                            .foregroundStyle(.primary)
+                                        Spacer()
+                                        if selectedRecommenders.contains(person.name) {
+                                            Image(systemName: "checkmark")
+                                                .foregroundStyle(.blue)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if people.isEmpty && customPeople.isEmpty {
+                            Text("No people selected yet")
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
+                .disabled(isAdding)
+                .opacity(isAdding ? 0.6 : 1.0)
 
-                Section("Person") {
-                    TextField("Recommended by", text: $recommenderName)
-
-                    if !people.isEmpty {
-                        Picker("Choose Existing", selection: recommenderSelection) {
-                            Text("Manual Entry").tag("")
-                            ForEach(people) { person in
-                                Text(person.name).tag(person.name)
-                            }
-                        }
+                if isAdding {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("Adding movie...")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color(.systemBackground).opacity(0.8))
                 }
             }
             .navigationTitle("Add Movie")
@@ -241,11 +333,21 @@ private struct AddMovieSheet: View {
                         Image(systemName: "xmark")
                     }
                     .accessibilityLabel("Close")
+                    .disabled(isAdding)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") { onAdd() }
-                        .bold()
-                        .disabled(recommenderName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Add") {
+                        isAdding = true
+                        onAdd()
+                        // Dismiss after a short delay to show the completion
+                        Task {
+                            try? await Task.sleep(for: .milliseconds(500))
+                            isAdding = false
+                            dismiss()
+                        }
+                    }
+                    .bold()
+                    .disabled(selectedRecommenders.isEmpty || isAdding)
                 }
             }
         }
