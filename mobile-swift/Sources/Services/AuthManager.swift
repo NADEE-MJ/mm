@@ -3,7 +3,7 @@ import Security
 
 // MARK: - Auth Manager
 // JWT token auth with Keychain storage.
-// Handles login, register, logout, and token verification.
+// Handles login, logout, and token verification.
 
 @MainActor
 @Observable
@@ -117,10 +117,20 @@ final class AuthManager {
             logDebug("🔐 [LOGIN] ✅ Token received successfully")
 
             // Fetch user info with the new token
-            guard let fetchedUser = await fetchMe(token: tokenResponse.accessToken) else {
-                let errorMsg = "❌ Failed to fetch user info"
+            let verification = await fetchMe(token: tokenResponse.accessToken)
+            let fetchedUser: AuthUser
+            switch verification {
+            case .success(let verifiedUser):
+                fetchedUser = verifiedUser
+            case .networkError(let message):
+                let errorMsg = "❌ Failed to fetch user info: \(message)"
                 logDebug("🔐 [LOGIN] \(errorMsg)")
-                error = "Failed to get user info from server"
+                error = "Unable to verify account: \(message)"
+                return false
+            case .authError(let message):
+                let errorMsg = "❌ Auth error while fetching user info: \(message)"
+                logDebug("🔐 [LOGIN] \(errorMsg)")
+                error = message
                 return false
             }
 
@@ -171,85 +181,24 @@ final class AuthManager {
         }
     }
 
-    // MARK: - Register
-
-    func register(email: String, username: String, password: String) async -> Bool {
-        isLoading = true
-        error = nil
-        defer { isLoading = false }
-
-        let body = RegisterRequest(email: email, username: username, password: password)
-        let urlString = "\(baseURL)/auth/register"
-        
-        logDebug("\n📝 [REGISTER] Starting registration attempt")
-        logDebug("📝 [REGISTER] Base URL: \(baseURL)")
-        logDebug("📝 [REGISTER] Full URL: \(urlString)")
-        logDebug("📝 [REGISTER] Email: \(email), Username: \(username)")
-        
-        guard let url = URL(string: urlString) else {
-            let errorMsg = "❌ Invalid URL: \(urlString)"
-            logDebug("📝 [REGISTER] \(errorMsg)")
-            error = "Invalid URL - Check: \(urlString)"
-            return false
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONEncoder().encode(body)
-
-        do {
-            logDebug("📝 [REGISTER] Sending request...")
-            let (data, response) = try await session.data(for: request)
-            
-            guard let http = response as? HTTPURLResponse else {
-                logDebug("📝 [REGISTER] ❌ Invalid response type")
-                error = "Invalid response"
-                return false
-            }
-
-            logDebug("📝 [REGISTER] HTTP Status: \(http.statusCode)")
-
-            if !(http.statusCode == 200 || http.statusCode == 201) {
-                var errorMsg = "Registration failed (HTTP \(http.statusCode))"
-                if let errResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                    errorMsg = "\(errResponse.detail) (HTTP \(http.statusCode))"
-                    logDebug("📝 [REGISTER] ❌ Server error: \(errResponse.detail)")
-                } else if let dataString = String(data: data, encoding: .utf8) {
-                    logDebug("📝 [REGISTER] ❌ Raw error: \(dataString)")
-                }
-                error = errorMsg
-                return false
-            }
-
-            logDebug("📝 [REGISTER] ✅ Registration successful, now logging in...")
-            
-            // Auto-login after registration
-            isLoading = false
-            return await login(email: email, password: password)
-        } catch let urlError as URLError {
-            let errorMsg = "Network error: \(urlError.localizedDescription)"
-            logDebug("📝 [REGISTER] ❌ URLError: \(errorMsg)")
-            self.error = "\(errorMsg)\nURL: \(urlString)"
-            return false
-        } catch {
-            let errorMsg = "Unexpected error: \(error.localizedDescription)"
-            logDebug("📝 [REGISTER] ❌ \(errorMsg)")
-            self.error = "\(errorMsg)\nURL: \(urlString)"
-            return false
-        }
-    }
-
     // MARK: - Verify Token
 
     func verifyToken() async {
         guard let token else { return }
-        guard let fetchedUser = await fetchMe(token: token) else {
-            // Token is invalid, clear auth
+        let result = await fetchMe(token: token)
+        switch result {
+        case .success(let fetchedUser):
+            user = fetchedUser
+            if let userData = try? JSONEncoder().encode(fetchedUser) {
+                KeychainHelper.saveData(key: "auth_user", data: userData)
+            }
+        case .networkError(let message):
+            AppLog.warning("👤 [VERIFY] Network error while verifying token: \(message)", category: .auth)
+            // Keep current token/user so the app can operate in offline mode.
+        case .authError(let message):
+            AppLog.warning("👤 [VERIFY] Auth error while verifying token: \(message)", category: .auth)
             logout()
-            return
         }
-        user = fetchedUser
     }
 
     // MARK: - Logout
@@ -268,13 +217,13 @@ final class AuthManager {
 
     // MARK: - Helpers
 
-    private func fetchMe(token: String) async -> AuthUser? {
+    private func fetchMe(token: String) async -> AuthVerificationResult {
         let urlString = "\(baseURL)/auth/me"
         logDebug("👤 [FETCH_ME] Fetching user info from: \(urlString)")
         
         guard let url = URL(string: urlString) else {
             logDebug("👤 [FETCH_ME] ❌ Invalid URL")
-            return nil
+            return .networkError("Invalid URL")
         }
         
         var request = URLRequest(url: url)
@@ -284,31 +233,36 @@ final class AuthManager {
             let (data, response) = try await session.data(for: request)
             guard let http = response as? HTTPURLResponse else {
                 logDebug("👤 [FETCH_ME] ❌ Invalid response type")
-                return nil
+                return .networkError("Invalid response type")
             }
             
             logDebug("👤 [FETCH_ME] HTTP Status: \(http.statusCode)")
-            
-            if http.statusCode != 200 {
+
+            if http.statusCode == 401 || http.statusCode == 403 {
+                let detail = (try? JSONDecoder().decode(ErrorResponse.self, from: data).detail) ?? "Authentication failed"
+                logDebug("👤 [FETCH_ME] ❌ Auth error: \(detail)")
+                return .authError(detail)
+            }
+
+            guard http.statusCode == 200 else {
                 if let dataString = String(data: data, encoding: .utf8) {
                     logDebug("👤 [FETCH_ME] ❌ Error response: \(dataString)")
                 }
-                return nil
+                return .networkError("Unexpected HTTP status \(http.statusCode)")
             }
             
-            let user = try? JSONDecoder().decode(AuthUser.self, from: data)
-            if let user = user {
-                logDebug("👤 [FETCH_ME] ✅ Successfully fetched user: \(user.email)")
-            } else {
+            guard let user = try? JSONDecoder().decode(AuthUser.self, from: data) else {
                 logDebug("👤 [FETCH_ME] ❌ Failed to decode user data")
+                return .networkError("Failed to decode user data")
             }
-            return user
+            logDebug("👤 [FETCH_ME] ✅ Successfully fetched user: \(user.email)")
+            return .success(user)
         } catch let urlError as URLError {
             logDebug("👤 [FETCH_ME] ❌ URLError: \(urlError.localizedDescription)")
-            return nil
+            return .networkError(urlError.localizedDescription)
         } catch {
             logDebug("👤 [FETCH_ME] ❌ Error: \(error.localizedDescription)")
-            return nil
+            return .networkError(error.localizedDescription)
         }
     }
 
@@ -320,6 +274,12 @@ final class AuthManager {
             AppLog.debug(value, category: .auth)
         }
     }
+}
+
+enum AuthVerificationResult {
+    case success(AuthUser)
+    case networkError(String)
+    case authError(String)
 }
 
 // MARK: - Auth Models
@@ -336,12 +296,6 @@ struct AuthUser: Codable, Hashable {
 
 private struct LoginRequest: Encodable {
     let email: String
-    let password: String
-}
-
-private struct RegisterRequest: Encodable {
-    let email: String
-    let username: String
     let password: String
 }
 

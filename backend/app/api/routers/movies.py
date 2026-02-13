@@ -36,6 +36,56 @@ from sqlalchemy.orm import Session
 router = APIRouter(prefix="/movies", tags=["movies"])
 
 
+def _normalize_vote_type(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text in {"upvote", "1", "true", "t", "yes"}
+
+
+def _resolve_person(
+    db: Session,
+    user_id: str,
+    *,
+    person_id: int | None = None,
+    person_name: str | None = None,
+    legacy_person: str | None = None,
+) -> tuple[Person, bool]:
+    """Resolve a person either by ID or name, creating when needed by name."""
+    if person_id is not None:
+        person = (
+            db.query(Person)
+            .filter(Person.id == person_id, Person.user_id == user_id)
+            .first()
+        )
+        if not person:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Person id {person_id} not found",
+            )
+        return person, False
+
+    candidate_name = (person_name or legacy_person or "").strip()
+    if not candidate_name:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Either person_id or person_name/person is required",
+        )
+
+    person = (
+        db.query(Person)
+        .filter(Person.name == candidate_name, Person.user_id == user_id)
+        .first()
+    )
+    if person:
+        return person, False
+
+    person = Person(name=candidate_name, user_id=user_id, is_trusted=False)
+    db.add(person)
+    db.flush()
+    return person, True
+
+
 @router.post(
     "/{imdb_id}/recommendations",
     response_model=RecommendationResponse,
@@ -51,20 +101,28 @@ async def add_recommendation(
     movie, created = get_or_create_movie_with_state(
         db, user.id, imdb_id, recommendation.tmdb_data, recommendation.omdb_data
     )
+    person, created_person = _resolve_person(
+        db,
+        user.id,
+        person_id=recommendation.person_id,
+        person_name=recommendation.person_name,
+        legacy_person=recommendation.person,
+    )
+    normalized_vote = _normalize_vote_type(recommendation.vote_type)
 
     existing = (
         db.query(Recommendation)
         .filter(
             Recommendation.imdb_id == imdb_id,
             Recommendation.user_id == user.id,
-            Recommendation.person == recommendation.person,
+            Recommendation.person_id == person.id,
         )
         .first()
     )
 
     if existing:
         # Update existing vote if vote_type changed
-        existing.vote_type = recommendation.vote_type
+        existing.vote_type = normalized_vote
         existing.date_recommended = recommendation.date_recommended or time.time()
         db_recommendation = existing
     else:
@@ -72,22 +130,11 @@ async def add_recommendation(
         db_recommendation = Recommendation(
             imdb_id=imdb_id,
             user_id=user.id,
-            person=recommendation.person,
+            person_id=person.id,
             date_recommended=recommendation.date_recommended or time.time(),
-            vote_type=recommendation.vote_type,
+            vote_type=normalized_vote,
         )
         db.add(db_recommendation)
-
-    created_person = False
-    person = (
-        db.query(Person)
-        .filter(Person.name == recommendation.person, Person.user_id == user.id)
-        .first()
-    )
-    if not person:
-        person = Person(name=recommendation.person, user_id=user.id, is_trusted=False)
-        db.add(person)
-        created_person = True
 
     movie.last_modified = time.time()
     db.commit()
@@ -122,20 +169,37 @@ async def add_bulk_recommendations(
     recommendations = []
     created_people = set()
 
+    # Support IDs and names in one request; de-dupe by resolved person id.
+    resolved_people: dict[int, Person] = {}
+
+    for person_id in bulk_recommendation.person_ids:
+        person, _ = _resolve_person(db, user.id, person_id=person_id)
+        resolved_people[person.id] = person
+
     for person_name in bulk_recommendation.people:
+        person, created_person = _resolve_person(
+            db, user.id, person_name=person_name, legacy_person=person_name
+        )
+        resolved_people[person.id] = person
+        if created_person:
+            created_people.add(person.name)
+
+    normalized_vote = _normalize_vote_type(bulk_recommendation.vote_type)
+
+    for person in resolved_people.values():
         existing = (
             db.query(Recommendation)
             .filter(
                 Recommendation.imdb_id == imdb_id,
                 Recommendation.user_id == user.id,
-                Recommendation.person == person_name,
+                Recommendation.person_id == person.id,
             )
             .first()
         )
 
         if existing:
             # Update existing recommendation
-            existing.vote_type = bulk_recommendation.vote_type
+            existing.vote_type = normalized_vote
             existing.date_recommended = bulk_recommendation.date_recommended or time.time()
             db_recommendation = existing
         else:
@@ -143,22 +207,11 @@ async def add_bulk_recommendations(
             db_recommendation = Recommendation(
                 imdb_id=imdb_id,
                 user_id=user.id,
-                person=person_name,
+                person_id=person.id,
                 date_recommended=bulk_recommendation.date_recommended or time.time(),
-                vote_type=bulk_recommendation.vote_type,
+                vote_type=normalized_vote,
             )
             db.add(db_recommendation)
-
-        # Ensure person exists
-        person = (
-            db.query(Person)
-            .filter(Person.name == person_name, Person.user_id == user.id)
-            .first()
-        )
-        if not person:
-            person = Person(name=person_name, user_id=user.id, is_trusted=False)
-            db.add(person)
-            created_people.add(person_name)
 
         recommendations.append(db_recommendation)
 
@@ -191,15 +244,33 @@ async def remove_recommendation(
     db: Session = Depends(get_db),
 ):
     """Remove a recommendation."""
-    recommendation = (
-        db.query(Recommendation)
-        .filter(
-            Recommendation.imdb_id == imdb_id,
-            Recommendation.user_id == user.id,
-            Recommendation.person == person,
+    if person.isdigit():
+        recommendation = (
+            db.query(Recommendation)
+            .filter(
+                Recommendation.imdb_id == imdb_id,
+                Recommendation.user_id == user.id,
+                Recommendation.person_id == int(person),
+            )
+            .first()
         )
-        .first()
-    )
+    else:
+        person_row = (
+            db.query(Person)
+            .filter(Person.name == person, Person.user_id == user.id)
+            .first()
+        )
+        recommendation = (
+            db.query(Recommendation)
+            .filter(
+                Recommendation.imdb_id == imdb_id,
+                Recommendation.user_id == user.id,
+                Recommendation.person_id == person_row.id,
+            )
+            .first()
+            if person_row
+            else None
+        )
     if not recommendation:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Recommendation not found"
@@ -366,11 +437,11 @@ async def refresh_movie_metadata(
     tmdb_payload = json.loads(movie.tmdb_data) if movie.tmdb_data else {}
     tmdb_id = tmdb_payload.get("tmdbId") or tmdb_payload.get("id")
     if tmdb_id:
-        tmdb_data = await get_tmdb_movie_details(int(tmdb_id))
+        tmdb_data = await get_tmdb_movie_details(int(tmdb_id), force_refresh=True)
         movie.tmdb_data = json.dumps(tmdb_data)
         updated_tmdb = True
 
-    omdb_data = await get_omdb_movie(imdb_id)
+    omdb_data = await get_omdb_movie(imdb_id, force_refresh=True)
     movie.omdb_data = json.dumps(omdb_data)
     updated_omdb = True
 

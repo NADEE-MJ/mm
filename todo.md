@@ -1,24 +1,8 @@
-- add a way to add someone who downvoted a movie and track that in the users score
 - user score calculation should be based on the movies they have downvoted and the movies they have upvoted, and the scores of those movies.
-- add icons to imdb and rotten tomatoes instead of just the text
-- add background opacity on the banners in the movie details
 - add a way to click into actor / director information to see their filmography and details
   - i want to be able to sort these by popularity, release date, and rating
-- add a way to click into genre information to see movies in that genre
-- add a way to click into production company information to see movies from that company
 - add a way to search for new movies from like oscar winners / stuff like that
 - add a way to show you recommendations based on the movies you have upvoted and downvoted, not sure if this is possible with the tmdb api but it would be really cool
-- add a refresh button so i can get refresh the information on the movie, mostly imdb and rotten tomatoes scores, without having to wait for the scheduled refresh
-- add a way to see the movies that are coming out soon, maybe in the next month
-- add a way to see the movies that are currently in theaters
-- add a way to see the movies that are popular right now
-- add a way to see the movies that are top rated right now
-- add a way to see the movies that are trending right now
-- database changes
-  - recommendations
-    - vote_type should be true or false for upvote downvote
-    - person should be person_id not person name
-    - the default recommenders should not exist in the database, maybe you link to them with negative numbers or some other way, not sure yet
-  - movies
-    - tmdb_data should be split up into tmdb data omdb data, its currently storing everything in omdb data
-- actually make offline work, cause right now if you try to open the app offline it just fails
+- search bar for looking through people when adding a recommended movie
+- add jackson rating system that works like belli for rating movies where you say whether you liked that movie first then whether you liked it more or less than another movie and it does that till it finds the exact ranking of that movie in your list, then it can use that to calculate your user score and give you better recommendations
+

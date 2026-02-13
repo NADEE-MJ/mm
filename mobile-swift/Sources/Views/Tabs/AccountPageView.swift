@@ -6,6 +6,7 @@ struct AccountPageView: View {
     var onClose: (() -> Void)? = nil
 
     @State private var authManager = AuthManager.shared
+    @State private var repository = MovieRepository.shared
     @State private var dbManager = DatabaseManager.shared
     @State private var ws = WebSocketManager.shared
     @State private var movies: [Movie] = []
@@ -64,6 +65,12 @@ struct AccountPageView: View {
                         Label("Clear Local Cache", systemImage: "trash")
                     }
 
+                    Button {
+                        URLCache.shared.removeAllCachedResponses()
+                    } label: {
+                        Label("Clear Image Cache", systemImage: "photo.badge.exclamationmark")
+                    }
+
                     Button(role: .destructive) {
                         showLogoutAlert = true
                     } label: {
@@ -85,7 +92,7 @@ struct AccountPageView: View {
                 }
             }
             .navigationTitle("Account")
-            .navigationBarTitleDisplayMode(onClose == nil ? .large : .inline)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if let onClose {
                     ToolbarItem(placement: .topBarLeading) {
@@ -121,10 +128,19 @@ struct AccountPageView: View {
     }
 
     private func loadData() async {
-        await NetworkService.shared.fetchMovies()
-        movies = NetworkService.shared.movies
-        await NetworkService.shared.fetchPeople()
-        people = NetworkService.shared.people
+        switch await repository.getMovies(status: nil) {
+        case .success(let loaded):
+            movies = loaded
+        case .failure:
+            movies = repository.movies
+        }
+
+        switch await repository.getPeople() {
+        case .success(let loaded):
+            people = loaded
+        case .failure:
+            people = repository.people
+        }
     }
 }
 

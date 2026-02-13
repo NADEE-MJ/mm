@@ -64,6 +64,9 @@ struct AddPersonFullScreenView: View {
 
         isSaving = true
         let didAdd = await NetworkService.shared.addPerson(name: trimmed, isTrusted: isTrusted)
+        if didAdd {
+            _ = await MovieRepository.shared.syncPeople(force: true)
+        }
         isSaving = false
         if didAdd {
             onAdded()

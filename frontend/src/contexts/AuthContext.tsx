@@ -110,37 +110,6 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const register = useCallback(
-    async (email, username, password) => {
-      setError(null);
-      setIsLoading(true);
-
-      try {
-        const response = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, username, password }),
-        });
-
-        if (!response.ok) {
-          const data = await response.json();
-          throw new Error(data.detail || "Registration failed");
-        }
-
-        // Auto-login after registration
-        return await login(email, password);
-      } catch (err) {
-        setError(err.message);
-        return { success: false, error: err.message };
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [login],
-  );
-
   const value = {
     user,
     token,
@@ -148,7 +117,6 @@ export function AuthProvider({ children }) {
     error,
     isAuthenticated: !!token && !!user,
     login,
-    register,
     logout,
     clearError: () => setError(null),
   };

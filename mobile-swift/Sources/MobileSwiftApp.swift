@@ -6,7 +6,13 @@ struct MobileSwiftApp: App {
     @State private var authManager = AuthManager.shared
     @State private var bioManager = BiometricAuthManager()
     @State private var wsManager = WebSocketManager.shared
+    @State private var repository = MovieRepository.shared
+    @State private var syncManager = SyncManager.shared
     @State private var didCompleteInitialAuthCheck = false
+
+    init() {
+        configureImageCache()
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -32,12 +38,22 @@ struct MobileSwiftApp: App {
             .task {
                 AppLog.info("📱 [App] Launching app and verifying auth token", category: .app)
                 await authManager.verifyToken()
+                if authManager.isAuthenticated {
+                    await repository.performInitialSyncIfNeeded()
+                    await repository.syncNow()
+                }
                 didCompleteInitialAuthCheck = true
                 updateWebSocketConnection(reason: "initial-auth-check")
             }
             .onChange(of: scenePhase) { _, newPhase in
                 guard didCompleteInitialAuthCheck else { return }
                 guard newPhase == .active else { return }
+
+                Task {
+                    await syncManager.processPendingOperations()
+                    await syncManager.enrichPendingMovies()
+                }
+
                 updateWebSocketConnection(reason: "scene-active")
             }
             .onChange(of: authManager.isAuthenticated) { _, isAuthenticated in
@@ -62,6 +78,15 @@ struct MobileSwiftApp: App {
 
         AppLog.info("🔌 [App] Ensuring websocket connection (\(reason))", category: .app)
         wsManager.connect()
+    }
+
+    private func configureImageCache() {
+        let cache = URLCache(
+            memoryCapacity: 100 * 1024 * 1024,
+            diskCapacity: 500 * 1024 * 1024,
+            diskPath: "movie_images"
+        )
+        URLCache.shared = cache
     }
 }
 

@@ -32,7 +32,7 @@ scheduler = AsyncIOScheduler() if AsyncIOScheduler else None
 
 
 def ensure_additive_schema() -> None:
-    """Apply additive SQLite schema fixes for older local databases."""
+    """Apply SQLite compatibility migrations for older local databases."""
     with engine.begin() as conn:
         if conn.dialect.name != "sqlite":
             return
@@ -41,10 +41,187 @@ def ensure_additive_schema() -> None:
             rows = conn.exec_driver_sql(f"PRAGMA table_info({table_name})").mappings().all()
             return {row["name"] for row in rows}
 
-        if "people" in conn.exec_driver_sql(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='people'"
-        ).scalars().all():
+        def table_exists(table_name: str) -> bool:
+            return (
+                conn.exec_driver_sql(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name=:name LIMIT 1",
+                    {"name": table_name},
+                ).scalar()
+                is not None
+            )
+
+        people_exists = table_exists("people")
+        recommendations_exists = table_exists("recommendations")
+
+        people_columns = columns_for("people") if people_exists else set()
+        recommendation_columns = (
+            columns_for("recommendations") if recommendations_exists else set()
+        )
+
+        # Migrate legacy schema:
+        # - people composite PK (name,user_id) -> integer person id
+        # - recommendations.person(string)+vote_type(string) -> person_id+vote_type(bool)
+        needs_people_rebuild = people_exists and "id" not in people_columns
+        needs_recommendation_rebuild = recommendations_exists and (
+            "person_id" not in recommendation_columns or "person" in recommendation_columns
+        )
+
+        if people_exists and recommendations_exists and (
+            needs_people_rebuild or needs_recommendation_rebuild
+        ):
+            conn.exec_driver_sql("DROP TABLE IF EXISTS recommendations_new")
+            conn.exec_driver_sql("DROP TABLE IF EXISTS people_new")
+
+            conn.exec_driver_sql(
+                """
+                CREATE TABLE people_new (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR NOT NULL,
+                    user_id VARCHAR NOT NULL,
+                    is_trusted BOOLEAN,
+                    color VARCHAR,
+                    emoji VARCHAR,
+                    last_modified FLOAT,
+                    FOREIGN KEY(user_id) REFERENCES users (id) ON DELETE CASCADE
+                )
+                """
+            )
+
+            trusted_expr = "is_trusted" if "is_trusted" in people_columns else "0"
+            color_expr = (
+                "COALESCE(color, '#0a84ff')" if "color" in people_columns else "'#0a84ff'"
+            )
+            emoji_expr = "emoji" if "emoji" in people_columns else "NULL"
+            last_modified_expr = (
+                "last_modified"
+                if "last_modified" in people_columns
+                else "strftime('%s','now')"
+            )
+            conn.exec_driver_sql(
+                f"""
+                INSERT INTO people_new (name, user_id, is_trusted, color, emoji, last_modified)
+                SELECT name, user_id, {trusted_expr}, {color_expr}, {emoji_expr}, {last_modified_expr}
+                FROM people
+                """
+            )
+
+            if "person" in recommendation_columns:
+                conn.exec_driver_sql(
+                    """
+                    INSERT INTO people_new (name, user_id, is_trusted, color, emoji, last_modified)
+                    SELECT DISTINCT r.person, r.user_id, 0, '#0a84ff', NULL, strftime('%s','now')
+                    FROM recommendations r
+                    LEFT JOIN people_new p
+                      ON p.user_id = r.user_id AND p.name = r.person
+                    WHERE p.id IS NULL AND r.person IS NOT NULL
+                    """
+                )
+
+            conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX uq_person_name_per_user_new ON people_new(user_id, name)"
+            )
+
+            conn.exec_driver_sql(
+                """
+                CREATE TABLE recommendations_new (
+                    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                    imdb_id VARCHAR NOT NULL,
+                    user_id VARCHAR NOT NULL,
+                    person_id INTEGER NOT NULL,
+                    date_recommended FLOAT,
+                    vote_type BOOLEAN NOT NULL DEFAULT 1,
+                    FOREIGN KEY(imdb_id, user_id) REFERENCES movies (imdb_id, user_id) ON DELETE CASCADE,
+                    FOREIGN KEY(person_id) REFERENCES people_new (id) ON DELETE CASCADE
+                )
+                """
+            )
+
+            if "person" in recommendation_columns:
+                vote_expr = (
+                    "CASE WHEN lower(COALESCE(r.vote_type, 'upvote')) IN ('upvote', '1', 'true', 't', 'yes') THEN 1 ELSE 0 END"
+                    if "vote_type" in recommendation_columns
+                    else "1"
+                )
+                date_expr = (
+                    "COALESCE(r.date_recommended, strftime('%s','now'))"
+                    if "date_recommended" in recommendation_columns
+                    else "strftime('%s','now')"
+                )
+                conn.exec_driver_sql(
+                    f"""
+                    WITH ranked AS (
+                        SELECT
+                            r.id,
+                            r.imdb_id,
+                            r.user_id,
+                            p.id AS person_id,
+                            {date_expr} AS date_recommended,
+                            {vote_expr} AS vote_type_bool,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY r.imdb_id, r.user_id, p.id
+                                ORDER BY COALESCE(r.date_recommended, 0) DESC, r.id DESC
+                            ) AS rn
+                        FROM recommendations r
+                        JOIN people_new p
+                          ON p.user_id = r.user_id AND p.name = r.person
+                    )
+                    INSERT INTO recommendations_new (id, imdb_id, user_id, person_id, date_recommended, vote_type)
+                    SELECT id, imdb_id, user_id, person_id, date_recommended, vote_type_bool
+                    FROM ranked
+                    WHERE rn = 1
+                    """
+                )
+            else:
+                conn.exec_driver_sql(
+                    """
+                    WITH ranked AS (
+                        SELECT
+                            r.id,
+                            r.imdb_id,
+                            r.user_id,
+                            r.person_id,
+                            COALESCE(r.date_recommended, strftime('%s','now')) AS date_recommended,
+                            CASE
+                                WHEN CAST(r.vote_type AS TEXT) IN ('1', 'true', 'True', 'upvote', 'UPVOTE') THEN 1
+                                ELSE 0
+                            END AS vote_type_bool,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY r.imdb_id, r.user_id, r.person_id
+                                ORDER BY COALESCE(r.date_recommended, 0) DESC, r.id DESC
+                            ) AS rn
+                        FROM recommendations r
+                    )
+                    INSERT INTO recommendations_new (id, imdb_id, user_id, person_id, date_recommended, vote_type)
+                    SELECT id, imdb_id, user_id, person_id, date_recommended, vote_type_bool
+                    FROM ranked
+                    WHERE rn = 1
+                    """
+                )
+
+            conn.exec_driver_sql("DROP TABLE recommendations")
+            conn.exec_driver_sql("DROP TABLE people")
+            conn.exec_driver_sql("ALTER TABLE people_new RENAME TO people")
+            conn.exec_driver_sql("ALTER TABLE recommendations_new RENAME TO recommendations")
+
+            conn.exec_driver_sql("DROP INDEX IF EXISTS uq_person_name_per_user_new")
+            conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_person_name_per_user ON people(user_id, name)"
+            )
+            conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_recommendation_per_person ON recommendations(imdb_id, user_id, person_id)"
+            )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_recommendations_user_person ON recommendations(user_id, person_id)"
+            )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_recommendations_movie_user ON recommendations(imdb_id, user_id)"
+            )
+
+            # Re-read columns after migration.
             people_columns = columns_for("people")
+            recommendation_columns = columns_for("recommendations")
+
+        if people_exists:
             if "color" not in people_columns:
                 conn.exec_driver_sql("ALTER TABLE people ADD COLUMN color VARCHAR")
                 conn.exec_driver_sql("UPDATE people SET color = '#0a84ff' WHERE color IS NULL")
@@ -55,6 +232,9 @@ def ensure_additive_schema() -> None:
                 conn.exec_driver_sql(
                     "UPDATE people SET last_modified = strftime('%s','now') WHERE last_modified IS NULL"
                 )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_people_user_last_modified ON people(user_id, last_modified)"
+            )
 
         if "custom_lists" in conn.exec_driver_sql(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='custom_lists'"
@@ -65,18 +245,28 @@ def ensure_additive_schema() -> None:
                 conn.exec_driver_sql(
                     "UPDATE custom_lists SET last_modified = strftime('%s','now') WHERE last_modified IS NULL"
                 )
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_custom_lists_user_last_modified ON custom_lists(user_id, last_modified)"
+            )
 
-        if "recommendations" in conn.exec_driver_sql(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='recommendations'"
-        ).scalars().all():
+        if recommendations_exists:
             recommendation_columns = columns_for("recommendations")
             if "vote_type" not in recommendation_columns:
                 conn.exec_driver_sql(
-                    "ALTER TABLE recommendations ADD COLUMN vote_type VARCHAR DEFAULT 'upvote'"
+                    "ALTER TABLE recommendations ADD COLUMN vote_type BOOLEAN DEFAULT 1"
                 )
                 conn.exec_driver_sql(
-                    "UPDATE recommendations SET vote_type = 'upvote' WHERE vote_type IS NULL"
+                    "UPDATE recommendations SET vote_type = 1 WHERE vote_type IS NULL"
                 )
+
+        if table_exists("movies"):
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_movies_user_last_modified ON movies(user_id, last_modified)"
+            )
+        if table_exists("movie_status"):
+            conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_movie_status_user_custom_list ON movie_status(user_id, custom_list_id)"
+            )
 
 
 def create_app() -> FastAPI:

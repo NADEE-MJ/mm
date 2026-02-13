@@ -3,6 +3,8 @@ import SwiftUI
 // MARK: - People Page
 
 struct PeoplePageView: View {
+    @State private var repository = MovieRepository.shared
+
     enum TrustedFilter: String, CaseIterable {
         case all = "All"
         case trusted = "Trusted"
@@ -22,6 +24,7 @@ struct PeoplePageView: View {
     @State private var filter: TrustedFilter = .all
     @State private var sortBy: SortOption = .name
     @State private var showFilters = false
+    @State private var showAddPerson = false
 
     private var filteredPeople: [Person] {
         var result = people
@@ -68,7 +71,7 @@ struct PeoplePageView: View {
                             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                 Button {
                                     Task {
-                                        await NetworkService.shared.updatePerson(
+                                        _ = await repository.updatePerson(
                                             name: person.name,
                                             isTrusted: !person.isTrusted
                                         )
@@ -85,7 +88,7 @@ struct PeoplePageView: View {
                             .contextMenu {
                                 Button {
                                     Task {
-                                        await NetworkService.shared.updatePerson(
+                                        _ = await repository.updatePerson(
                                             name: person.name,
                                             isTrusted: !person.isTrusted
                                         )
@@ -108,7 +111,7 @@ struct PeoplePageView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("People")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $searchText,
                 isPresented: $isSearchPresented,
@@ -116,13 +119,25 @@ struct PeoplePageView: View {
                 prompt: "Search people"
             )
             .refreshable {
-                await loadPeople()
+                await loadPeople(forceSync: true)
             }
             .task {
                 await loadPeople()
             }
+            .onAppear {
+                Task {
+                    await loadPeople()
+                }
+            }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button {
+                        showAddPerson = true
+                    } label: {
+                        Image(systemName: "person.badge.plus")
+                    }
+                    .accessibilityLabel("Add person")
+
                     Button {
                         showFilters = true
                     } label: {
@@ -130,6 +145,20 @@ struct PeoplePageView: View {
                     }
                     .accessibilityLabel("Sort and filter")
                 }
+            }
+            .sheet(isPresented: $showAddPerson) {
+                AddPersonFullScreenView(
+                    onAdded: {
+                        showAddPerson = false
+                        Task {
+                            await loadPeople(forceSync: true)
+                        }
+                    },
+                    onClose: {
+                        showAddPerson = false
+                    }
+                )
+                .presentationDetents([.large])
             }
             .sheet(isPresented: $showFilters) {
                 PeopleFilterSortSheet(
@@ -143,9 +172,17 @@ struct PeoplePageView: View {
         }
     }
 
-    private func loadPeople() async {
-        await NetworkService.shared.fetchPeople()
-        people = NetworkService.shared.people
+    private func loadPeople(forceSync: Bool = false) async {
+        if forceSync {
+            _ = await repository.syncPeople(force: true)
+        }
+        let result = await repository.getPeople()
+        switch result {
+        case .success(let loaded):
+            people = loaded
+        case .failure:
+            people = repository.people
+        }
     }
 
     private func sortedPeople(_ input: [Person]) -> [Person] {
@@ -280,7 +317,7 @@ private struct PersonDetailView: View {
                 LabeledContent("Name") {
                     Text(person.name)
                 }
-                LabeledContent("Recommendations") {
+                LabeledContent("Votes") {
                     Text("\(person.movieCount)")
                 }
             }
@@ -289,7 +326,7 @@ private struct PersonDetailView: View {
                 Toggle("Trusted Person", isOn: $isTrusted)
                     .onChange(of: isTrusted) { _, newValue in
                         Task {
-                            await NetworkService.shared.updatePerson(
+                            _ = await MovieRepository.shared.updatePerson(
                                 name: person.name,
                                 isTrusted: newValue
                             )
@@ -299,27 +336,22 @@ private struct PersonDetailView: View {
             }
 
             if !recommendedMovies.isEmpty {
-                Section("Movies Recommended (\(recommendedMovies.count))") {
+                Section("Movies Voted (\(recommendedMovies.count))") {
                     ForEach(recommendedMovies) { movie in
                         NavigationLink {
                             MovieDetailView(movie: movie)
                         } label: {
                             HStack(alignment: .top, spacing: 12) {
-                                AsyncImage(url: movie.posterURL) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                    case .failure, .empty:
-                                        ZStack {
-                                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                                .fill(.secondary.opacity(0.2))
-                                            Image(systemName: "film")
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    @unknown default:
-                                        Color.secondary.opacity(0.2)
+                                CachedAsyncImage(url: movie.posterURL) { image in
+                                    image
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fill)
+                                } placeholder: {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                            .fill(.secondary.opacity(0.2))
+                                        Image(systemName: "film")
+                                            .foregroundStyle(.secondary)
                                     }
                                 }
                                 .frame(width: 40, height: 60)
@@ -333,10 +365,30 @@ private struct PersonDetailView: View {
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
-                                    if let rating = movie.voteAverage {
-                                        Label(String(format: "%.1f", rating), systemImage: "star.fill")
+                                    if let imdbRating = movie.imdbRating {
+                                        Text("IMDb \(String(format: "%.1f", imdbRating))")
                                             .font(.caption2)
                                             .foregroundStyle(.yellow)
+                                    }
+                                    if let rottenTomatoes = movie.rottenTomatoesRating {
+                                        if rottenTomatoes >= 75 {
+                                            Label("\(rottenTomatoes)%", systemImage: "burst.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.green)
+                                        } else if rottenTomatoes >= 60 {
+                                            Text("🍅 \(rottenTomatoes)%")
+                                                .font(.caption2)
+                                                .foregroundStyle(.green)
+                                        } else {
+                                            Label("\(rottenTomatoes)%", systemImage: "burst.fill")
+                                                .font(.caption2)
+                                                .foregroundStyle(.red)
+                                        }
+                                    }
+                                    if let metacritic = movie.metacriticScore {
+                                        Label("\(metacritic)", systemImage: "gauge.medium")
+                                            .font(.caption2)
+                                            .foregroundStyle(.orange)
                                     }
                                 }
                             }
@@ -353,34 +405,67 @@ private struct PersonDetailView: View {
     }
 
     private func loadRecommendedMovies() async {
-        recommendedMovies = await NetworkService.shared.fetchPersonMovies(personName: person.name)
+        let result = await MovieRepository.shared.getPersonMovies(personName: person.name)
+        switch result {
+        case .success(let movies):
+            recommendedMovies = movies
+        case .failure:
+            recommendedMovies = []
+        }
     }
 }
 
 // MARK: - Movie Detail View (for navigation from person detail)
 
 private struct MovieDetailView: View {
-    let movie: Movie
+    @State private var currentMovie: Movie
+    @State private var isRefreshingMetadata = false
+    @State private var feedbackMessage = ""
+    @State private var showFeedbackAlert = false
+
+    init(movie: Movie) {
+        _currentMovie = State(initialValue: movie)
+    }
+
+    private var likedRecommendations: [Recommendation] {
+        currentMovie.recommendations.filter { !isDownvote($0) }
+    }
+
+    private var dislikedRecommendations: [Recommendation] {
+        currentMovie.recommendations.filter { isDownvote($0) }
+    }
+
+    private var relatedMovies: [Movie] {
+        let cached = MovieRepository.shared.movies
+        return cached.isEmpty ? [currentMovie] : cached
+    }
+
+    private var uniqueGenres: [String] {
+        normalizedUnique(currentMovie.genres)
+    }
+
+    private var uniqueActors: [String] {
+        normalizedUnique(currentMovie.actors)
+    }
+
+    private var uniqueDirectors: [String] {
+        normalizedUnique(splitPeopleList(currentMovie.director))
+    }
 
     var body: some View {
         Form {
             Section {
-                AsyncImage(url: movie.posterURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                    case .failure, .empty:
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(.secondary.opacity(0.15))
-                            Image(systemName: "film")
-                                .font(.largeTitle)
-                                .foregroundStyle(.secondary)
-                        }
-                    @unknown default:
-                        Color.secondary.opacity(0.15)
+                CachedAsyncImage(url: currentMovie.posterURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                } placeholder: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(.secondary.opacity(0.15))
+                        Image(systemName: "film")
+                            .font(.largeTitle)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, minHeight: 200)
@@ -389,27 +474,90 @@ private struct MovieDetailView: View {
 
             Section("Details") {
                 LabeledContent("Title") {
-                    Text(movie.title)
+                    Text(currentMovie.title)
                 }
-                if let year = movie.releaseDate?.prefix(4) {
+                if let year = currentMovie.releaseDate?.prefix(4) {
                     LabeledContent("Year") {
                         Text(String(year))
                     }
                 }
-                LabeledContent("Status") {
-                    Text(movie.status == "to_watch" ? "To Watch" : "Watched")
+                if !uniqueGenres.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Genres")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        ForEach(uniqueGenres, id: \.self) { genre in
+                            NavigationLink {
+                                MovieGenreExplorerView(
+                                    genre: genre,
+                                    movies: relatedMovies,
+                                    sourceImdbId: currentMovie.imdbId
+                                )
+                            } label: {
+                                Text(genre)
+                            }
+                        }
+                    }
+                }
+
+                if !uniqueDirectors.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Director")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        ForEach(uniqueDirectors, id: \.self) { director in
+                            NavigationLink {
+                                MovieCreditExplorerView(
+                                    personName: director,
+                                    movies: relatedMovies,
+                                    sourceImdbId: currentMovie.imdbId,
+                                    preferredSearchType: .director
+                                )
+                            } label: {
+                                Text(director)
+                            }
+                        }
+                    }
+                }
+
+                if !uniqueActors.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Actors")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        ForEach(uniqueActors, id: \.self) { actor in
+                            NavigationLink {
+                                MovieCreditExplorerView(
+                                    personName: actor,
+                                    movies: relatedMovies,
+                                    sourceImdbId: currentMovie.imdbId,
+                                    preferredSearchType: .actor
+                                )
+                            } label: {
+                                Text(actor)
+                            }
+                        }
+                    }
                 }
             }
 
-            if let overview = movie.overview, !overview.isEmpty {
+            if let overview = currentMovie.overview, !overview.isEmpty {
                 Section("Overview") {
                     Text(overview)
                 }
             }
 
-            if !movie.recommendations.isEmpty {
-                Section("Recommended By") {
-                    ForEach(Array(movie.recommendations.enumerated()), id: \.offset) { _, rec in
+            if !likedRecommendations.isEmpty {
+                Section("Upvoted By") {
+                    ForEach(Array(likedRecommendations.enumerated()), id: \.offset) { _, rec in
+                        Text(rec.recommender)
+                    }
+                }
+            }
+
+            if !dislikedRecommendations.isEmpty {
+                Section("Downvoted By") {
+                    ForEach(Array(dislikedRecommendations.enumerated()), id: \.offset) { _, rec in
                         Text(rec.recommender)
                     }
                 }
@@ -417,6 +565,70 @@ private struct MovieDetailView: View {
         }
         .navigationTitle("Movie")
         .toolbarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    Task {
+                        await refreshMetadataFromBackend()
+                    }
+                } label: {
+                    if isRefreshingMetadata {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .disabled(isRefreshingMetadata)
+                .accessibilityLabel("Refresh movie data")
+            }
+        }
+        .alert("Movie Details", isPresented: $showFeedbackAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(feedbackMessage)
+        }
+        .task {
+            _ = await MovieRepository.shared.getMovies(status: nil)
+            if let refreshed = MovieRepository.shared.movies.first(where: { $0.imdbId == currentMovie.imdbId }) {
+                currentMovie = refreshed
+            }
+        }
+    }
+
+    private func refreshMetadataFromBackend() async {
+        guard !isRefreshingMetadata else { return }
+        isRefreshingMetadata = true
+        defer { isRefreshingMetadata = false }
+
+        let result = await MovieRepository.shared.refreshMovieMetadata(imdbId: currentMovie.imdbId)
+        switch result {
+        case .success(let movie):
+            currentMovie = movie
+        case .failure(let error):
+            feedbackMessage = error.localizedDescription
+            showFeedbackAlert = true
+        }
+    }
+
+    private func isDownvote(_ recommendation: Recommendation) -> Bool {
+        recommendation.voteType.lowercased() == "downvote"
+    }
+
+    private func normalizedUnique(_ values: [String]) -> [String] {
+        let cleaned = values
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return Array(Set(cleaned)).sorted { lhs, rhs in
+            lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }
+    }
+
+    private func splitPeopleList(_ value: String?) -> [String] {
+        guard let value else { return [] }
+        return value
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 }
 

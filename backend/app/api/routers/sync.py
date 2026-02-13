@@ -57,14 +57,98 @@ def _normalize_client_timestamp(value: float | None) -> float | None:
 
 def _person_payload(person: Person) -> dict:
     return {
+        "id": person.id,
         "name": person.name,
         "user_id": person.user_id,
         "is_trusted": person.is_trusted,
-        "is_default": person.is_default,
         "color": person.color,
         "emoji": person.emoji,
         "last_modified": person.last_modified,
     }
+
+
+def _normalize_vote_type(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text in {"upvote", "1", "true", "t", "yes"}
+
+
+def _resolve_person(
+    db: Session,
+    user_id: str,
+    *,
+    person_id: int | None = None,
+    person_name: str | None = None,
+    legacy_person: str | None = None,
+) -> tuple[Person, bool]:
+    if person_id is not None:
+        person = (
+            db.query(Person)
+            .filter(Person.id == person_id, Person.user_id == user_id)
+            .first()
+        )
+        if not person:
+            raise ValueError(f"Person id {person_id} not found")
+        return person, False
+
+    name = (person_name or legacy_person or "").strip()
+    if not name:
+        raise ValueError("Missing person identifier")
+
+    person = (
+        db.query(Person)
+        .filter(Person.name == name, Person.user_id == user_id)
+        .first()
+    )
+    if person:
+        return person, False
+
+    person = Person(name=name, user_id=user_id, is_trusted=False)
+    db.add(person)
+    db.flush()
+    return person, True
+
+
+def _find_person(
+    db: Session,
+    user_id: str,
+    *,
+    person_id: int | None = None,
+    person_name: str | None = None,
+    legacy_person: str | None = None,
+) -> Person | None:
+    if person_id is not None:
+        return (
+            db.query(Person)
+            .filter(Person.id == person_id, Person.user_id == user_id)
+            .first()
+        )
+
+    name = (person_name or legacy_person or "").strip()
+    if not name:
+        return None
+
+    return (
+        db.query(Person)
+        .filter(Person.name == name, Person.user_id == user_id)
+        .first()
+    )
+
+
+def _coerce_person_id(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    return None
 
 
 def _list_payload(custom_list: CustomList) -> dict:
@@ -181,7 +265,12 @@ async def _process_sync_action(
             if not imdb_id:
                 return SyncResponse(success=False, error="Missing imdb_id"), emitted_events
 
-            person_name = data.get("person")
+            person_id = _coerce_person_id(data.get("person_id"))
+            person_name = data.get("person_name")
+            legacy_person = data.get("person")
+            if person_id is None and not ((person_name or legacy_person or "").strip()):
+                return SyncResponse(success=False, error="Missing person identifier"), emitted_events
+
             movie, created = get_or_create_movie_with_state(
                 db,
                 user.id,
@@ -190,39 +279,35 @@ async def _process_sync_action(
                 data.get("omdb_data"),
             )
 
-            created_person = False
-            if person_name:
-                existing = (
-                    db.query(Recommendation)
-                    .filter(
-                        Recommendation.imdb_id == imdb_id,
-                        Recommendation.user_id == user.id,
-                        Recommendation.person == person_name,
-                    )
-                    .first()
+            person, created_person = _resolve_person(
+                db,
+                user.id,
+                person_id=person_id,
+                person_name=person_name,
+                legacy_person=legacy_person,
+            )
+            existing = (
+                db.query(Recommendation)
+                .filter(
+                    Recommendation.imdb_id == imdb_id,
+                    Recommendation.user_id == user.id,
+                    Recommendation.person_id == person.id,
                 )
+                .first()
+            )
 
-                if existing:
-                    existing.vote_type = data.get("vote_type", "upvote")
-                    existing.date_recommended = data.get("date_recommended", time.time())
-                else:
-                    recommendation = Recommendation(
-                        imdb_id=imdb_id,
-                        user_id=user.id,
-                        person=person_name,
-                        date_recommended=data.get("date_recommended", time.time()),
-                        vote_type=data.get("vote_type", "upvote"),
-                    )
-                    db.add(recommendation)
-
-                    person_obj = (
-                        db.query(Person)
-                        .filter(Person.name == person_name, Person.user_id == user.id)
-                        .first()
-                    )
-                    if not person_obj:
-                        db.add(Person(name=person_name, user_id=user.id, is_trusted=False))
-                        created_person = True
+            if existing:
+                existing.vote_type = _normalize_vote_type(data.get("vote_type", True))
+                existing.date_recommended = data.get("date_recommended", time.time())
+            else:
+                recommendation = Recommendation(
+                    imdb_id=imdb_id,
+                    user_id=user.id,
+                    person_id=person.id,
+                    date_recommended=data.get("date_recommended", time.time()),
+                    vote_type=_normalize_vote_type(data.get("vote_type", True)),
+                )
+                db.add(recommendation)
 
             movie.last_modified = time.time()
             db.commit()
@@ -235,16 +320,28 @@ async def _process_sync_action(
 
         if action_type == "removeRecommendation":
             imdb_id = data.get("imdb_id")
-            person_name = data.get("person")
-            if not imdb_id or not person_name:
-                return SyncResponse(success=False, error="Missing imdb_id/person"), emitted_events
+            if not imdb_id:
+                return SyncResponse(success=False, error="Missing imdb_id"), emitted_events
+
+            person_id = _coerce_person_id(data.get("person_id"))
+            person_name = data.get("person_name")
+            legacy_person = data.get("person")
+            person = _find_person(
+                db,
+                user.id,
+                person_id=person_id,
+                person_name=person_name,
+                legacy_person=legacy_person,
+            )
+            if not person:
+                return SyncResponse(success=True, last_modified=time.time()), emitted_events
 
             recommendation = (
                 db.query(Recommendation)
                 .filter(
                     Recommendation.imdb_id == imdb_id,
                     Recommendation.user_id == user.id,
-                    Recommendation.person == person_name,
+                    Recommendation.person_id == person.id,
                 )
                 .first()
             )
@@ -265,10 +362,9 @@ async def _process_sync_action(
 
         if action_type == "updateRecommendationVote":
             imdb_id = data.get("imdb_id")
-            person_name = data.get("person")
-            vote_type = data.get("vote_type", "upvote")
-            if not imdb_id or not person_name:
-                return SyncResponse(success=False, error="Missing imdb_id/person"), emitted_events
+            vote_type = _normalize_vote_type(data.get("vote_type", True))
+            if not imdb_id:
+                return SyncResponse(success=False, error="Missing imdb_id"), emitted_events
 
             movie = get_or_create_movie(db, user.id, imdb_id)
             conflict = ConflictResolver.check_conflict(movie, client_timestamp, serialize_movie)
@@ -281,12 +377,25 @@ async def _process_sync_action(
                     server_state=conflict.get("server_state"),
                 ), emitted_events
 
+            person_id = _coerce_person_id(data.get("person_id"))
+            person_name = data.get("person_name")
+            legacy_person = data.get("person")
+            person = _find_person(
+                db,
+                user.id,
+                person_id=person_id,
+                person_name=person_name,
+                legacy_person=legacy_person,
+            )
+            if not person:
+                return SyncResponse(success=False, error="Recommendation not found"), emitted_events
+
             recommendation = (
                 db.query(Recommendation)
                 .filter(
                     Recommendation.imdb_id == imdb_id,
                     Recommendation.user_id == user.id,
-                    Recommendation.person == person_name,
+                    Recommendation.person_id == person.id,
                 )
                 .first()
             )
@@ -443,7 +552,6 @@ async def _process_sync_action(
                         name=name,
                         user_id=user.id,
                         is_trusted=data.get("is_trusted", False),
-                        is_default=data.get("is_default", False),
                         color=data.get("color") or "#0a84ff",
                         emoji=data.get("emoji"),
                     )
@@ -454,11 +562,8 @@ async def _process_sync_action(
 
         if action_type in {"updatePerson", "updatePersonTrust"}:
             name = data.get("name")
-            person = (
-                db.query(Person)
-                .filter(Person.name == name, Person.user_id == user.id)
-                .first()
-            )
+            person_id = _coerce_person_id(data.get("id"))
+            person = _find_person(db, user.id, person_id=person_id, person_name=name)
             if not person:
                 return SyncResponse(success=False, error="Person not found"), emitted_events
 
@@ -467,8 +572,6 @@ async def _process_sync_action(
             else:
                 if "is_trusted" in data:
                     person.is_trusted = data.get("is_trusted")
-                if "is_default" in data:
-                    person.is_default = data.get("is_default")
                 if "color" in data:
                     person.color = data.get("color")
                 if "emoji" in data:
@@ -481,11 +584,8 @@ async def _process_sync_action(
 
         if action_type == "deletePerson":
             name = data.get("name")
-            person = (
-                db.query(Person)
-                .filter(Person.name == name, Person.user_id == user.id)
-                .first()
-            )
+            person_id = _coerce_person_id(data.get("id"))
+            person = _find_person(db, user.id, person_id=person_id, person_name=name)
             if person:
                 db.delete(person)
                 db.commit()

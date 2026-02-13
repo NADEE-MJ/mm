@@ -11,10 +11,12 @@ struct RootTabHostView: View {
     }
 
     @State private var selectedTab: RootTab = .movies
-    @State private var lastContentTab: RootTab = .movies
-
-    @State private var showAddMovie = false
-    @State private var showAddPerson = false
+    @State private var wsManager = WebSocketManager.shared
+    @State private var repository = MovieRepository.shared
+    @State private var discoverNavigation = DiscoverNavigationState.shared
+    @State private var pendingOfflineCount = 0
+    @State private var showPendingResolutionPrompt = false
+    @State private var hasCheckedPendingOnLaunch = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -26,9 +28,8 @@ struct RootTabHostView: View {
                 PeoplePageView()
             }
 
-            Tab("Add", systemImage: "plus", value: RootTab.add, role: .search) {
-                Color.clear
-                    .accessibilityHidden(true)
+            Tab("Discover", systemImage: "plus", value: RootTab.add) {
+                AddMoviePageView()
             }
 
             Tab("Account", systemImage: "person.crop.circle", value: RootTab.account) {
@@ -37,38 +38,34 @@ struct RootTabHostView: View {
         }
         .tint(AppTheme.blue)
         .tabBarMinimizeBehavior(.onScrollDown)
-        .onChange(of: selectedTab) { oldValue, newValue in
-            switch newValue {
-            case .movies, .people, .account:
-                lastContentTab = newValue
-            case .add:
-                let sourceTab = oldValue == .add ? lastContentTab : oldValue
-                triggerAddFlow(for: sourceTab)
-                selectedTab = sourceTab
+        .task {
+            guard !hasCheckedPendingOnLaunch else { return }
+            hasCheckedPendingOnLaunch = true
+            refreshPendingMovies(shouldPrompt: true)
+        }
+        .onChange(of: wsManager.updateEventCounter) { _, _ in
+            refreshPendingMovies(shouldPrompt: true)
+        }
+        .onChange(of: discoverNavigation.requestId) { _, _ in
+            selectedTab = .add
+        }
+        .alert("Resolve Offline Movies", isPresented: $showPendingResolutionPrompt) {
+            Button("Review Now") {
+                selectedTab = .add
             }
-        }
-        .sheet(isPresented: $showAddMovie) {
-            AddMoviePageView(onClose: { showAddMovie = false })
-                .presentationDetents([.large])
-        }
-        .sheet(isPresented: $showAddPerson) {
-            AddPersonFullScreenView(
-                onAdded: { showAddPerson = false },
-                onClose: { showAddPerson = false }
+            Button("Later", role: .cancel) {}
+        } message: {
+            Text(
+                "You have \(pendingOfflineCount) queued offline movie\(pendingOfflineCount == 1 ? "" : "s") waiting for a match."
             )
-            .presentationDetents([.large])
         }
     }
 
-    private func triggerAddFlow(for tab: RootTab) {
-        switch tab {
-        case .movies, .account:
-            showAddMovie = true
-        case .people:
-            showAddPerson = true
-        case .add:
-            showAddMovie = true
-        }
+    private func refreshPendingMovies(shouldPrompt: Bool) {
+        pendingOfflineCount = repository.fetchPendingMovies().count
+        guard shouldPrompt else { return }
+        guard pendingOfflineCount > 0 else { return }
+        showPendingResolutionPrompt = true
     }
 }
 

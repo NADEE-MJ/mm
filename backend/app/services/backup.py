@@ -16,6 +16,13 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 
+def _normalize_vote_type(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    return text in {"upvote", "1", "true", "t", "yes"}
+
+
 class BackupManager:
     """Handles automated per-user backups and restores."""
 
@@ -37,10 +44,10 @@ class BackupManager:
             "movies": [serialize_movie(movie) for movie in movies],
             "people": [
                 {
+                    "id": person.id,
                     "name": person.name,
                     "user_id": person.user_id,
                     "is_trusted": person.is_trusted,
-                    "is_default": person.is_default,
                     "color": person.color,
                     "emoji": person.emoji,
                     "last_modified": person.last_modified,
@@ -122,7 +129,6 @@ class BackupManager:
                     existing = Person(name=name, user_id=user_id)
                     db.add(existing)
                 existing.is_trusted = person_data.get("is_trusted", False)
-                existing.is_default = person_data.get("is_default", False)
                 existing.color = person_data.get("color") or "#0a84ff"
                 existing.emoji = person_data.get("emoji")
                 existing.last_modified = incoming_last_modified
@@ -177,15 +183,40 @@ class BackupManager:
                     Recommendation.user_id == user_id,
                 ).delete()
                 for rec in movie_data.get("recommendations", []):
-                    if not rec.get("person"):
+                    rec_person_id = rec.get("person_id")
+                    person_name = rec.get("person_name") or rec.get("person")
+
+                    person = None
+                    if isinstance(rec_person_id, int):
+                        person = (
+                            db.query(Person)
+                            .filter(Person.id == rec_person_id, Person.user_id == user_id)
+                            .first()
+                        )
+                    if not person and person_name:
+                        person = (
+                            db.query(Person)
+                            .filter(Person.name == person_name, Person.user_id == user_id)
+                            .first()
+                        )
+                    if not person and person_name:
+                        person = Person(
+                            name=person_name,
+                            user_id=user_id,
+                            is_trusted=False,
+                            color="#0a84ff",
+                        )
+                        db.add(person)
+                        db.flush()
+                    if not person:
                         continue
                     db.add(
                         Recommendation(
                             imdb_id=imdb_id,
                             user_id=user_id,
-                            person=rec["person"],
+                            person_id=person.id,
                             date_recommended=float(rec.get("date_recommended") or time.time()),
-                            vote_type=rec.get("vote_type", "upvote"),
+                            vote_type=_normalize_vote_type(rec.get("vote_type", True)),
                         )
                     )
 
@@ -241,4 +272,3 @@ class BackupManager:
 
 
 backup_manager = BackupManager()
-

@@ -24,6 +24,24 @@ run_in_dir() {
   (cd "$dir" && "$@")
 }
 
+find_simulator_udid() {
+  local device_name="$1"
+
+  # Match exact device name and extract the first (...) token, which is the UDID.
+  xcrun simctl list devices iOS | awk -v name="$device_name" '
+    {
+      line = $0
+      sub(/^[[:space:]]+/, "", line)
+      if (index(line, name " (") == 1 && line !~ /unavailable/) {
+        split(line, parts, "(")
+        split(parts[2], idparts, ")")
+        print idparts[1]
+        exit
+      }
+    }
+  '
+}
+
 install_frontend() {
   require_cmd npm
   log "Installing frontend dependencies"
@@ -263,9 +281,11 @@ swift_run() {
 
   log "Installing and launching app"
   # Boot the simulator if needed
-  local device_id=$(xcrun simctl list devices | grep "iPhone 17 Pro" | grep -v "unavailable" | head -n 1 | sed 's/.*(\([^)]*\)).*/\1/')
+  local device_id
+  device_id="$(find_simulator_udid "iPhone 17 Pro")"
   if [[ -n "$device_id" ]]; then
     xcrun simctl boot "$device_id" 2>/dev/null || true
+    open -a Simulator --args -CurrentDeviceUDID "$device_id"
     xcrun simctl install "$device_id" "$app_path"
     xcrun simctl launch "$device_id" "com.moviemanager.mobileswift"
     log "App launched in simulator"
@@ -286,7 +306,8 @@ simulator_boot() {
   local device_name="${1:-iPhone 17 Pro}"
 
   log "Booting simulator: $device_name"
-  local device_id=$(xcrun simctl list devices | grep "$device_name" | grep -v "unavailable" | head -n 1 | sed 's/.*(\([^)]*\)).*/\1/')
+  local device_id
+  device_id="$(find_simulator_udid "$device_name")"
 
   if [[ -z "$device_id" ]]; then
     log "Simulator not found: $device_name"
@@ -295,8 +316,15 @@ simulator_boot() {
     exit 1
   fi
 
-  xcrun simctl boot "$device_id" 2>/dev/null || log "Simulator already booted"
-  open -a Simulator
+  if ! xcrun simctl boot "$device_id" 2>/dev/null; then
+    if ! xcrun simctl list devices iOS | grep -q "$device_id.*(Booted)"; then
+      log "Failed to boot simulator: $device_name ($device_id)"
+      exit 1
+    fi
+    log "Simulator already booted"
+  fi
+
+  open -a Simulator --args -CurrentDeviceUDID "$device_id"
   log "Simulator booted: $device_name ($device_id)"
 }
 

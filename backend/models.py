@@ -11,9 +11,11 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     ForeignKeyConstraint,
+    Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -71,6 +73,10 @@ class Movie(Base):
         cascade="all, delete-orphan",
     )
 
+    __table_args__ = (
+        Index("ix_movies_user_last_modified", "user_id", "last_modified"),
+    )
+
 
 class Recommendation(Base):
     """Recommendation table tracking who voted for which movie (upvote or downvote)."""
@@ -80,9 +86,9 @@ class Recommendation(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     imdb_id = Column(String, nullable=False)
     user_id = Column(String, nullable=False)
-    person = Column(String, nullable=False)
+    person_id = Column(Integer, ForeignKey("people.id", ondelete="CASCADE"), nullable=False)
     date_recommended = Column(Float, default=lambda: time.time())
-    vote_type = Column(String, nullable=False, default="upvote")  # 'upvote' or 'downvote'
+    vote_type = Column(Boolean, nullable=False, default=True)  # True=upvote, False=downvote
 
     # Relationships
     movie = relationship(
@@ -91,6 +97,7 @@ class Recommendation(Base):
         foreign_keys=[imdb_id, user_id],
         primaryjoin="and_(Recommendation.imdb_id==Movie.imdb_id, Recommendation.user_id==Movie.user_id)",
     )
+    person_ref = relationship("Person", back_populates="recommendations")
 
     __table_args__ = (
         ForeignKeyConstraint(
@@ -98,7 +105,19 @@ class Recommendation(Base):
             ["movies.imdb_id", "movies.user_id"],
             ondelete="CASCADE",
         ),
+        UniqueConstraint("imdb_id", "user_id", "person_id", name="uq_recommendation_per_person"),
+        Index("ix_recommendations_user_person", "user_id", "person_id"),
+        Index("ix_recommendations_movie_user", "imdb_id", "user_id"),
     )
+
+    @property
+    def person_name(self) -> str:
+        return self.person_ref.name if self.person_ref else ""
+
+    @property
+    def person(self) -> str:
+        # Legacy compatibility for older serializers/clients.
+        return self.person_name
 
 
 class WatchHistory(Base):
@@ -136,12 +155,10 @@ class Person(Base):
 
     __tablename__ = "people"
 
-    name = Column(String, primary_key=True)
-    user_id = Column(
-        String, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
-    )
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     is_trusted = Column(Boolean, default=False)
-    is_default = Column(Boolean, default=False)  # For system default recommenders
     color = Column(String, default="#0a84ff")
     emoji = Column(String, nullable=True)
     last_modified = Column(
@@ -150,6 +167,16 @@ class Person(Base):
 
     # Relationships
     user = relationship("User", back_populates="people")
+    recommendations = relationship(
+        "Recommendation",
+        back_populates="person_ref",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="uq_person_name_per_user"),
+        Index("ix_people_user_last_modified", "user_id", "last_modified"),
+    )
 
 
 class CustomList(Base):
@@ -170,6 +197,10 @@ class CustomList(Base):
 
     # Relationships
     user = relationship("User", back_populates="custom_lists")
+
+    __table_args__ = (
+        Index("ix_custom_lists_user_last_modified", "user_id", "last_modified"),
+    )
 
 
 class MovieStatus(Base):
@@ -200,4 +231,5 @@ class MovieStatus(Base):
             "status IN ('toWatch', 'watched', 'deleted', 'custom')",
             name="check_status_values",
         ),
+        Index("ix_movie_status_user_custom_list", "user_id", "custom_list_id"),
     )

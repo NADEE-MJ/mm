@@ -16,8 +16,10 @@ from sqlalchemy.orm import Session
 
 # Configuration
 SECRET_KEY = config.SECRET_KEY
+ADMIN_TOKEN = config.ADMIN_TOKEN
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 30
+ADMIN_TOKEN_EXPIRE_HOURS = 12
 
 # HTTP Bearer token
 security = HTTPBearer(auto_error=False)
@@ -60,6 +62,10 @@ class LoginResponse(BaseModel):
     user: UserResponse
 
 
+class AdminLoginRequest(BaseModel):
+    token: str
+
+
 def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     """Hash a password with PBKDF2-SHA256."""
     if salt is None:
@@ -96,6 +102,26 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def create_admin_access_token(expires_delta: Optional[timedelta] = None) -> str:
+    """Create a short-lived admin JWT used for account provisioning routes."""
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(hours=ADMIN_TOKEN_EXPIRE_HOURS)
+
+    payload = {"sub": "admin", "role": "admin", "exp": expire}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def verify_admin_bootstrap_token(candidate_token: str) -> bool:
+    """Constant-time compare for the bootstrap admin token from environment."""
+    if not ADMIN_TOKEN:
+        return False
+    if not candidate_token:
+        return False
+    return secrets.compare_digest(candidate_token, ADMIN_TOKEN)
 
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
@@ -172,3 +198,33 @@ async def get_required_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
+
+
+async def get_required_admin(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+) -> dict:
+    """Require a valid admin JWT token."""
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Admin authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+    if payload.get("role") != "admin" or payload.get("sub") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin permissions required",
+        )
+
+    return payload

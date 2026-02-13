@@ -17,6 +17,7 @@ import PeoplePage from "./pages/PeoplePage";
 import ListsPage from "./pages/ListsPage";
 import AccountPage from "./pages/AccountPage";
 import PersonDetailPage from "./pages/PersonDetailPage";
+import AdminPage from "./pages/AdminPage";
 
 import { usePeople } from "./hooks/usePeople";
 
@@ -51,7 +52,7 @@ function AddMovieModal({ onClose, onMovieAdded }) {
   );
 }
 
-function AppContent() {
+function UserAppContent() {
   const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
   const { movies, loading, loadMovies } = useMoviesContext();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -130,9 +131,17 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      <MoviesProvider>
-        <AppContent />
-      </MoviesProvider>
+      <Routes>
+        <Route path="/admin" element={<AdminPage />} />
+        <Route
+          path="/*"
+          element={
+            <MoviesProvider>
+              <UserAppContent />
+            </MoviesProvider>
+          }
+        />
+      </Routes>
     </BrowserRouter>
   );
 }

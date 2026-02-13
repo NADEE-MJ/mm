@@ -12,7 +12,6 @@ from app.schemas.movies import MovieResponse
 class PersonCreate(BaseModel):
     name: str
     is_trusted: bool = False
-    is_default: bool = False
     color: Optional[str] = None
     emoji: Optional[str] = None
 
@@ -20,10 +19,10 @@ class PersonCreate(BaseModel):
 
 
 class PersonResponse(BaseModel):
+    id: int
     name: str
     user_id: Optional[str] = None
     is_trusted: bool
-    is_default: bool = False
     color: Optional[str] = None
     emoji: Optional[str] = None
     last_modified: Optional[float] = None
@@ -41,9 +40,9 @@ class PersonUpdate(BaseModel):
 
 
 class PersonStatsResponse(BaseModel):
+    id: int
     name: str
     is_trusted: bool
-    is_default: bool
     total_movies: int
     watched_movies: int
     average_rating: Optional[float] = None

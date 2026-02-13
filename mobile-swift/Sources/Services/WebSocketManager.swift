@@ -7,10 +7,19 @@ import Foundation
 @Observable
 final class WebSocketManager {
     static let shared = WebSocketManager()
+    private static let syncUpdateEventTypes: Set<String> = [
+        "movieAdded",
+        "movieUpdated",
+        "movieDeleted",
+        "peopleUpdated",
+        "listUpdated",
+    ]
 
     private(set) var isConnected = false
     private(set) var messages: [WSMessage] = []
     private(set) var lastError: String?
+    private(set) var updateEventCounter = 0
+    private(set) var lastServerEventType: String?
 
     private var task: URLSessionWebSocketTask?
     private var reconnectTask: Task<Void, Never>?
@@ -148,10 +157,12 @@ final class WebSocketManager {
                     switch msg {
                     case .string(let text):
                         self.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
+                        self.handlePotentialServerEvent(from: text)
                         AppLog.debug("🔌 [WebSocket] Received text message (\(text.count) chars)", category: .websocket)
                     case .data(let data):
                         let text = String(data: data, encoding: .utf8) ?? "<binary \(data.count) bytes>"
                         self.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
+                        self.handlePotentialServerEvent(from: text)
                         AppLog.debug("🔌 [WebSocket] Received binary message (\(data.count) bytes)", category: .websocket)
                     @unknown default:
                         AppLog.warning("🔌 [WebSocket] Received unknown message type", category: .websocket)
@@ -195,4 +206,20 @@ final class WebSocketManager {
     private func addSystemMessage(_ text: String) {
         messages.append(WSMessage(text: "⚙️ \(text)", isOutgoing: false, timestamp: .now))
     }
+
+    private func handlePotentialServerEvent(from rawText: String) {
+        guard let data = rawText.data(using: .utf8),
+              let payload = try? JSONDecoder().decode(ServerEventPayload.self, from: data)
+        else {
+            return
+        }
+
+        guard Self.syncUpdateEventTypes.contains(payload.type) else { return }
+        lastServerEventType = payload.type
+        updateEventCounter += 1
+    }
+}
+
+private struct ServerEventPayload: Decodable {
+    let type: String
 }

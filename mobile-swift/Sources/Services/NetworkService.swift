@@ -11,8 +11,12 @@ struct Movie: Identifiable, Hashable, Decodable {
     let overview: String?
     let releaseDate: String?
     let voteAverage: Double?
+    let imdbRating: Double?
+    let rottenTomatoesRating: Int?
+    let metacriticScore: Int?
     let genres: [String]
     let director: String?
+    let actors: [String]
     let status: String
     let myRating: Int?
     let dateWatched: String?
@@ -33,6 +37,10 @@ struct Movie: Identifiable, Hashable, Decodable {
         case overview
         case releaseDate = "release_date"
         case voteAverage = "vote_average"
+        case imdbRating = "imdb_rating"
+        case rottenTomatoesRating = "rotten_tomatoes_rating"
+        case metacriticScore = "metacritic_score"
+        case actors
         case status
         case myRating = "my_rating"
         case dateWatched = "date_watched"
@@ -45,7 +53,8 @@ struct Movie: Identifiable, Hashable, Decodable {
             let mappedRecommendations = backendMovie.recommendations.map {
                 Recommendation(
                     recommender: $0.person,
-                    dateRecommended: Self.formatUnixTimestamp($0.dateRecommended)
+                    dateRecommended: Self.formatUnixTimestamp($0.dateRecommended),
+                    voteType: $0.voteType
                 )
             }
 
@@ -60,11 +69,15 @@ struct Movie: Identifiable, Hashable, Decodable {
             posterPath = tmdbData?.poster ?? tmdbData?.posterPath ?? omdbData?.poster
             overview = tmdbData?.plot ?? omdbData?.plot
             releaseDate = tmdbData?.year ?? omdbData?.yearString
-            voteAverage = tmdbData?.voteAverage ?? omdbData?.imdbRating
+            voteAverage = tmdbData?.voteAverage
+            imdbRating = omdbData?.imdbRating
+            rottenTomatoesRating = omdbData?.rtRating
+            metacriticScore = omdbData?.metascore
             let omdbGenres = omdbData?.genres ?? []
             let tmdbGenres = tmdbData?.genres ?? []
             genres = omdbGenres.isEmpty ? tmdbGenres : omdbGenres
             director = omdbData?.director
+            actors = omdbData?.actors ?? []
             status = Self.mapBackendStatusToApp(backendStatus)
             if let watchHistory = backendMovie.watchHistory {
                 myRating = Int(round(watchHistory.myRating))
@@ -88,8 +101,12 @@ struct Movie: Identifiable, Hashable, Decodable {
         overview = try c.decodeIfPresent(String.self, forKey: .overview)
         releaseDate = try c.decodeIfPresent(String.self, forKey: .releaseDate)
         voteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverage)
+        imdbRating = try c.decodeIfPresent(Double.self, forKey: .imdbRating) ?? voteAverage
+        rottenTomatoesRating = try c.decodeIfPresent(Int.self, forKey: .rottenTomatoesRating)
+        metacriticScore = try c.decodeIfPresent(Int.self, forKey: .metacriticScore)
         genres = []
         director = nil
+        actors = (try? c.decodeIfPresent([String].self, forKey: .actors)) ?? []
         status = try c.decodeIfPresent(String.self, forKey: .status) ?? "to_watch"
         myRating = try c.decodeIfPresent(Int.self, forKey: .myRating)
         dateWatched = try c.decodeIfPresent(String.self, forKey: .dateWatched)
@@ -104,9 +121,13 @@ struct Movie: Identifiable, Hashable, Decodable {
         posterPath: String?,
         overview: String?,
         releaseDate: String?,
-        voteAverage: Double?,
+        voteAverage: Double? = nil,
+        imdbRating: Double? = nil,
+        rottenTomatoesRating: Int? = nil,
+        metacriticScore: Int? = nil,
         genres: [String] = [],
         director: String? = nil,
+        actors: [String] = [],
         status: String,
         myRating: Int?,
         dateWatched: String?,
@@ -120,8 +141,12 @@ struct Movie: Identifiable, Hashable, Decodable {
         self.overview = overview
         self.releaseDate = releaseDate
         self.voteAverage = voteAverage
+        self.imdbRating = imdbRating
+        self.rottenTomatoesRating = rottenTomatoesRating
+        self.metacriticScore = metacriticScore
         self.genres = genres
         self.director = director
+        self.actors = actors
         self.status = status
         self.myRating = myRating
         self.dateWatched = dateWatched
@@ -161,11 +186,13 @@ struct Movie: Identifiable, Hashable, Decodable {
 struct Recommendation: Hashable, Decodable {
     let recommender: String
     let dateRecommended: String
+    let voteType: String
 
     enum CodingKeys: String, CodingKey {
         case recommender
         case person
         case dateRecommended = "date_recommended"
+        case voteType = "vote_type"
     }
 
     init(from decoder: Decoder) throws {
@@ -185,22 +212,40 @@ struct Recommendation: Hashable, Decodable {
         } else {
             dateRecommended = ""
         }
+
+        if let voteString = try? c.decode(String.self, forKey: .voteType) {
+            voteType = voteString.lowercased() == "downvote" ? "downvote" : "upvote"
+        } else if let voteBool = try? c.decode(Bool.self, forKey: .voteType) {
+            voteType = voteBool ? "upvote" : "downvote"
+        } else if let voteInt = try? c.decode(Int.self, forKey: .voteType) {
+            voteType = voteInt == 0 ? "downvote" : "upvote"
+        } else {
+            voteType = "upvote"
+        }
     }
 
-    init(recommender: String, dateRecommended: String) {
+    init(recommender: String, dateRecommended: String, voteType: String = "upvote") {
         self.recommender = recommender
         self.dateRecommended = dateRecommended
+        self.voteType = voteType
     }
 }
 
 struct Person: Identifiable, Hashable, Codable {
+    let personId: Int?
     let name: String
     let isTrusted: Bool
     let movieCount: Int
 
-    var id: String { name }
+    var id: String {
+        if let personId {
+            return "person-\(personId)"
+        }
+        return name
+    }
 
     enum CodingKeys: String, CodingKey {
+        case personId = "id"
         case name
         case isTrusted = "is_trusted"
         case movieCount = "movie_count"
@@ -208,12 +253,14 @@ struct Person: Identifiable, Hashable, Codable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        personId = try c.decodeIfPresent(Int.self, forKey: .personId)
         name = try c.decode(String.self, forKey: .name)
         isTrusted = (try? c.decode(Bool.self, forKey: .isTrusted)) ?? false
         movieCount = (try? c.decode(Int.self, forKey: .movieCount)) ?? 0
     }
 
-    init(name: String, isTrusted: Bool, movieCount: Int) {
+    init(personId: Int? = nil, name: String, isTrusted: Bool, movieCount: Int) {
+        self.personId = personId
         self.name = name
         self.isTrusted = isTrusted
         self.movieCount = movieCount
@@ -296,10 +343,35 @@ private struct TMDBSearchResponse: Decodable {
 private struct BackendRecommendation: Decodable {
     let person: String
     let dateRecommended: Double
+    let voteType: String
+    let personId: Int?
 
     enum CodingKeys: String, CodingKey {
         case person
+        case personName = "person_name"
+        case personId = "person_id"
         case dateRecommended = "date_recommended"
+        case voteType = "vote_type"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let personName = try? c.decode(String.self, forKey: .personName) {
+            person = personName
+        } else {
+            person = (try? c.decode(String.self, forKey: .person)) ?? ""
+        }
+        personId = try? c.decode(Int.self, forKey: .personId)
+        dateRecommended = try c.decode(Double.self, forKey: .dateRecommended)
+        if let voteString = try? c.decode(String.self, forKey: .voteType) {
+            voteType = voteString.lowercased() == "downvote" ? "downvote" : "upvote"
+        } else if let voteBool = try? c.decode(Bool.self, forKey: .voteType) {
+            voteType = voteBool ? "upvote" : "downvote"
+        } else if let voteInt = try? c.decode(Int.self, forKey: .voteType) {
+            voteType = voteInt == 0 ? "downvote" : "upvote"
+        } else {
+            voteType = "upvote"
+        }
     }
 }
 
@@ -416,7 +488,10 @@ private struct OMDBDetailPayload: Codable {
     let poster: String?
     let genres: [String]?
     let director: String?
+    let actors: [String]?
     let imdbRating: Double?
+    let rtRating: Int?
+    let metascore: Int?
 
     enum CodingKeys: String, CodingKey {
         case imdbId
@@ -426,7 +501,10 @@ private struct OMDBDetailPayload: Codable {
         case poster
         case genres
         case director
+        case actors
         case imdbRating
+        case rtRating
+        case metascore
     }
 
     var yearString: String? {
@@ -529,6 +607,8 @@ private struct AddPersonRequest: Encodable {
     }
 }
 
+private struct EmptyRequest: Encodable {}
+
 // MARK: - Network Service
 
 @MainActor
@@ -572,6 +652,7 @@ final class NetworkService {
     }
 
     func addMovie(tmdbId: Int, recommender: String) async -> Bool {
+        lastError = nil
         let trimmedRecommender = recommender.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedRecommender.isEmpty else {
             lastError = "Recommender is required"
@@ -610,6 +691,7 @@ final class NetworkService {
     }
 
     func addMovieBulk(tmdbId: Int, recommenders: [String]) async -> Bool {
+        lastError = nil
         let trimmedRecommenders = recommenders.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         guard !trimmedRecommenders.isEmpty else {
             lastError = "At least one recommender is required"
@@ -647,7 +729,62 @@ final class NetworkService {
         )
     }
 
+    func addRecommendation(imdbId: String, person: String, voteType: String = "upvote") async -> Bool {
+        lastError = nil
+
+        let trimmedPerson = person.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPerson.isEmpty else {
+            lastError = "Recommender is required"
+            return false
+        }
+
+        let normalizedVoteType = voteType.lowercased() == "downvote" ? "downvote" : "upvote"
+
+        guard let encodedImdb = imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            lastError = "Invalid imdb id: \(imdbId)"
+            return false
+        }
+
+        let body = AddRecommendationRequest(
+            person: trimmedPerson,
+            voteType: normalizedVoteType,
+            tmdbData: nil,
+            omdbData: nil
+        )
+
+        return await post(
+            "\(baseURL)/movies/\(encodedImdb)/recommendations",
+            body: body,
+            validStatusCodes: [200, 201]
+        )
+    }
+
+    func removeRecommendation(imdbId: String, person: String) async -> Bool {
+        lastError = nil
+
+        let trimmedPerson = person.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPerson.isEmpty else {
+            lastError = "Recommender is required"
+            return false
+        }
+
+        guard let encodedImdb = imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            lastError = "Invalid imdb id: \(imdbId)"
+            return false
+        }
+        guard let encodedPerson = trimmedPerson.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            lastError = "Invalid person name: \(trimmedPerson)"
+            return false
+        }
+
+        return await delete(
+            "\(baseURL)/movies/\(encodedImdb)/recommendations/\(encodedPerson)",
+            validStatusCodes: [200, 204]
+        )
+    }
+
     func updateMovie(movie: Movie, rating: Int?, status: String?) async {
+        lastError = nil
         guard let encodedImdb = movie.imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             lastError = "Invalid imdb id: \(movie.imdbId)"
             return
@@ -696,9 +833,24 @@ final class NetworkService {
         }
     }
 
+    func refreshMovieMetadata(imdbId: String) async -> Bool {
+        lastError = nil
+        guard let encodedImdb = imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            lastError = "Invalid imdb id: \(imdbId)"
+            return false
+        }
+
+        return await post(
+            "\(baseURL)/movies/\(encodedImdb)/refresh",
+            body: EmptyRequest(),
+            validStatusCodes: [200]
+        )
+    }
+
     // MARK: - TMDB Search
 
     func searchMovies(query: String) async -> [TMDBMovie] {
+        lastError = nil
         guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
               let data = await get("\(baseURL)/external/tmdb/search?q=\(encoded)")
         else {
@@ -718,9 +870,88 @@ final class NetworkService {
         return []
     }
 
+    func discoverMoviesByGenre(query: String) async -> [TMDBMovie] {
+        lastError = nil
+        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let data = await get("\(baseURL)/external/tmdb/discover/genre?q=\(encoded)")
+        else {
+            return []
+        }
+
+        guard let decoded = try? JSONDecoder().decode([TMDBMovie].self, from: data) else {
+            lastError = "Failed to decode genre discovery response"
+            AppLog.warning("🌐 [NetworkService] Could not decode genre discovery response", category: .network)
+            return []
+        }
+        return decoded
+    }
+
+    func discoverMoviesByPerson(query: String, role: String) async -> [TMDBMovie] {
+        lastError = nil
+        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let encodedRole = role.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let data = await get("\(baseURL)/external/tmdb/discover/person?q=\(encodedQuery)&role=\(encodedRole)")
+        else {
+            return []
+        }
+
+        guard let decoded = try? JSONDecoder().decode([TMDBMovie].self, from: data) else {
+            lastError = "Failed to decode person discovery response"
+            AppLog.warning("🌐 [NetworkService] Could not decode person discovery response", category: .network)
+            return []
+        }
+        return decoded
+    }
+
+    func discoverComingSoonMovies(days: Int = 30, region: String = "US") async -> [TMDBMovie] {
+        await discoverMoviesByList(kind: "coming_soon", region: region, days: days)
+    }
+
+    func discoverNowPlayingMovies(region: String = "US") async -> [TMDBMovie] {
+        await discoverMoviesByList(kind: "now_playing", region: region)
+    }
+
+    func discoverPopularMovies(region: String = "US") async -> [TMDBMovie] {
+        await discoverMoviesByList(kind: "popular", region: region)
+    }
+
+    func discoverTopRatedMovies(region: String = "US") async -> [TMDBMovie] {
+        await discoverMoviesByList(kind: "top_rated", region: region)
+    }
+
+    func discoverTrendingMovies(timeWindow: String = "day") async -> [TMDBMovie] {
+        await discoverMoviesByList(kind: "trending", region: "US", timeWindow: timeWindow)
+    }
+
+    private func discoverMoviesByList(
+        kind: String,
+        region: String,
+        days: Int = 30,
+        timeWindow: String = "day"
+    ) async -> [TMDBMovie] {
+        lastError = nil
+        guard let encodedKind = kind.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let encodedRegion = region.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let encodedWindow = timeWindow.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+              let data = await get(
+                "\(baseURL)/external/tmdb/discover/list?kind=\(encodedKind)&region=\(encodedRegion)&days=\(days)&time_window=\(encodedWindow)"
+              )
+        else {
+            return []
+        }
+
+        guard let decoded = try? JSONDecoder().decode([TMDBMovie].self, from: data) else {
+            lastError = "Failed to decode TMDB list response"
+            AppLog.warning("🌐 [NetworkService] Could not decode TMDB list response for kind=\(kind)", category: .network)
+            return []
+        }
+        return decoded
+    }
+
     // MARK: - People
 
     func fetchPeople() async {
+        lastError = nil
         guard let data = await get("\(baseURL)/people") else { return }
         if let decoded = try? JSONDecoder().decode([Person].self, from: data) {
             people = decoded
@@ -731,6 +962,7 @@ final class NetworkService {
     }
 
     func fetchPersonMovies(personName: String) async -> [Movie] {
+        lastError = nil
         guard let encodedName = personName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             lastError = "Invalid person name"
             return []
@@ -752,6 +984,7 @@ final class NetworkService {
     }
 
     func addPerson(name: String, isTrusted: Bool) async -> Bool {
+        lastError = nil
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             lastError = "Person name is required"
@@ -767,6 +1000,7 @@ final class NetworkService {
     }
 
     func updatePerson(name: String, isTrusted: Bool) async {
+        lastError = nil
         guard let encoded = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else { return }
         let body = UpdatePersonRequest(isTrusted: isTrusted)
         _ = await put("\(baseURL)/people/\(encoded)", body: body, validStatusCodes: [200])
@@ -870,6 +1104,36 @@ final class NetworkService {
         } catch {
             lastError = error.localizedDescription
             AppLog.error("🌐 [NetworkService] PUT failed: \(error.localizedDescription) @ \(urlString)", category: .network)
+            return false
+        }
+    }
+
+    private func delete(
+        _ urlString: String,
+        validStatusCodes: Set<Int> = [200, 204]
+    ) async -> Bool {
+        guard let url = URL(string: urlString) else {
+            AppLog.error("🌐 [NetworkService] Invalid URL in DELETE: \(urlString)", category: .network)
+            return false
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        for (key, value) in authHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            guard validStatusCodes.contains(status) else {
+                handleHTTPError(method: "DELETE", urlString: urlString, status: status, data: data)
+                return false
+            }
+            return true
+        } catch {
+            lastError = error.localizedDescription
+            AppLog.error("🌐 [NetworkService] DELETE failed: \(error.localizedDescription) @ \(urlString)", category: .network)
             return false
         }
     }

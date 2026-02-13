@@ -35,15 +35,15 @@ async def get_people(
     for person in people:
         movie_count = (
             db.query(Recommendation)
-            .filter(Recommendation.person == person.name, Recommendation.user_id == user.id)
+            .filter(Recommendation.person_id == person.id, Recommendation.user_id == user.id)
             .count()
         )
 
         person_dict = {
+            "id": person.id,
             "name": person.name,
             "user_id": person.user_id,
             "is_trusted": person.is_trusted,
-            "is_default": person.is_default,
             "color": person.color,
             "emoji": person.emoji,
             "last_modified": person.last_modified,
@@ -75,7 +75,6 @@ async def add_person(
         name=person.name,
         user_id=user.id,
         is_trusted=person.is_trusted,
-        is_default=person.is_default,
         color=person.color or "#0a84ff",
         emoji=person.emoji,
     )
@@ -154,7 +153,7 @@ async def get_person_stats(
 
     recommendations = (
         db.query(Recommendation)
-        .filter(Recommendation.person == name, Recommendation.user_id == user.id)
+        .filter(Recommendation.person_id == person.id, Recommendation.user_id == user.id)
         .all()
     )
 
@@ -183,9 +182,9 @@ async def get_person_stats(
     average_rating = round(total_rating / rated_count, 1) if rated_count else None
 
     return {
+        "id": person.id,
         "name": person.name,
         "is_trusted": person.is_trusted,
-        "is_default": person.is_default,
         "total_movies": total_movies,
         "watched_movies": watched_movies,
         "average_rating": average_rating,

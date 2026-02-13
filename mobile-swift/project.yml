@@ -18,6 +18,18 @@ targets:
     deploymentTarget: "26.0"
     info:
       path: Sources/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UIRequiresFullScreen: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: {}
+        NSFaceIDUsageDescription: Authenticate to unlock the app
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        API_BASE_URL: $(API_BASE_URL)
     sources:
       - Sources
     configFiles:

@@ -20,6 +20,7 @@ class Config:
 
     # Security
     SECRET_KEY: str = os.getenv("SECRET_KEY", "your-secret-key-change-in-production-please")
+    ADMIN_TOKEN: str | None = os.getenv("ADMIN_TOKEN")
 
     # External API Keys
     TMDB_API_KEY: str | None = os.getenv("TMDB_API_KEY")
