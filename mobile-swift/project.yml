@@ -24,6 +24,8 @@ targets:
         LSRequiresIPhoneOS: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
         UILaunchScreen: {}
         NSFaceIDUsageDescription: Authenticate to unlock the app
         UIFileSharingEnabled: true
