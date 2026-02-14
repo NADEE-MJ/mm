@@ -15,6 +15,7 @@ import {
 import { getPoster, formatRating } from "../utils/helpers";
 import { IOS_COLORS } from "../utils/constants";
 import { usePeople } from "../hooks/usePeople";
+import { buildPersonStats, getPeopleMetaCounts } from "../utils/people";
 
 const COLOR_OPTIONS = [
   IOS_COLORS.blue,
@@ -36,47 +37,14 @@ export default function PersonDetailPage({ movies = [] }) {
 
   const decodedName = decodeURIComponent(name || "");
 
-  const colorCounts = useMemo(() => {
-    return people.reduce((acc, person) => {
-      const key = person.color || "default";
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-  }, [people]);
-
-  const emojiCounts = useMemo(() => {
-    return people.reduce((acc, person) => {
-      const key = person.emoji || "none";
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-  }, [people]);
+  const { color: colorCounts, emoji: emojiCounts } = useMemo(
+    () => getPeopleMetaCounts(people),
+    [people],
+  );
 
   const person = useMemo(() => {
     const personRecord = people.find((entry) => entry.name === decodedName);
-    if (!personRecord) return null;
-
-    const recommendations = movies.filter((movie) =>
-      movie.recommendations?.some((rec) => rec.person === personRecord.name),
-    );
-
-    const toWatch = recommendations.filter((movie) => movie.status === "toWatch").length;
-    const watched = recommendations.filter((movie) => movie.status === "watched").length;
-    const ratedMovies = recommendations.filter((movie) => movie.watchHistory?.myRating);
-    const avgRating =
-      ratedMovies.length > 0
-        ? ratedMovies.reduce((acc, movie) => acc + movie.watchHistory.myRating, 0) /
-          ratedMovies.length
-        : null;
-
-    return {
-      ...personRecord,
-      totalRecommendations: recommendations.length,
-      toWatch,
-      watched,
-      avgRating,
-      movies: recommendations,
-    };
+    return personRecord ? buildPersonStats(personRecord, movies) : null;
   }, [decodedName, people, movies]);
 
   const handleToggleTrust = async () => {

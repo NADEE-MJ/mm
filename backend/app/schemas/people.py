@@ -14,6 +14,7 @@ class PersonCreate(BaseModel):
     is_trusted: bool = False
     color: Optional[str] = None
     emoji: Optional[str] = None
+    quick_key: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -25,6 +26,7 @@ class PersonResponse(BaseModel):
     is_trusted: bool
     color: Optional[str] = None
     emoji: Optional[str] = None
+    quick_key: Optional[str] = None
     last_modified: Optional[float] = None
     movie_count: int = 0
 
@@ -49,5 +51,6 @@ class PersonStatsResponse(BaseModel):
     movies: List[MovieResponse] = Field(default_factory=list)
     color: Optional[str] = None
     emoji: Optional[str] = None
+    quick_key: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

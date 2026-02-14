@@ -8,7 +8,14 @@ export default function MovieHeader({ movie, omdb, tmdb }) {
   const poster = getPoster(omdb.poster || tmdb.poster);
   const imdbRating = omdb.imdbRating;
   const rtRating = omdb.rtRating;
+  const mediaType = movie.mediaType || tmdb.mediaType || "movie";
   const runtime = omdb.runtime || (tmdb.runtime ? `${tmdb.runtime} min` : null);
+  const seasons = tmdb.numberOfSeasons;
+  const episodes = tmdb.numberOfEpisodes;
+  const tvMeta =
+    mediaType === "tv" && (seasons || episodes)
+      ? `${seasons || "?"} seasons \u00b7 ${episodes || "?"} episodes`
+      : null;
   const watchHistory = movie.watchHistory;
 
   const getStatusInfo = () => {
@@ -53,7 +60,7 @@ export default function MovieHeader({ movie, omdb, tmdb }) {
             </h1>
             <p className="text-ios-body text-ios-secondary-label mb-2">
               {year}
-              {runtime && ` • ${runtime}`}
+              {(tvMeta || runtime) && ` • ${tvMeta || runtime}`}
             </p>
 
             {/* Ratings */}

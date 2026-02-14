@@ -36,6 +36,11 @@ export default function MoviePosterCard({ movie, onClick }) {
       title={title}
     >
       <div className="relative flex aspect-[2/3] items-center justify-center bg-[linear-gradient(180deg,#1a1a1a,#101010)]">
+        {movie.mediaType === "tv" && (
+          <span className="absolute left-2 top-2 z-[1] rounded-md bg-[rgba(10,132,255,0.92)] px-1.5 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.05em] text-white">
+            TV
+          </span>
+        )}
         {posterSrc ? (
           <img
             src={posterSrc}

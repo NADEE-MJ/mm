@@ -66,15 +66,7 @@ export default function MovieDetailPanel({ imdbId, onClose }) {
     setRatingPrompt(null);
   };
 
-  const handleAddUpvote = async (person) => {
-    if (!movie) {
-      return;
-    }
-    await addRecommendation(movie.imdbId, person, movie.tmdbData, movie.omdbData, VOTE_TYPE.UPVOTE);
-    setShowAddUpvote(false);
-  };
-
-  const handleAddDownvote = async (person) => {
+  const handleAddVote = async (person, voteType, closeModal) => {
     if (!movie) {
       return;
     }
@@ -83,9 +75,18 @@ export default function MovieDetailPanel({ imdbId, onClose }) {
       person,
       movie.tmdbData,
       movie.omdbData,
-      VOTE_TYPE.DOWNVOTE,
+      voteType,
+      movie.mediaType || "movie",
     );
-    setShowAddDownvote(false);
+    closeModal(false);
+  };
+
+  const handleAddUpvote = async (person) => {
+    await handleAddVote(person, VOTE_TYPE.UPVOTE, setShowAddUpvote);
+  };
+
+  const handleAddDownvote = async (person) => {
+    await handleAddVote(person, VOTE_TYPE.DOWNVOTE, setShowAddDownvote);
   };
 
   if (!imdbId) {

@@ -11,6 +11,7 @@ const MoviesContext = createContext();
 function normalizeMovie(serverMovie) {
   return {
     imdbId: serverMovie.imdb_id,
+    mediaType: serverMovie.media_type || serverMovie.tmdb_data?.mediaType || "movie",
     tmdbData: serverMovie.tmdb_data || null,
     omdbData: serverMovie.omdb_data || null,
     lastModified: (serverMovie.last_modified || 0) * 1000,
@@ -29,6 +30,10 @@ function normalizeMovie(serverMovie) {
         }
       : null,
   };
+}
+
+function getErrorMessage(err, fallback) {
+  return err?.message || fallback;
 }
 
 export function MoviesProvider({ children }) {
@@ -50,7 +55,7 @@ export function MoviesProvider({ children }) {
       setError(null);
     } catch (err) {
       console.error("Error loading movies:", err);
-      setError(err.message);
+      setError(getErrorMessage(err, "Failed to load movies"));
     } finally {
       setLoading(false);
     }
@@ -76,12 +81,23 @@ export function MoviesProvider({ children }) {
     };
   }, [loadMovies]);
 
-  const updateMovie = useCallback(async () => {
+  const refreshMovies = useCallback(async () => {
     await loadMovies();
   }, [loadMovies]);
 
+  const updateMovie = useCallback(async () => {
+    await refreshMovies();
+  }, [refreshMovies]);
+
   const addRecommendation = useCallback(
-    async (imdbId, person, tmdbData = null, omdbData = null, voteType = "upvote") => {
+    async (
+      imdbId,
+      person,
+      tmdbData = null,
+      omdbData = null,
+      voteType = "upvote",
+      mediaType = "movie",
+    ) => {
       await api.addRecommendation(
         imdbId,
         person,
@@ -89,34 +105,35 @@ export function MoviesProvider({ children }) {
         voteType,
         tmdbData,
         omdbData,
+        mediaType,
       );
-      await loadMovies();
+      await refreshMovies();
     },
-    [loadMovies],
+    [refreshMovies],
   );
 
   const removeRecommendation = useCallback(
     async (imdbId, person) => {
       await api.removeRecommendation(imdbId, person);
-      await loadMovies();
+      await refreshMovies();
     },
-    [loadMovies],
+    [refreshMovies],
   );
 
   const markWatched = useCallback(
     async (imdbId, rating) => {
       await api.markWatched(imdbId, Date.now(), rating);
-      await loadMovies();
+      await refreshMovies();
     },
-    [loadMovies],
+    [refreshMovies],
   );
 
   const updateStatus = useCallback(
     async (imdbId, status) => {
       await api.updateMovieStatus(imdbId, status);
-      await loadMovies();
+      await refreshMovies();
     },
-    [loadMovies],
+    [refreshMovies],
   );
 
   const getMoviesByStatus = useCallback(
@@ -147,4 +164,3 @@ export function useMoviesContext() {
   }
   return context;
 }
-

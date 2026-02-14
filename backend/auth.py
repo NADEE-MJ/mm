@@ -10,7 +10,7 @@ from database import get_db
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from models import User
+from models import Person, User
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,33 @@ ADMIN_TOKEN = config.ADMIN_TOKEN
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_DAYS = 30
 ADMIN_TOKEN_EXPIRE_HOURS = 12
+
+QUICK_RECOMMENDERS = [
+    {
+        "key": "youtube",
+        "name": "Random YouTube Video",
+        "color": "#bf5af2",
+        "emoji": "📺",
+    },
+    {
+        "key": "oscar",
+        "name": "Oscar Winner/Nominee",
+        "color": "#ffd60a",
+        "emoji": "🏆",
+    },
+    {
+        "key": "random_person",
+        "name": "Random Person",
+        "color": "#30d158",
+        "emoji": "🤝",
+    },
+    {
+        "key": "google",
+        "name": "Google Search",
+        "color": "#64d2ff",
+        "emoji": "🔎",
+    },
+]
 
 # HTTP Bearer token
 security = HTTPBearer(auto_error=False)
@@ -150,7 +177,23 @@ def create_user(db: Session, user: UserCreate) -> User:
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+    seed_quick_recommenders(db, db_user.id)
     return db_user
+
+
+def seed_quick_recommenders(db: Session, user_id: str) -> None:
+    for rec in QUICK_RECOMMENDERS:
+        db.add(
+            Person(
+                name=rec["name"],
+                user_id=user_id,
+                is_trusted=False,
+                color=rec["color"],
+                emoji=rec["emoji"],
+                quick_key=rec["key"],
+            )
+        )
+    db.commit()
 
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:

@@ -5,23 +5,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import api from "../services/api";
-import { DEFAULT_RECOMMENDERS } from "../utils/constants";
 
-function mergeWithDefaults(serverPeople) {
-  const merged = [...(serverPeople || [])];
-  const existing = new Set(merged.map((person) => person.name));
-  for (const rec of DEFAULT_RECOMMENDERS) {
-    if (!existing.has(rec.name)) {
-      merged.push({
-        name: rec.name,
-        is_trusted: false,
-        is_default: true,
-        color: rec.color || "#0a84ff",
-        emoji: rec.emoji || null,
-      });
-    }
-  }
-  return merged;
+function getErrorMessage(err, fallback) {
+  return err?.message || fallback;
 }
 
 export function usePeople() {
@@ -32,31 +18,12 @@ export function usePeople() {
   const loadPeople = useCallback(async () => {
     try {
       setLoading(true);
-      let serverPeople = await api.getPeople();
-      const existing = new Set((serverPeople || []).map((person) => person.name));
-      const missingDefaults = DEFAULT_RECOMMENDERS.filter((rec) => !existing.has(rec.name));
-
-      if (missingDefaults.length > 0) {
-        await Promise.all(
-          missingDefaults.map((rec) =>
-            api
-              .addPerson(rec.name, {
-                isTrusted: false,
-                isDefault: true,
-                color: rec.color || "#0a84ff",
-                emoji: rec.emoji || null,
-              })
-              .catch(() => null),
-          ),
-        );
-        serverPeople = await api.getPeople();
-      }
-
-      setPeople(mergeWithDefaults(serverPeople));
+      const serverPeople = await api.getPeople();
+      setPeople(serverPeople || []);
       setError(null);
     } catch (err) {
       console.error("Error loading people:", err);
-      setError(err.message);
+      setError(getErrorMessage(err, "Failed to load people"));
     } finally {
       setLoading(false);
     }
@@ -79,35 +46,46 @@ export function usePeople() {
     };
   }, [loadPeople]);
 
-  const addPerson = async ({
-    name,
-    isTrusted = false,
-    color = "#0a84ff",
-    emoji = null,
-    isDefault = false,
-  }) => {
-    const trimmedName = name?.trim();
-    if (!trimmedName) {
-      throw new Error("Name is required");
-    }
-    await api.addPerson(trimmedName, { isTrusted, color, emoji, isDefault });
-    await loadPeople();
-  };
+  const addPerson = useCallback(
+    async ({
+      name,
+      isTrusted = false,
+      color = "#0a84ff",
+      emoji = null,
+    }) => {
+      const trimmedName = name?.trim();
+      if (!trimmedName) {
+        throw new Error("Name is required");
+      }
+      await api.addPerson(trimmedName, { isTrusted, color, emoji });
+      await loadPeople();
+    },
+    [loadPeople],
+  );
 
-  const updatePerson = async (name, updates = {}) => {
-    if (!name) {
-      throw new Error("Name is required");
-    }
-    await api.updatePerson(name, updates);
-    await loadPeople();
-  };
+  const updatePerson = useCallback(
+    async (name, updates = {}) => {
+      if (!name) {
+        throw new Error("Name is required");
+      }
+      await api.updatePerson(name, updates);
+      await loadPeople();
+    },
+    [loadPeople],
+  );
 
-  const updateTrust = async (name, isTrusted) => {
-    await updatePerson(name, { is_trusted: isTrusted });
-  };
+  const updateTrust = useCallback(
+    async (name, isTrusted) => {
+      await updatePerson(name, { is_trusted: isTrusted });
+    },
+    [updatePerson],
+  );
 
-  const getPeopleNames = () => people.map((person) => person.name);
-  const getTrustedPeople = () => people.filter((person) => person.is_trusted);
+  const getPeopleNames = useCallback(() => people.map((person) => person.name), [people]);
+  const getTrustedPeople = useCallback(
+    () => people.filter((person) => person.is_trusted),
+    [people],
+  );
 
   return {
     people,

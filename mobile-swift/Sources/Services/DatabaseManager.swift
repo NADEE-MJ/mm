@@ -24,6 +24,7 @@ final class DatabaseManager {
         let imdbId: String
         let title: String
         let posterPath: String?
+        let mediaType: String
         let status: String
         let myRating: Int?
         let dateWatched: String?
@@ -32,6 +33,7 @@ final class DatabaseManager {
 
         enum CodingKeys: String, CodingKey {
             case id, tmdbId = "tmdb_id", imdbId = "imdb_id", title, posterPath = "poster_path"
+            case mediaType = "media_type"
             case status, myRating = "my_rating", dateWatched = "date_watched"
             case cachedAt = "cached_at", jsonData = "json_data"
         }
@@ -55,6 +57,7 @@ final class DatabaseManager {
                     status: status,
                     myRating: myRating,
                     dateWatched: dateWatched,
+                    mediaType: mediaType,
                     recommendations: []
                 )
             }
@@ -77,6 +80,7 @@ final class DatabaseManager {
                 imdbId: movie.imdbId,
                 title: movie.title,
                 posterPath: movie.posterPath,
+                mediaType: movie.mediaType,
                 status: movie.status,
                 myRating: movie.myRating,
                 dateWatched: movie.dateWatched,
@@ -103,6 +107,7 @@ final class DatabaseManager {
             let status: String
             let myRating: Int?
             let dateWatched: String?
+            let mediaType: String
             let recommendations: [RecommendationSnapshot]
 
             init(movie: Movie) {
@@ -123,6 +128,7 @@ final class DatabaseManager {
                 status = movie.status
                 myRating = movie.myRating
                 dateWatched = movie.dateWatched
+                mediaType = movie.mediaType
                 recommendations = movie.recommendations.map {
                     RecommendationSnapshot(
                         recommender: $0.recommender,
@@ -151,6 +157,7 @@ final class DatabaseManager {
                     status: status,
                     myRating: myRating,
                     dateWatched: dateWatched,
+                    mediaType: mediaType,
                     recommendations: recommendations.map { $0.toRecommendation() }
                 )
             }
@@ -196,17 +203,30 @@ final class DatabaseManager {
         let name: String
         let isTrusted: Bool
         let movieCount: Int
+        let quickKey: String?
+        let color: String?
+        let emoji: String?
         let cachedAt: Date
 
         var id: String { name }
 
         enum CodingKeys: String, CodingKey {
             case name, isTrusted = "is_trusted", movieCount = "movie_count"
+            case quickKey = "quick_key"
+            case color
+            case emoji
             case cachedAt = "cached_at"
         }
 
         func toPerson() -> Person {
-            Person(name: name, isTrusted: isTrusted, movieCount: movieCount)
+            Person(
+                name: name,
+                isTrusted: isTrusted,
+                movieCount: movieCount,
+                color: color,
+                emoji: emoji,
+                quickKey: quickKey
+            )
         }
 
         static func from(_ person: Person) -> CachedPerson {
@@ -214,6 +234,9 @@ final class DatabaseManager {
                 name: person.name,
                 isTrusted: person.isTrusted,
                 movieCount: person.movieCount,
+                quickKey: person.quickKey,
+                color: person.color,
+                emoji: person.emoji,
                 cachedAt: .now
             )
         }
@@ -280,6 +303,7 @@ final class DatabaseManager {
                 t.column("imdb_id", .text).notNull().defaults(to: "")
                 t.column("title", .text).notNull()
                 t.column("poster_path", .text)
+                t.column("media_type", .text).notNull().defaults(to: "movie")
                 t.column("status", .text).notNull()
                 t.column("my_rating", .integer)
                 t.column("date_watched", .text)
@@ -334,12 +358,50 @@ final class DatabaseManager {
             }
         }
 
+        migrator.registerMigration("v3_people_quick_key_color_emoji") { db in
+            let columns = try db.columns(in: "people").map(\.name)
+            if !columns.contains("quick_key") {
+                try db.alter(table: "people") { t in
+                    t.add(column: "quick_key", .text)
+                }
+            }
+            if !columns.contains("color") {
+                try db.alter(table: "people") { t in
+                    t.add(column: "color", .text)
+                }
+            }
+            if !columns.contains("emoji") {
+                try db.alter(table: "people") { t in
+                    t.add(column: "emoji", .text)
+                }
+            }
+        }
+
+        migrator.registerMigration("addMediaTypeToMovies") { db in
+            let columns = try db.columns(in: "movies").map(\.name)
+            if !columns.contains("media_type") {
+                try db.alter(table: "movies") { t in
+                    t.add(column: "media_type", .text).notNull().defaults(to: "movie")
+                }
+            }
+            try db.execute(sql: "UPDATE movies SET media_type = 'movie' WHERE media_type IS NULL")
+        }
+
         try migrator.migrate(dbQueue)
     }
 
     // MARK: - Cache CRUD
 
-    func cacheMovie(id: Int, tmdbId: Int, title: String, posterPath: String?, status: String, myRating: Int?, dateWatched: String?) {
+    func cacheMovie(
+        id: Int,
+        tmdbId: Int,
+        title: String,
+        posterPath: String?,
+        status: String,
+        myRating: Int?,
+        dateWatched: String?,
+        mediaType: String = "movie"
+    ) {
         let movie = Movie(
             id: id,
             imdbId: String(id),
@@ -352,6 +414,7 @@ final class DatabaseManager {
             status: status,
             myRating: myRating,
             dateWatched: dateWatched,
+            mediaType: mediaType,
             recommendations: []
         )
         cacheMovie(movie)
@@ -384,11 +447,21 @@ final class DatabaseManager {
         }
     }
 
-    func cachePerson(name: String, isTrusted: Bool, movieCount: Int) {
+    func cachePerson(
+        name: String,
+        isTrusted: Bool,
+        movieCount: Int,
+        quickKey: String? = nil,
+        color: String? = nil,
+        emoji: String? = nil
+    ) {
         let person = CachedPerson(
             name: name,
             isTrusted: isTrusted,
             movieCount: movieCount,
+            quickKey: quickKey,
+            color: color,
+            emoji: emoji,
             cachedAt: .now
         )
         do {

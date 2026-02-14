@@ -34,10 +34,6 @@ function AddMovieModal({ onClose, onMovieAdded }) {
   const { addRecommendation } = useMoviesContext();
   const { people, getPeopleNames } = usePeople();
 
-  const handleAdd = async (...args) => {
-    await addRecommendation(...args);
-  };
-
   const handleClose = (imdbId) => {
     if (imdbId) {
       onMovieAdded(imdbId);
@@ -46,8 +42,13 @@ function AddMovieModal({ onClose, onMovieAdded }) {
   };
 
   return (
-    <Modal isOpen={true} onClose={() => handleClose(null)} title="Add Movie" maxWidth="860px">
-      <AddMovie onAdd={handleAdd} onClose={handleClose} people={people} peopleNames={getPeopleNames()} />
+    <Modal isOpen={true} onClose={() => handleClose(null)} title="Add Title" maxWidth="860px">
+      <AddMovie
+        onAdd={addRecommendation}
+        onClose={handleClose}
+        people={people}
+        peopleNames={getPeopleNames()}
+      />
     </Modal>
   );
 }
@@ -111,7 +112,10 @@ function UserAppContent() {
           path="/lists"
           element={<ListsPage movies={movies} onMovieClick={(movie) => setSelectedMovieId(movie.imdbId)} />}
         />
-        <Route path="/account" element={<AccountPage movies={movies} user={user} logout={logout} />} />
+        <Route
+          path="/account"
+          element={<AccountPage movies={movies} user={user} logout={logout} onRefresh={loadMovies} />}
+        />
       </Routes>
 
       {selectedMovieId && (

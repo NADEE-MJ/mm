@@ -1,4 +1,6 @@
 import SwiftUI
+import UniformTypeIdentifiers
+import UIKit
 
 // MARK: - Account Page
 
@@ -151,6 +153,20 @@ struct SettingsView: View {
     @AppStorage("haptics") private var haptics = true
     @AppStorage("faceIDEnabled") private var faceIDEnabled = true
     @State private var bioManager = BiometricAuthManager()
+    @State private var networkService = NetworkService.shared
+    @State private var repository = MovieRepository.shared
+    @State private var backupEnabled = false
+    @State private var backupSettingsLoaded = false
+    @State private var isLoadingBackupSettings = false
+    @State private var isUpdatingBackupSettings = false
+    @State private var isExportingBackup = false
+    @State private var isImportingBackup = false
+    @State private var showBackupImporter = false
+    @State private var showShareSheet = false
+    @State private var exportedBackupURL: URL?
+    @State private var showBackupAlert = false
+    @State private var backupAlertTitle = ""
+    @State private var backupAlertMessage = ""
 
     var body: some View {
         Form {
@@ -178,6 +194,41 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Data & Backup") {
+                Toggle("Auto-backup", isOn: $backupEnabled)
+                    .disabled(isLoadingBackupSettings || isUpdatingBackupSettings)
+                    .onChange(of: backupEnabled) { oldValue, newValue in
+                        guard backupSettingsLoaded, oldValue != newValue else { return }
+                        Task {
+                            await updateBackupSettings(newValue: newValue, oldValue: oldValue)
+                        }
+                    }
+
+                Text("Saves your library daily on the server (14 days retained)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button {
+                    Task { await exportBackup() }
+                } label: {
+                    Label(
+                        isExportingBackup ? "Exporting..." : "Export Library",
+                        systemImage: "square.and.arrow.up"
+                    )
+                }
+                .disabled(isExportingBackup)
+
+                Button {
+                    showBackupImporter = true
+                } label: {
+                    Label(
+                        isImportingBackup ? "Importing..." : "Import Library",
+                        systemImage: "square.and.arrow.down"
+                    )
+                }
+                .disabled(isImportingBackup)
+            }
+
             Section("About") {
                 LabeledContent("Version") { Text("1.0.0 (Build 26)").foregroundStyle(.secondary) }
                 LabeledContent("Platform") { Text("iOS 26").foregroundStyle(.secondary) }
@@ -185,7 +236,174 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .toolbarTitleDisplayMode(.inline)
+        .task {
+            await loadBackupSettings()
+        }
+        .fileImporter(
+            isPresented: $showBackupImporter,
+            allowedContentTypes: [UTType.json],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else {
+                if case .failure(let error) = result {
+                    presentBackupAlert(
+                        title: "Import Failed",
+                        message: error.localizedDescription
+                    )
+                }
+                return
+            }
+
+            Task {
+                await importBackup(from: url)
+            }
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let exportedBackupURL {
+                ActivityViewController(items: [exportedBackupURL])
+            }
+        }
+        .alert(backupAlertTitle, isPresented: $showBackupAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(backupAlertMessage)
+        }
     }
+
+    private func loadBackupSettings() async {
+        guard !backupSettingsLoaded else { return }
+        isLoadingBackupSettings = true
+        defer { isLoadingBackupSettings = false }
+
+        do {
+            let settings = try await networkService.getBackupSettings()
+            backupEnabled = settings.backupEnabled
+            backupSettingsLoaded = true
+        } catch {
+            backupSettingsLoaded = true
+            presentBackupAlert(
+                title: "Settings Unavailable",
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private func updateBackupSettings(newValue: Bool, oldValue: Bool) async {
+        isUpdatingBackupSettings = true
+        defer { isUpdatingBackupSettings = false }
+
+        do {
+            try await networkService.updateBackupSettings(enabled: newValue)
+        } catch {
+            backupEnabled = oldValue
+            presentBackupAlert(
+                title: "Update Failed",
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private func exportBackup() async {
+        isExportingBackup = true
+        defer { isExportingBackup = false }
+
+        do {
+            let data = try await networkService.exportBackup()
+            let fileURL = try writeBackupExportToTemporaryFile(data: data)
+            exportedBackupURL = fileURL
+            showShareSheet = true
+        } catch {
+            presentBackupAlert(
+                title: "Export Failed",
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private func writeBackupExportToTemporaryFile(data: Data) throws -> URL {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let dateString = formatter.string(from: Date())
+        let filename = "moviemanager-export-\(dateString).json"
+
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
+        try data.write(to: outputURL, options: .atomic)
+        return outputURL
+    }
+
+    private func importBackup(from url: URL) async {
+        isImportingBackup = true
+        defer { isImportingBackup = false }
+
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessed {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        do {
+            let data = try Data(contentsOf: url)
+            let rawObject = try JSONSerialization.jsonObject(with: data)
+            guard let payload = rawObject as? [String: Any] else {
+                throw NSError(
+                    domain: "BackupImport",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "The selected file is not a JSON object."]
+                )
+            }
+
+            let result = try await networkService.importBackup(payload)
+            if !result.success {
+                let message = result.errors.joined(separator: "; ")
+                throw NSError(
+                    domain: "BackupImport",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: message.isEmpty ? "Import failed." : message]
+                )
+            }
+            await repository.syncNow()
+
+            if !result.imdbIdsNeedingEnrichment.isEmpty {
+                for imdbId in result.imdbIdsNeedingEnrichment {
+                    _ = await networkService.refreshMovieMetadata(imdbId: imdbId)
+                }
+                await repository.syncNow()
+            }
+
+            let counts = result.importedCounts
+            var message = "Imported \(counts.movies) movies, \(counts.people) people, \(counts.lists) lists."
+            if !result.imdbIdsNeedingEnrichment.isEmpty {
+                message += " Refreshing movie data for \(result.imdbIdsNeedingEnrichment.count) items."
+            }
+            if !result.errors.isEmpty {
+                message += " Warnings: \(result.errors.joined(separator: "; "))"
+            }
+
+            presentBackupAlert(title: "Import Complete", message: message)
+        } catch {
+            presentBackupAlert(
+                title: "Import Failed",
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    private func presentBackupAlert(title: String, message: String) {
+        backupAlertTitle = title
+        backupAlertMessage = message
+        showBackupAlert = true
+    }
+}
+
+private struct ActivityViewController: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - Developer Tools View

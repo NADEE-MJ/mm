@@ -7,6 +7,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getAuthToken } from "../contexts/AuthContext";
 
 const WS_RECONNECT_DELAY = 5000;
+const SYNC_EVENT_TYPES = new Set([
+  "movieAdded",
+  "movieUpdated",
+  "movieDeleted",
+  "peopleUpdated",
+  "listUpdated",
+]);
 
 function buildWebSocketUrl(token) {
   const base = (import.meta.env.VITE_API_URL || window.location.origin).replace(/\/$/, "");
@@ -85,13 +92,7 @@ export function useSync() {
       try {
         const payload = JSON.parse(event.data);
         const eventType = payload?.type;
-        if (
-          eventType === "movieAdded" ||
-          eventType === "movieUpdated" ||
-          eventType === "movieDeleted" ||
-          eventType === "peopleUpdated" ||
-          eventType === "listUpdated"
-        ) {
+        if (SYNC_EVENT_TYPES.has(eventType)) {
           window.dispatchEvent(new CustomEvent("mm-sync-event", { detail: payload }));
           setSyncStatus((prev) => ({
             ...prev,
@@ -152,10 +153,7 @@ export function useSync() {
   }, [closeSocket, connectSocket, updateOnlineStatus]);
 
   const updateStatus = useCallback(async () => {
-    updateOnlineStatus();
-    setSyncStatus((prev) => ({
-      ...prev,
-      status: navigator.onLine ? "synced" : "offline",
+    const resetSyncState = {
       pending: 0,
       failed: 0,
       retrying: 0,
@@ -164,6 +162,12 @@ export function useSync() {
       isProcessing: false,
       isSyncingFromServer: false,
       queueItems: [],
+    };
+    updateOnlineStatus();
+    setSyncStatus((prev) => ({
+      ...prev,
+      status: navigator.onLine ? "synced" : "offline",
+      ...resetSyncState,
     }));
   }, [updateOnlineStatus]);
 

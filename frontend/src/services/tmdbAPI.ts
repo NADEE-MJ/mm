@@ -11,28 +11,21 @@ const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
  * Search for movies on TMDB via backend proxy
  */
 export async function searchMovies(query) {
-  try {
-    const results = await api.searchTMDB(query);
-    // Results are already formatted by the backend
-    return results;
-  } catch (error) {
-    console.error('Error searching TMDB:', error);
-    throw error;
-  }
+  return api.searchTMDB(query);
 }
 
 /**
  * Get movie details from TMDB by ID via backend proxy
  */
 export async function getMovieDetails(tmdbId) {
-  try {
-    const movie = await api.getTMDBMovieDetails(tmdbId);
-    // Movie details are already formatted by the backend
-    return movie;
-  } catch (error) {
-    console.error('Error getting TMDB movie details:', error);
-    throw error;
-  }
+  return api.getTMDBMovieDetails(tmdbId);
+}
+
+/**
+ * Get TV show details from TMDB by ID via backend proxy
+ */
+export async function getTVDetails(tmdbId) {
+  return api.getTMDBTVDetails(tmdbId);
 }
 
 /**

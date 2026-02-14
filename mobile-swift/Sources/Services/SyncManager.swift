@@ -45,7 +45,7 @@ final class SyncManager {
 
             databaseManager.incrementRetryCount(id: operation.id)
 
-            if isLikelyNetworkError(networkService.lastError) {
+            if NetworkErrorHeuristics.isLikelyConnectivityIssue(networkService.lastError) {
                 break
             }
         }
@@ -70,25 +70,29 @@ final class SyncManager {
     }
 
     private func processOperation(_ operation: DatabaseManager.PendingOperation) async -> Bool {
-        guard let payloadData = operation.payload.data(using: .utf8) else {
-            return false
-        }
-
         switch operation.type {
         case PendingOperationType.addMovie:
-            guard let payload = try? JSONDecoder().decode(AddMovieOperationPayload.self, from: payloadData) else {
+            guard let payload: AddMovieOperationPayload = decodePayload(from: operation) else {
                 return false
             }
-            return await networkService.addMovie(tmdbId: payload.tmdbId, recommender: payload.recommender)
+            return await networkService.addMovie(
+                tmdbId: payload.tmdbId,
+                recommender: payload.recommender,
+                mediaType: payload.mediaType
+            )
 
         case PendingOperationType.addMovieBulk:
-            guard let payload = try? JSONDecoder().decode(AddMovieBulkOperationPayload.self, from: payloadData) else {
+            guard let payload: AddMovieBulkOperationPayload = decodePayload(from: operation) else {
                 return false
             }
-            return await networkService.addMovieBulk(tmdbId: payload.tmdbId, recommenders: payload.recommenders)
+            return await networkService.addMovieBulk(
+                tmdbId: payload.tmdbId,
+                recommenders: payload.recommenders,
+                mediaType: payload.mediaType
+            )
 
         case PendingOperationType.addRecommendation:
-            guard let payload = try? JSONDecoder().decode(AddRecommendationOperationPayload.self, from: payloadData) else {
+            guard let payload: AddRecommendationOperationPayload = decodePayload(from: operation) else {
                 return false
             }
             return await networkService.addRecommendation(
@@ -98,13 +102,13 @@ final class SyncManager {
             )
 
         case PendingOperationType.removeRecommendation:
-            guard let payload = try? JSONDecoder().decode(RemoveRecommendationOperationPayload.self, from: payloadData) else {
+            guard let payload: RemoveRecommendationOperationPayload = decodePayload(from: operation) else {
                 return false
             }
             return await networkService.removeRecommendation(imdbId: payload.imdbId, person: payload.recommender)
 
         case PendingOperationType.updateMovie:
-            guard let payload = try? JSONDecoder().decode(UpdateMovieOperationPayload.self, from: payloadData) else {
+            guard let payload: UpdateMovieOperationPayload = decodePayload(from: operation) else {
                 return false
             }
 
@@ -113,7 +117,7 @@ final class SyncManager {
             return networkService.lastError == nil
 
         case PendingOperationType.updatePerson:
-            guard let payload = try? JSONDecoder().decode(UpdatePersonOperationPayload.self, from: payloadData) else {
+            guard let payload: UpdatePersonOperationPayload = decodePayload(from: operation) else {
                 return false
             }
 
@@ -123,6 +127,13 @@ final class SyncManager {
         default:
             return false
         }
+    }
+
+    private func decodePayload<T: Decodable>(from operation: DatabaseManager.PendingOperation) -> T? {
+        guard let payloadData = operation.payload.data(using: .utf8) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(T.self, from: payloadData)
     }
 
     private func placeholderMovie(imdbId: String, status: String?) -> Movie {
@@ -142,6 +153,7 @@ final class SyncManager {
             status: status ?? "to_watch",
             myRating: nil,
             dateWatched: nil,
+            mediaType: "movie",
             recommendations: []
         )
     }
@@ -150,22 +162,4 @@ final class SyncManager {
         pendingCount = databaseManager.pendingOperationsCount + databaseManager.pendingMoviesCount
     }
 
-    private func isLikelyNetworkError(_ error: String?) -> Bool {
-        guard let error else { return false }
-        let text = error.lowercased()
-        let markers = [
-            "offline",
-            "internet",
-            "not connected",
-            "cannot connect",
-            "could not connect",
-            "connection",
-            "timed out",
-            "host",
-            "dns",
-            "network",
-            "socket"
-        ]
-        return markers.contains { text.contains($0) }
-    }
 }

@@ -46,6 +46,7 @@ async def get_people(
             "is_trusted": person.is_trusted,
             "color": person.color,
             "emoji": person.emoji,
+            "quick_key": person.quick_key,
             "last_modified": person.last_modified,
             "movie_count": movie_count,
         }
@@ -77,6 +78,7 @@ async def add_person(
         is_trusted=person.is_trusted,
         color=person.color or "#0a84ff",
         emoji=person.emoji,
+        quick_key=person.quick_key,
     )
     db.add(db_person)
     db.commit()
@@ -129,6 +131,11 @@ async def delete_person(
     if not person:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Person not found"
+        )
+    if person.quick_key is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Quick recommenders cannot be deleted",
         )
     db.delete(person)
     db.commit()
@@ -191,4 +198,5 @@ async def get_person_stats(
         "movies": [serialize_movie(movie) for movie in movies],
         "color": person.color,
         "emoji": person.emoji,
+        "quick_key": person.quick_key,
     }

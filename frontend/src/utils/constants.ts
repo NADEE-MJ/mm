@@ -23,20 +23,18 @@ export const VOTE_TYPE = {
   DOWNVOTE: "downvote",
 };
 
+export const MEDIA_TYPE = {
+  MOVIE: "movie",
+  TV: "tv",
+  PERSON: "person",
+};
+
 export const API_LIMITS = {
   TMDB_RATE_LIMIT: 40, // 40 requests per second
   OMDB_DAILY_LIMIT: 1000, // 1000 requests per day
 };
 
 export const POSTER_PLACEHOLDER = "/poster-placeholder.svg";
-
-// Default recommender options
-export const DEFAULT_RECOMMENDERS = [
-  { name: "Random YouTube Video", isDefault: true, color: "#bf5af2", emoji: "📺" },
-  { name: "Oscar Winner/Nominee", isDefault: true, color: "#ffd60a", emoji: "🏆" },
-  { name: "Random Person", isDefault: true, color: "#30d158", emoji: "🤝" },
-  { name: "Google Search", isDefault: true, color: "#64d2ff", emoji: "🔎" },
-];
 
 // iOS Design tokens
 export const IOS_COLORS = {

@@ -16,7 +16,11 @@ from app.schemas.movies import (
     WatchHistoryCreate,
     WatchHistoryResponse,
 )
-from app.services.external_apis import get_omdb_movie, get_tmdb_movie_details
+from app.services.external_apis import (
+    get_omdb_movie,
+    get_tmdb_movie_details,
+    get_tmdb_tv_details,
+)
 from app.services.movies import (
     get_or_create_movie,
     get_or_create_movie_with_state,
@@ -99,7 +103,12 @@ async def add_recommendation(
 ):
     """Add a recommendation for a movie."""
     movie, created = get_or_create_movie_with_state(
-        db, user.id, imdb_id, recommendation.tmdb_data, recommendation.omdb_data
+        db,
+        user.id,
+        imdb_id,
+        recommendation.tmdb_data,
+        recommendation.omdb_data,
+        recommendation.media_type or "movie",
     )
     person, created_person = _resolve_person(
         db,
@@ -163,7 +172,12 @@ async def add_bulk_recommendations(
 ):
     """Add multiple recommendations for a movie at once."""
     movie, created = get_or_create_movie_with_state(
-        db, user.id, imdb_id, bulk_recommendation.tmdb_data, bulk_recommendation.omdb_data
+        db,
+        user.id,
+        imdb_id,
+        bulk_recommendation.tmdb_data,
+        bulk_recommendation.omdb_data,
+        bulk_recommendation.media_type or "movie",
     )
 
     recommendations = []
@@ -437,7 +451,14 @@ async def refresh_movie_metadata(
     tmdb_payload = json.loads(movie.tmdb_data) if movie.tmdb_data else {}
     tmdb_id = tmdb_payload.get("tmdbId") or tmdb_payload.get("id")
     if tmdb_id:
-        tmdb_data = await get_tmdb_movie_details(int(tmdb_id), force_refresh=True)
+        is_tv = (movie.media_type or "").strip().lower() == "tv"
+        if not is_tv:
+            is_tv = str(tmdb_payload.get("mediaType") or "").strip().lower() == "tv"
+
+        if is_tv:
+            tmdb_data = await get_tmdb_tv_details(int(tmdb_id), force_refresh=True)
+        else:
+            tmdb_data = await get_tmdb_movie_details(int(tmdb_id), force_refresh=True)
         movie.tmdb_data = json.dumps(tmdb_data)
         updated_tmdb = True
 

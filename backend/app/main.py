@@ -227,6 +227,8 @@ def ensure_additive_schema() -> None:
                 conn.exec_driver_sql("UPDATE people SET color = '#0a84ff' WHERE color IS NULL")
             if "emoji" not in people_columns:
                 conn.exec_driver_sql("ALTER TABLE people ADD COLUMN emoji VARCHAR")
+            if "quick_key" not in people_columns:
+                conn.exec_driver_sql("ALTER TABLE people ADD COLUMN quick_key VARCHAR")
             if "last_modified" not in people_columns:
                 conn.exec_driver_sql("ALTER TABLE people ADD COLUMN last_modified FLOAT")
                 conn.exec_driver_sql(
@@ -260,6 +262,14 @@ def ensure_additive_schema() -> None:
                 )
 
         if table_exists("movies"):
+            movie_columns = columns_for("movies")
+            if "media_type" not in movie_columns:
+                conn.exec_driver_sql(
+                    "ALTER TABLE movies ADD COLUMN media_type VARCHAR DEFAULT 'movie'"
+                )
+                conn.exec_driver_sql(
+                    "UPDATE movies SET media_type = 'movie' WHERE media_type IS NULL"
+                )
             conn.exec_driver_sql(
                 "CREATE INDEX IF NOT EXISTS ix_movies_user_last_modified ON movies(user_id, last_modified)"
             )
@@ -267,6 +277,15 @@ def ensure_additive_schema() -> None:
             conn.exec_driver_sql(
                 "CREATE INDEX IF NOT EXISTS ix_movie_status_user_custom_list ON movie_status(user_id, custom_list_id)"
             )
+        if table_exists("users"):
+            user_columns = columns_for("users")
+            if "backup_enabled" not in user_columns:
+                conn.exec_driver_sql(
+                    "ALTER TABLE users ADD COLUMN backup_enabled BOOLEAN DEFAULT 0"
+                )
+                conn.exec_driver_sql(
+                    "UPDATE users SET backup_enabled = 0 WHERE backup_enabled IS NULL"
+                )
 
 
 def create_app() -> FastAPI:
@@ -318,7 +337,7 @@ def register_lifecycle_handlers(app: FastAPI) -> None:
         async def _run_backups() -> None:
             db = SessionLocal()
             try:
-                await backup_manager.run_daily_backups(db)
+                await backup_manager.run_scheduled_backups(db)
             finally:
                 db.close()
 

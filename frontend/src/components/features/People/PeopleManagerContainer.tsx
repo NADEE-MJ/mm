@@ -16,59 +16,21 @@ import {
   X,
 } from "lucide-react";
 import { usePeople } from "../../../hooks/usePeople";
-import { DEFAULT_RECOMMENDERS, IOS_COLORS } from "../../../utils/constants";
+import { IOS_COLORS } from "../../../utils/constants";
+import { buildPeopleWithStats, getPeopleMetaCounts } from "../../../utils/people";
 
 export default function PeopleManagerContainer({ movies, onAddPerson, onPersonSelect }) {
   const { people } = usePeople();
   const [filter, setFilter] = useState("people");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const colorCounts = useMemo(() => {
-    return people.reduce((acc, person) => {
-      const key = person.color || "default";
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-  }, [people]);
-
-  const emojiCounts = useMemo(() => {
-    return people.reduce((acc, person) => {
-      const key = person.emoji || "none";
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {});
-  }, [people]);
+  const { color: colorCounts, emoji: emojiCounts } = useMemo(
+    () => getPeopleMetaCounts(people),
+    [people],
+  );
 
   // Calculate recommendation stats
-  const peopleWithStats = useMemo(() => {
-    return people
-      .map((person) => {
-        const recommendations = movies.filter((movie) =>
-          movie.recommendations?.some((rec) => rec.person === person.name),
-        );
-
-        const toWatch = recommendations.filter((m) => m.status === "toWatch").length;
-        const watched = recommendations.filter((m) => m.status === "watched").length;
-        const ratedMovies = recommendations.filter((m) => m.watchHistory?.myRating);
-        const avgRating =
-          ratedMovies.length > 0
-            ? ratedMovies.reduce((acc, m) => acc + m.watchHistory.myRating, 0) / ratedMovies.length
-            : null;
-
-        const isDefault = DEFAULT_RECOMMENDERS.some((d) => d.name === person.name);
-
-        return {
-          ...person,
-          totalRecommendations: recommendations.length,
-          toWatch,
-          watched,
-          avgRating,
-          movies: recommendations,
-          isDefault,
-        };
-      })
-      .sort((a, b) => b.totalRecommendations - a.totalRecommendations);
-  }, [people, movies]);
+  const peopleWithStats = useMemo(() => buildPeopleWithStats(people, movies), [people, movies]);
 
   const filteredPeople = peopleWithStats.filter((person) => {
     if (filter === "trusted") return person.is_trusted;

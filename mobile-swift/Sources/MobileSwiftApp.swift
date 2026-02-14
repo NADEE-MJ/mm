@@ -60,10 +60,18 @@ struct MobileSwiftApp: App {
                 guard didCompleteInitialAuthCheck else { return }
                 if !isAuthenticated {
                     wsManager.disconnect()
+                    repository.handleLogoutCleanup()
                     return
                 }
-                guard scenePhase == .active else { return }
-                updateWebSocketConnection(reason: "auth-changed")
+
+                Task {
+                    await repository.performInitialSyncIfNeeded()
+                    await repository.syncNow()
+                }
+
+                if scenePhase == .active {
+                    updateWebSocketConnection(reason: "auth-changed")
+                }
             }
         }
     }

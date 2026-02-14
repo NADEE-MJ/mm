@@ -21,6 +21,33 @@ class APIClient {
     return {};
   }
 
+  async parseJsonResponse(response) {
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      return null;
+    }
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  handleUnauthorized(response) {
+    if (response.status !== 401) {
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("auth-error", { detail: { status: 401 } }));
+    throw new Error("Authentication required");
+  }
+
+  handleNetworkError(error) {
+    if (error?.name === "TypeError" && error?.message === "Failed to fetch") {
+      throw new Error("Network error - backend may be offline");
+    }
+    throw error;
+  }
+
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
     const config = {
@@ -40,25 +67,16 @@ class APIClient {
         return null;
       }
 
-      // Handle 401 Unauthorized
-      if (response.status === 401) {
-        // Dispatch event for auth context to handle
-        window.dispatchEvent(new CustomEvent("auth-error", { detail: { status: 401 } }));
-        throw new Error("Authentication required");
-      }
-
-      const data = await response.json();
+      this.handleUnauthorized(response);
+      const data = await this.parseJsonResponse(response);
 
       if (!response.ok) {
-        throw new Error(data.detail || `HTTP error! status: ${response.status}`);
+        throw new Error(data?.detail || `HTTP error! status: ${response.status}`);
       }
 
       return data;
     } catch (error) {
-      if (error.name === "TypeError" && error.message === "Failed to fetch") {
-        throw new Error("Network error - backend may be offline");
-      }
-      throw error;
+      this.handleNetworkError(error);
     }
   }
 
@@ -79,6 +97,7 @@ class APIClient {
     voteType = "upvote",
     tmdbData = null,
     omdbData = null,
+    mediaType = "movie",
   ) {
     return this.request(`/api/movies/${imdbId}/recommendations`, {
       method: "POST",
@@ -88,6 +107,7 @@ class APIClient {
         vote_type: voteType,
         tmdb_data: tmdbData,
         omdb_data: omdbData,
+        media_type: mediaType,
       }),
     });
   }
@@ -146,14 +166,13 @@ class APIClient {
 
   async addPerson(
     name,
-    { isTrusted = false, color = "#0a84ff", emoji = null, isDefault = false } = {},
+    { isTrusted = false, color = "#0a84ff", emoji = null } = {},
   ) {
     return this.request("/api/people", {
       method: "POST",
       body: JSON.stringify({
         name,
         is_trusted: isTrusted,
-        is_default: isDefault,
         color,
         emoji,
       }),
@@ -181,12 +200,65 @@ class APIClient {
     return this.request(`/api/external/tmdb/movie/${tmdbId}`);
   }
 
+  async getTMDBTVDetails(tmdbId) {
+    return this.request(`/api/external/tmdb/tv/${tmdbId}`);
+  }
+
   async getOMDBMovie(imdbId) {
     return this.request(`/api/external/omdb/movie/${imdbId}`);
   }
 
   async getExternalCacheInfo() {
     return this.request("/api/external/cache/info");
+  }
+
+  // Backup endpoints
+  async exportBackup() {
+    const url = `${this.baseURL}/api/backup/export`;
+
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          ...this.getAuthHeaders(),
+        },
+      });
+
+      this.handleUnauthorized(response);
+
+      if (!response.ok) {
+        let detail = `HTTP error! status: ${response.status}`;
+        const data = await this.parseJsonResponse(response);
+        detail = data?.detail || detail;
+        throw new Error(detail);
+      }
+
+      return response.blob();
+    } catch (error) {
+      this.handleNetworkError(error);
+    }
+  }
+
+  async importBackup(data) {
+    return this.request("/api/backup/import", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getBackupSettings() {
+    return this.request("/api/backup/settings");
+  }
+
+  async updateBackupSettings(enabled) {
+    return this.request("/api/backup/settings", {
+      method: "PUT",
+      body: JSON.stringify({ backup_enabled: enabled }),
+    });
+  }
+
+  async listBackups() {
+    return this.request("/api/backup/list");
   }
 }
 

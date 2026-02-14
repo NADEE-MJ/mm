@@ -16,6 +16,7 @@ class RecommendationCreate(BaseModel):
     vote_type: bool | str = True
     tmdb_data: Optional[dict] = None
     omdb_data: Optional[dict] = None
+    media_type: Optional[str] = "movie"
 
     @field_validator("vote_type", mode="before")
     @classmethod
@@ -35,6 +36,7 @@ class BulkRecommendationCreate(BaseModel):
     vote_type: bool | str = True
     tmdb_data: Optional[dict] = None
     omdb_data: Optional[dict] = None
+    media_type: Optional[str] = "movie"
 
     @field_validator("vote_type", mode="before")
     @classmethod
@@ -89,6 +91,7 @@ class MovieResponse(BaseModel):
     user_id: Optional[str] = None
     tmdb_data: Optional[dict] = None
     omdb_data: Optional[dict] = None
+    media_type: Optional[str] = "movie"
     last_modified: float
     status: Optional[str] = None
     recommendations: List[RecommendationResponse] = Field(default_factory=list)

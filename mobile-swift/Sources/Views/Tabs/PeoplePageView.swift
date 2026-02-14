@@ -8,6 +8,7 @@ struct PeoplePageView: View {
     enum TrustedFilter: String, CaseIterable {
         case all = "All"
         case trusted = "Trusted"
+        case quick = "Quick"
     }
 
     enum SortOption: String, CaseIterable, Identifiable {
@@ -34,8 +35,13 @@ struct PeoplePageView: View {
             result = result.filter { $0.name.localizedCaseInsensitiveContains(trimmedQuery) }
         }
 
-        if filter == .trusted {
+        switch filter {
+        case .all:
+            break
+        case .trusted:
             result = result.filter { $0.isTrusted }
+        case .quick:
+            result = result.filter { $0.isQuick }
         }
 
         return sortedPeople(result)
@@ -43,6 +49,10 @@ struct PeoplePageView: View {
 
     private var trustedCount: Int {
         people.filter(\.isTrusted).count
+    }
+
+    private var quickCount: Int {
+        people.filter(\.isQuick).count
     }
 
     var body: some View {
@@ -165,7 +175,8 @@ struct PeoplePageView: View {
                     sortBy: $sortBy,
                     filter: $filter,
                     totalPeopleCount: people.count,
-                    trustedCount: trustedCount
+                    trustedCount: trustedCount,
+                    quickCount: quickCount
                 )
                 .presentationDetents([.large])
             }
@@ -214,6 +225,7 @@ private struct PeopleFilterSortSheet: View {
     @Binding var filter: PeoplePageView.TrustedFilter
     let totalPeopleCount: Int
     let trustedCount: Int
+    let quickCount: Int
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -232,6 +244,7 @@ private struct PeopleFilterSortSheet: View {
                     Picker("People", selection: $filter) {
                         Text("All (\(totalPeopleCount))").tag(PeoplePageView.TrustedFilter.all)
                         Text("Trusted (\(trustedCount))").tag(PeoplePageView.TrustedFilter.trusted)
+                        Text("Quick (\(quickCount))").tag(PeoplePageView.TrustedFilter.quick)
                     }
                     .pickerStyle(.inline)
                 }
@@ -287,10 +300,17 @@ private struct PersonRow: View {
 
             Spacer()
 
-            if person.isTrusted {
-                Label("Trusted", systemImage: "star.fill")
-                    .font(.caption)
-                    .foregroundStyle(.yellow)
+            HStack(spacing: 8) {
+                if person.isQuick {
+                    Image(systemName: "bolt.fill")
+                        .foregroundColor(.purple)
+                        .font(.caption)
+                }
+                if person.isTrusted {
+                    Label("Trusted", systemImage: "star.fill")
+                        .font(.caption)
+                        .foregroundStyle(.yellow)
+                }
             }
         }
         .padding(.vertical, 2)

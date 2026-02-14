@@ -5,11 +5,16 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronLeft, Loader2 } from "lucide-react";
-import { searchMovies as searchTMDB, getMovieDetails } from "../../../services/tmdbAPI";
+import { searchMovies as searchTMDB, getMovieDetails, getTVDetails } from "../../../services/tmdbAPI";
 import { getMovieByImdbId } from "../../../services/omdbAPI";
-import { DEFAULT_RECOMMENDERS } from "../../../utils/constants";
 import SearchStep from "./SearchStep";
 import RecommenderStep from "./RecommenderStep";
+
+const DEFAULT_PERSON_COLOR = "#0a84ff";
+
+function normalizeErrorMessage(err, fallback = "An unexpected error occurred") {
+  return err?.message || fallback;
+}
 
 export default function AddMovieContainer({ onAdd, onClose, people = [], peopleNames = [] }) {
   const [query, setQuery] = useState("");
@@ -29,11 +34,11 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
     () =>
       people.length
         ? people
-        : peopleNames.map((name) => ({ name, color: "#0a84ff", emoji: null, is_default: false })),
+        : peopleNames.map((name) => ({ name, color: DEFAULT_PERSON_COLOR, emoji: null, quick_key: null })),
     [people, peopleNames],
   );
 
-  // Combine default recommenders with user's people
+  // De-duplicate recommenders by name while preserving server data.
   const allRecommenders = useMemo(() => {
     const map = new Map();
     const register = (option) => {
@@ -44,21 +49,12 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
       }
     };
 
-    DEFAULT_RECOMMENDERS.forEach((rec) =>
-      register({
-        name: rec.name,
-        color: rec.color || "#0a84ff",
-        emoji: rec.emoji || "🎬",
-        isDefault: true,
-      }),
-    );
-
     userPeople.forEach((person) =>
       register({
         name: person.name,
-        color: person.color || "#0a84ff",
+        color: person.color || DEFAULT_PERSON_COLOR,
         emoji: person.emoji,
-        isDefault: person.is_default ?? false,
+        isDefault: !!person.quick_key,
       }),
     );
 
@@ -80,34 +76,40 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
 
   const handleSearch = async (e) => {
     e?.preventDefault();
-    if (!query.trim()) return;
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const results = await searchTMDB(query);
+      const results = await searchTMDB(trimmedQuery);
       setSearchResults(results);
       if (results.length === 0) {
-        setError("No movies found. Try a different search term.");
+        setError("No results found. Try a different search term.");
       }
     } catch (err) {
-      setError(err.message);
+      setError(normalizeErrorMessage(err, "Search failed"));
     } finally {
       setLoading(false);
     }
   };
 
   const handleSelectMovie = async (movie) => {
+    if (movie.mediaType === "person") {
+      setError("Select a movie or TV show to add.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const tmdbDetails = await getMovieDetails(movie.id);
+      const loadDetails = movie.mediaType === "tv" ? getTVDetails : getMovieDetails;
+      const tmdbDetails = await loadDetails(movie.id);
 
       if (!tmdbDetails.imdbId) {
-        setError("No IMDb ID found for this movie. Cannot add.");
-        setLoading(false);
+        setError("No IMDb ID found for this title. Cannot add.");
         return;
       }
 
@@ -120,11 +122,12 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
 
       setSelectedMovie({
         imdbId: tmdbDetails.imdbId,
+        mediaType: movie.mediaType || tmdbDetails.mediaType || "movie",
         tmdbData: tmdbDetails,
         omdbData: omdbDetails,
       });
     } catch (err) {
-      setError(err.message);
+      setError(normalizeErrorMessage(err, "Failed to load title details"));
     } finally {
       setLoading(false);
     }
@@ -137,8 +140,9 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
   };
 
   const addCustomRecommender = () => {
-    if (customRecommender.trim() && !selectedRecommenders.includes(customRecommender.trim())) {
-      setSelectedRecommenders((prev) => [...prev, customRecommender.trim()]);
+    const trimmedName = customRecommender.trim();
+    if (trimmedName && !selectedRecommenders.includes(trimmedName)) {
+      setSelectedRecommenders((prev) => [...prev, trimmedName]);
       setCustomRecommender("");
       setShowRecommenderInput(false);
     }
@@ -151,38 +155,30 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
     setAddingMovie(true);
     setError(null);
     try {
-      // Add movie with all recommenders concurrently
-      const promises = selectedRecommenders.map((recommenderName) =>
+      const recommendationAdds = selectedRecommenders.map((recommenderName) =>
         onAdd(
           selectedMovie.imdbId,
           recommenderName,
           selectedMovie.tmdbData,
           selectedMovie.omdbData,
-        ).catch((err) => ({
-          error: true,
-          message: err.message,
-        })),
+          "upvote",
+          selectedMovie.mediaType || "movie",
+        ),
       );
-
-      const results = await Promise.all(promises);
-
-      // Check if any failed
-      const failedCount = results.filter((r) => r?.error).length;
+      const results = await Promise.allSettled(recommendationAdds);
+      const failedCount = results.filter((result) => result.status === "rejected").length;
       if (failedCount > 0) {
         const successCount = results.length - failedCount;
-        if (successCount > 0) {
-          setError(
-            `Added ${successCount} recommender(s), but ${failedCount} failed. Please try again for the failed ones.`,
-          );
-        } else {
-          setError(`Failed to add recommenders. Please try again.`);
-        }
+        setError(
+          successCount > 0
+            ? `Added ${successCount} recommender(s), but ${failedCount} failed. Please try again for the failed ones.`
+            : "Failed to add recommenders. Please try again.",
+        );
       } else {
-        // All recommenders added successfully
         onClose(selectedMovie.imdbId);
       }
     } catch (err) {
-      setError(`An unexpected error occurred: ${err.message}`);
+      setError(normalizeErrorMessage(err));
     } finally {
       setAddingMovie(false);
     }
@@ -252,7 +248,7 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
                 Adding...
               </span>
             ) : (
-              `Add Movie with ${selectedRecommenders.length} Recommender${selectedRecommenders.length !== 1 ? "s" : ""}`
+              `Add Title with ${selectedRecommenders.length} Recommender${selectedRecommenders.length !== 1 ? "s" : ""}`
             )}
           </button>
         </div>

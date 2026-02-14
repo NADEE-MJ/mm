@@ -16,6 +16,7 @@ def get_or_create_movie(
     imdb_id: str,
     tmdb_data: dict | None = None,
     omdb_data: dict | None = None,
+    media_type: str | None = None,
 ) -> Movie:
     """Fetch a movie for a user or insert the default record when missing."""
     movie, _ = get_or_create_movie_with_state(
@@ -24,6 +25,7 @@ def get_or_create_movie(
         imdb_id=imdb_id,
         tmdb_data=tmdb_data,
         omdb_data=omdb_data,
+        media_type=media_type,
     )
     return movie
 
@@ -34,6 +36,7 @@ def get_or_create_movie_with_state(
     imdb_id: str,
     tmdb_data: dict | None = None,
     omdb_data: dict | None = None,
+    media_type: str | None = None,
 ) -> Tuple[Movie, bool]:
     """Fetch a movie for a user or insert the default record when missing.
 
@@ -47,6 +50,12 @@ def get_or_create_movie_with_state(
     )
     if movie:
         updated = False
+        normalized_media_type = (
+            media_type if media_type in {"movie", "tv"} else None
+        )
+        if normalized_media_type and movie.media_type != normalized_media_type:
+            movie.media_type = normalized_media_type
+            updated = True
         if tmdb_data and not movie.tmdb_data:
             movie.tmdb_data = json.dumps(tmdb_data)
             updated = True
@@ -63,6 +72,7 @@ def get_or_create_movie_with_state(
         user_id=user_id,
         tmdb_data=json.dumps(tmdb_data) if tmdb_data else None,
         omdb_data=json.dumps(omdb_data) if omdb_data else None,
+        media_type=media_type if media_type in {"movie", "tv"} else "movie",
     )
     db.add(movie)
 
@@ -79,6 +89,7 @@ def serialize_movie(movie: Movie) -> dict:
         "user_id": movie.user_id,
         "tmdb_data": json.loads(movie.tmdb_data) if movie.tmdb_data else None,
         "omdb_data": json.loads(movie.omdb_data) if movie.omdb_data else None,
+        "media_type": movie.media_type or "movie",
         "last_modified": movie.last_modified,
         "status": movie.status.status if movie.status else None,
         "recommendations": [

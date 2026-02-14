@@ -15,7 +15,8 @@ from app.services.external_apis import (
     get_cache_info,
     get_omdb_movie,
     get_tmdb_movie_details,
-    search_tmdb_movies,
+    get_tmdb_tv_details,
+    search_tmdb_multi,
 )
 from auth import get_required_user
 from fastapi import APIRouter, Depends, Query
@@ -30,16 +31,16 @@ async def tmdb_search(
     year: int | None = Query(None, ge=1800, le=2100, description="Optional release year"),
     _user: User = Depends(get_required_user),
 ) -> list[dict[str, Any]]:
-    """Search for movies on TMDB.
+    """Search for movies, TV shows, and people on TMDB.
 
     Args:
         q: Search query string
         _user: Authenticated user (required)
 
     Returns:
-        List of movie search results
+        List of normalized multi-search results
     """
-    results = await search_tmdb_movies(q)
+    results = await search_tmdb_multi(q)
     if year is None:
         return results
     return [item for item in results if str(item.get("year")) == str(year)]
@@ -100,6 +101,15 @@ async def tmdb_movie_details(
         Movie details
     """
     return await get_tmdb_movie_details(tmdb_id)
+
+
+@router.get("/tmdb/tv/{tmdb_id}")
+async def tmdb_tv_details(
+    tmdb_id: int,
+    _user: User = Depends(get_required_user),
+) -> dict[str, Any]:
+    """Get TV show details from TMDB by ID."""
+    return await get_tmdb_tv_details(tmdb_id)
 
 
 @router.get("/omdb/movie/{imdb_id}")

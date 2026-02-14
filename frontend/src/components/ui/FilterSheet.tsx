@@ -1,5 +1,9 @@
 import { CheckCircle } from "lucide-react";
-import { MOVIE_STATUS } from "../../utils/constants";
+import {
+  MOVIE_SORT_LABELS,
+  getDefaultSortForStatus,
+  getSortOptionsForStatus,
+} from "../../utils/movies";
 import Modal from "./Modal";
 
 export default function FilterSheet({
@@ -7,6 +11,8 @@ export default function FilterSheet({
   onClose,
   sortBy,
   setSortBy,
+  mediaTypeFilter,
+  setMediaTypeFilter,
   filterRecommender,
   setFilterRecommender,
   filterGenre,
@@ -18,21 +24,7 @@ export default function FilterSheet({
   decades,
   status,
 }) {
-  const sortOptions =
-    status === MOVIE_STATUS.WATCHED
-      ? [
-          { value: "dateWatched", label: "Date Watched" },
-          { value: "myRating", label: "My Rating" },
-          { value: "imdbRating", label: "IMDb Rating" },
-          { value: "year", label: "Year" },
-          { value: "title", label: "Title" },
-        ]
-      : [
-          { value: "dateRecommended", label: "Date Added" },
-          { value: "imdbRating", label: "IMDb Rating" },
-          { value: "year", label: "Year" },
-          { value: "title", label: "Title" },
-        ];
+  const sortOptions = getSortOptionsForStatus(status);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Sort & Filter" maxWidth="640px">
@@ -41,16 +33,41 @@ export default function FilterSheet({
         <div>
           <label className="text-ios-label text-sm mb-3 block">Sort By</label>
           <div className="ios-list">
-            {sortOptions.map((opt) => (
+            {sortOptions.map((option) => (
               <button
-                key={opt.value}
-                onClick={() => setSortBy(opt.value)}
-                className={`ios-list-item ${sortBy === opt.value ? "active" : ""}`}
+                key={option}
+                onClick={() => setSortBy(option)}
+                className={`ios-list-item ${sortBy === option ? "active" : ""}`}
               >
-                <span>{opt.label}</span>
-                {sortBy === opt.value && <CheckCircle className="w-5 h-5 text-ios-blue" />}
+                <span>{MOVIE_SORT_LABELS[option]}</span>
+                {sortBy === option && <CheckCircle className="w-5 h-5 text-ios-blue" />}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Recommender Filter */}
+        <div>
+          <label className="text-ios-label text-sm mb-3 block">Type</label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setMediaTypeFilter("all")}
+              className={`ios-pill ${mediaTypeFilter === "all" ? "active" : ""}`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setMediaTypeFilter("movie")}
+              className={`ios-pill ${mediaTypeFilter === "movie" ? "active" : ""}`}
+            >
+              Movies
+            </button>
+            <button
+              onClick={() => setMediaTypeFilter("tv")}
+              className={`ios-pill ${mediaTypeFilter === "tv" ? "active" : ""}`}
+            >
+              TV
+            </button>
           </div>
         </div>
 
@@ -124,7 +141,8 @@ export default function FilterSheet({
         {/* Clear Filters */}
         <button
           onClick={() => {
-            setSortBy(status === MOVIE_STATUS.WATCHED ? "dateWatched" : "dateRecommended");
+            setSortBy(getDefaultSortForStatus(status));
+            setMediaTypeFilter("all");
             setFilterRecommender("");
             setFilterGenre("");
             setFilterDecade("");

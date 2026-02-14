@@ -31,6 +31,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(Float, default=lambda: time.time())
     is_active = Column(Boolean, default=True)
+    backup_enabled = Column(Boolean, default=False, nullable=False)
 
     # Relationships
     movies = relationship("Movie", back_populates="user", cascade="all, delete-orphan")
@@ -51,6 +52,7 @@ class Movie(Base):
     )
     tmdb_data = Column(Text)  # JSON string of TMDB data
     omdb_data = Column(Text)  # JSON string of OMDb data
+    media_type = Column(String, nullable=False, default="movie")
     last_modified = Column(
         Float, default=lambda: time.time(), onupdate=lambda: time.time()
     )
@@ -161,6 +163,7 @@ class Person(Base):
     is_trusted = Column(Boolean, default=False)
     color = Column(String, default="#0a84ff")
     emoji = Column(String, nullable=True)
+    quick_key = Column(String, nullable=True)
     last_modified = Column(
         Float, default=lambda: time.time(), onupdate=lambda: time.time()
     )

@@ -115,6 +115,10 @@ export function filterMovies(movies, filters) {
     );
   }
 
+  if (filters.mediaType && filters.mediaType !== "all") {
+    filtered = filtered.filter((m) => (m.mediaType || "movie") === filters.mediaType);
+  }
+
   // Search across title, genres, cast, and director/writer metadata
   if (searchTerm) {
     filtered = filtered.filter((movie) => {

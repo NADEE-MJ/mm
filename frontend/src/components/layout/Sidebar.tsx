@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import { Clapperboard, Users, List, UserCircle, Menu, PanelLeft } from "lucide-react";
 
 const mainItems = [
-  { to: "/", label: "Movies", icon: Clapperboard, end: true },
+  { to: "/", label: "Library", icon: Clapperboard, end: true },
   { to: "/people", label: "People", icon: Users },
   { to: "/lists", label: "Lists", icon: List },
 ];

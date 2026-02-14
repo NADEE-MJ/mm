@@ -358,6 +358,24 @@ struct HomePageView: View {
 
     private func sortedMovies(_ input: [Movie]) -> [Movie] {
         switch sortBy {
+        case "dateRecommended":
+            return input.sorted {
+                let a = latestRecommendationDate(for: $0) ?? .distantPast
+                let b = latestRecommendationDate(for: $1) ?? .distantPast
+                if a == b {
+                    return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+                }
+                return a > b
+            }
+        case "dateWatched":
+            return input.sorted {
+                let a = parseDate($0.dateWatched) ?? .distantPast
+                let b = parseDate($1.dateWatched) ?? .distantPast
+                if a == b {
+                    return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+                }
+                return a > b
+            }
         case "title":
             return input.sorted { $0.title.localizedCompare($1.title) == .orderedAscending }
         case "year":
@@ -385,6 +403,17 @@ struct HomePageView: View {
         default:
             return input
         }
+    }
+
+    private func parseDate(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        return DateFormatting.parseISODate(value)
+    }
+
+    private func latestRecommendationDate(for movie: Movie) -> Date? {
+        movie.recommendations
+            .compactMap { DateFormatting.parseISODate($0.dateRecommended) }
+            .max()
     }
 
     private func uniqueSorted(_ values: [String]) -> [String] {
@@ -834,8 +863,7 @@ private struct MovieDetailView: View {
     }
 
     private func formattedDate(_ value: String) -> String {
-        let parser = ISO8601DateFormatter()
-        if let date = parser.date(from: value) {
+        if let date = DateFormatting.parseISODate(value) {
             return date.formatted(date: .abbreviated, time: .omitted)
         }
         return value

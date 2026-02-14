@@ -63,6 +63,7 @@ def _person_payload(person: Person) -> dict:
         "is_trusted": person.is_trusted,
         "color": person.color,
         "emoji": person.emoji,
+        "quick_key": person.quick_key,
         "last_modified": person.last_modified,
     }
 
@@ -72,6 +73,17 @@ def _normalize_vote_type(value: object) -> bool:
         return value
     text = str(value).strip().lower()
     return text in {"upvote", "1", "true", "t", "yes"}
+
+
+def _extract_media_type(data: dict | None) -> str:
+    if not isinstance(data, dict):
+        return "movie"
+    media_type = str(
+        data.get("media_type")
+        or data.get("mediaType")
+        or "movie"
+    ).strip().lower()
+    return media_type if media_type in {"movie", "tv"} else "movie"
 
 
 def _resolve_person(
@@ -277,6 +289,7 @@ async def _process_sync_action(
                 imdb_id,
                 data.get("tmdb_data"),
                 data.get("omdb_data"),
+                _extract_media_type(data),
             )
 
             person, created_person = _resolve_person(
@@ -413,7 +426,12 @@ async def _process_sync_action(
             imdb_id = data.get("imdb_id")
             if not imdb_id:
                 return SyncResponse(success=False, error="Missing imdb_id"), emitted_events
-            movie, created = get_or_create_movie_with_state(db, user.id, imdb_id)
+            movie, created = get_or_create_movie_with_state(
+                db,
+                user.id,
+                imdb_id,
+                media_type=_extract_media_type(data),
+            )
 
             conflict = ConflictResolver.check_conflict(movie, client_timestamp, serialize_movie)
             if conflict:
@@ -497,7 +515,12 @@ async def _process_sync_action(
             if not imdb_id or not new_status:
                 return SyncResponse(success=False, error="Missing imdb_id/status"), emitted_events
 
-            movie, created = get_or_create_movie_with_state(db, user.id, imdb_id)
+            movie, created = get_or_create_movie_with_state(
+                db,
+                user.id,
+                imdb_id,
+                media_type=_extract_media_type(data),
+            )
 
             conflict = ConflictResolver.check_conflict(movie, client_timestamp, serialize_movie)
             if conflict:
@@ -554,6 +577,7 @@ async def _process_sync_action(
                         is_trusted=data.get("is_trusted", False),
                         color=data.get("color") or "#0a84ff",
                         emoji=data.get("emoji"),
+                        quick_key=data.get("quick_key"),
                     )
                 )
                 db.commit()
@@ -587,6 +611,14 @@ async def _process_sync_action(
             person_id = _coerce_person_id(data.get("id"))
             person = _find_person(db, user.id, person_id=person_id, person_name=name)
             if person:
+                if person.quick_key is not None:
+                    return (
+                        SyncResponse(
+                            success=False,
+                            error="Quick recommenders cannot be deleted",
+                        ),
+                        emitted_events,
+                    )
                 db.delete(person)
                 db.commit()
                 emitted_events.append(("peopleUpdated", None))

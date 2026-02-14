@@ -129,6 +129,25 @@ backend_migrate() {
   run_in_dir "$BACKEND_DIR" uv run alembic upgrade head
 }
 
+backend_migrate_status() {
+  require_cmd uv
+  log "Current Alembic revision"
+  run_in_dir "$BACKEND_DIR" uv run alembic current
+}
+
+backend_migrate_down() {
+  require_cmd uv
+  local target="${1:--1}"
+  log "Downgrading database migration to: $target"
+  run_in_dir "$BACKEND_DIR" uv run alembic downgrade "$target"
+}
+
+import_convert() {
+  require_cmd uv
+  log "Converting CSV file(s) into backup import JSON"
+  run_in_dir "$BACKEND_DIR" uv run python scripts/convert_csv_import.py "$@"
+}
+
 backend_start() {
   require_cmd uv
   local host="0.0.0.0"
@@ -345,7 +364,10 @@ Commands:
   build:frontend     Build the frontend bundle
   frontend:dev       Start the frontend dev server (opts: --host, --port, use -- to pass extra Vite args)
   backend:migrate    Apply the latest Alembic migrations
+  backend:migrate:status Show current Alembic revision
+  backend:migrate:down  Downgrade Alembic revision (default target: -1)
   backend:start      Start the FastAPI backend (opts: --host, --port, --no-reload, use -- for uvicorn args)
+  import:convert     Convert movie/TV CSV files into import JSON (passes args to backend/scripts/convert_csv_import.py)
   swift:xcodegen     Generate Xcode project from project.yml
   swift:build        Build the Swift iOS app (opts: --scheme, --configuration, --destination)
   swift:run          Build and run the Swift iOS app in simulator (opts: --scheme, --configuration, --destination)
@@ -381,8 +403,17 @@ case "$COMMAND" in
   backend:migrate)
     backend_migrate
     ;;
+  backend:migrate:status)
+    backend_migrate_status
+    ;;
+  backend:migrate:down)
+    backend_migrate_down "$@"
+    ;;
   backend:start)
     backend_start "$@"
+    ;;
+  import:convert)
+    import_convert "$@"
     ;;
   swift:xcodegen)
     swift_xcodegen

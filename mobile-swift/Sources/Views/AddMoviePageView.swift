@@ -542,7 +542,7 @@ struct AddMoviePageView: View {
                         } header: {
                             Text("Searching")
                         }
-                    } else if searchResults.isEmpty && librarySearchResults.isEmpty {
+                    } else if searchResults.filter({ $0.mediaType != "person" }).isEmpty && librarySearchResults.isEmpty {
                         Section {
                             ContentUnavailableView.search
 
@@ -559,9 +559,10 @@ struct AddMoviePageView: View {
                             Text("Try fewer filters, or broaden the query.")
                         }
                     } else {
-                        if !searchResults.isEmpty {
-                            Section("Discover Results (\(searchResults.count))") {
-                                ForEach(searchResults) { movie in
+                        let addableDiscoverResults = searchResults.filter { $0.mediaType != "person" }
+                        if !addableDiscoverResults.isEmpty {
+                            Section("Discover Results (\(addableDiscoverResults.count))") {
+                                ForEach(addableDiscoverResults) { movie in
                                     let isAlreadyAdded = existingMovieTmdbIds.contains(movie.id)
                                     Button {
                                         if !isAlreadyAdded {
@@ -688,7 +689,8 @@ struct AddMoviePageView: View {
                         Task {
                             let result = await repository.addMovieBulk(
                                 tmdbId: movie.id,
-                                recommenders: Array(selectedRecommenders)
+                                recommenders: Array(selectedRecommenders),
+                                mediaType: movie.mediaType
                             )
 
                             switch result {
@@ -1120,8 +1122,22 @@ private struct SearchResultRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(movie.title)
-                    .font(.headline)
+                HStack(spacing: 8) {
+                    Text(movie.title)
+                        .font(.headline)
+
+                    if movie.mediaType == "tv" {
+                        Text("TV")
+                            .font(.caption2.bold())
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(AppTheme.blue.opacity(0.18))
+                            )
+                            .foregroundStyle(AppTheme.blue)
+                    }
+                }
 
                 if let year = movie.releaseDate?.prefix(4) {
                     Text(String(year))
@@ -1576,11 +1592,13 @@ private struct AddMovieSheet: View {
                         Text("Type a name and tap + to add")
                     }
 
-                    Section("Recommended By") {
-                        let customPeople = selectedRecommenders.filter { name in
-                            !people.contains { $0.name == name }
-                        }
+                    let quickPeople = people.filter { $0.isQuick }
+                    let regularPeople = people.filter { !$0.isQuick }
+                    let customPeople = selectedRecommenders.filter { name in
+                        !people.contains { $0.name == name }
+                    }
 
+                    Section("Recommended By") {
                         if !customPeople.isEmpty {
                             ForEach(Array(customPeople).sorted(), id: \.self) { personName in
                                 Button {
@@ -1598,10 +1616,42 @@ private struct AddMovieSheet: View {
                                     }
                                 }
                             }
+                        } else if quickPeople.isEmpty && regularPeople.isEmpty {
+                            Text("No people selected yet")
+                                .foregroundStyle(.secondary)
                         }
+                    }
 
-                        if !people.isEmpty {
-                            ForEach(people) { person in
+                    if !quickPeople.isEmpty {
+                        Section("Quick") {
+                            ForEach(quickPeople) { person in
+                                Button {
+                                    if selectedRecommenders.contains(person.name) {
+                                        selectedRecommenders.remove(person.name)
+                                    } else {
+                                        selectedRecommenders.insert(person.name)
+                                    }
+                                } label: {
+                                    HStack {
+                                        Text(person.name)
+                                            .foregroundStyle(.primary)
+                                        Image(systemName: "bolt.fill")
+                                            .foregroundStyle(.purple)
+                                            .font(.caption)
+                                        Spacer()
+                                        if selectedRecommenders.contains(person.name) {
+                                            Image(systemName: "checkmark")
+                                                .foregroundStyle(.blue)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if !regularPeople.isEmpty {
+                        Section("People") {
+                            ForEach(regularPeople) { person in
                                 Button {
                                     if selectedRecommenders.contains(person.name) {
                                         selectedRecommenders.remove(person.name)
@@ -1620,11 +1670,6 @@ private struct AddMovieSheet: View {
                                     }
                                 }
                             }
-                        }
-
-                        if people.isEmpty && customPeople.isEmpty {
-                            Text("No people selected yet")
-                                .foregroundStyle(.secondary)
                         }
                     }
                 }

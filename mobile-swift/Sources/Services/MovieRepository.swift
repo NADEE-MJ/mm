@@ -13,7 +13,8 @@ final class MovieRepository: DataRepository {
     private(set) var isSyncing = false
     private(set) var lastSyncTime: Date?
 
-    private let firstSyncKey = "has_performed_v2_sync"
+    private let firstSyncKeyPrefix = "has_performed_v2_sync_user_"
+    private let activeUserKey = "active_user_id"
     private let backgroundSyncInterval: TimeInterval = 90
     private var lastMoviesSyncAt: Date?
     private var lastPeopleSyncAt: Date?
@@ -88,13 +89,18 @@ final class MovieRepository: DataRepository {
         return .success([])
     }
 
-    func addMovie(tmdbId: Int, recommender: String) async -> Result<Movie, RepositoryError> {
+    func addMovie(tmdbId: Int, recommender: String, mediaType: String = "movie") async -> Result<Movie, RepositoryError> {
         let trimmedRecommender = recommender.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedRecommender.isEmpty else {
             return .failure(.notFound("Recommender is required"))
         }
 
-        let success = await networkService.addMovie(tmdbId: tmdbId, recommender: trimmedRecommender)
+        let normalizedMediaType = mediaType.lowercased() == "tv" ? "tv" : "movie"
+        let success = await networkService.addMovie(
+            tmdbId: tmdbId,
+            recommender: trimmedRecommender,
+            mediaType: normalizedMediaType
+        )
         if success {
             _ = await syncMovies()
 
@@ -106,10 +112,14 @@ final class MovieRepository: DataRepository {
         }
 
         let message = networkService.lastError ?? "Unknown network error"
-        if isLikelyNetworkError(message) {
+        if NetworkErrorHeuristics.isLikelyConnectivityIssue(message) {
             queueOperation(
                 type: PendingOperationType.addMovie,
-                payload: AddMovieOperationPayload(tmdbId: tmdbId, recommender: trimmedRecommender)
+                payload: AddMovieOperationPayload(
+                    tmdbId: tmdbId,
+                    recommender: trimmedRecommender,
+                    mediaType: normalizedMediaType
+                )
             )
             return .failure(.queued("Queued for sync when connection is restored"))
         }
@@ -117,7 +127,7 @@ final class MovieRepository: DataRepository {
         return .failure(.networkError(message))
     }
 
-    func addMovieBulk(tmdbId: Int, recommenders: [String]) async -> Result<Void, RepositoryError> {
+    func addMovieBulk(tmdbId: Int, recommenders: [String], mediaType: String = "movie") async -> Result<Void, RepositoryError> {
         let trimmedRecommenders = recommenders
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -126,17 +136,26 @@ final class MovieRepository: DataRepository {
             return .failure(.notFound("At least one recommender is required"))
         }
 
-        let success = await networkService.addMovieBulk(tmdbId: tmdbId, recommenders: trimmedRecommenders)
+        let normalizedMediaType = mediaType.lowercased() == "tv" ? "tv" : "movie"
+        let success = await networkService.addMovieBulk(
+            tmdbId: tmdbId,
+            recommenders: trimmedRecommenders,
+            mediaType: normalizedMediaType
+        )
         if success {
             _ = await syncMovies()
             return .success(())
         }
 
         let message = networkService.lastError ?? "Unknown network error"
-        if isLikelyNetworkError(message) {
+        if NetworkErrorHeuristics.isLikelyConnectivityIssue(message) {
             queueOperation(
                 type: PendingOperationType.addMovieBulk,
-                payload: AddMovieBulkOperationPayload(tmdbId: tmdbId, recommenders: trimmedRecommenders)
+                payload: AddMovieBulkOperationPayload(
+                    tmdbId: tmdbId,
+                    recommenders: trimmedRecommenders,
+                    mediaType: normalizedMediaType
+                )
             )
             return .failure(.queued("Queued for sync when connection is restored"))
         }
@@ -166,29 +185,10 @@ final class MovieRepository: DataRepository {
 
         let nextRecommendations = movie.recommendations
             .filter { $0.recommender.caseInsensitiveCompare(trimmedRecommender) != .orderedSame }
-            + [Recommendation(recommender: trimmedRecommender, dateRecommended: isoTimestampNow(), voteType: normalizedVoteType)]
+            + [Recommendation(recommender: trimmedRecommender, dateRecommended: DateFormatting.isoTimestampNow(), voteType: normalizedVoteType)]
 
         let previous = movie
-        let optimisticMovie = Movie(
-            id: movie.id,
-            imdbId: movie.imdbId,
-            tmdbId: movie.tmdbId,
-            title: movie.title,
-            posterPath: movie.posterPath,
-            overview: movie.overview,
-            releaseDate: movie.releaseDate,
-            voteAverage: movie.voteAverage,
-            imdbRating: movie.imdbRating,
-            rottenTomatoesRating: movie.rottenTomatoesRating,
-            metacriticScore: movie.metacriticScore,
-            genres: movie.genres,
-            director: movie.director,
-            actors: movie.actors,
-            status: movie.status,
-            myRating: movie.myRating,
-            dateWatched: movie.dateWatched,
-            recommendations: nextRecommendations
-        )
+        let optimisticMovie = movie.updating(recommendations: nextRecommendations)
         applyOptimisticMovie(optimisticMovie, requestedStatus: nil)
 
         let success = await networkService.addRecommendation(
@@ -206,7 +206,7 @@ final class MovieRepository: DataRepository {
         }
 
         let message = networkService.lastError ?? "Unknown network error"
-        if isLikelyNetworkError(message) {
+        if NetworkErrorHeuristics.isLikelyConnectivityIssue(message) {
             queueOperation(
                 type: PendingOperationType.addRecommendation,
                 payload: AddRecommendationOperationPayload(
@@ -239,26 +239,7 @@ final class MovieRepository: DataRepository {
         }
 
         let previous = movie
-        let optimisticMovie = Movie(
-            id: movie.id,
-            imdbId: movie.imdbId,
-            tmdbId: movie.tmdbId,
-            title: movie.title,
-            posterPath: movie.posterPath,
-            overview: movie.overview,
-            releaseDate: movie.releaseDate,
-            voteAverage: movie.voteAverage,
-            imdbRating: movie.imdbRating,
-            rottenTomatoesRating: movie.rottenTomatoesRating,
-            metacriticScore: movie.metacriticScore,
-            genres: movie.genres,
-            director: movie.director,
-            actors: movie.actors,
-            status: movie.status,
-            myRating: movie.myRating,
-            dateWatched: movie.dateWatched,
-            recommendations: remainingRecommendations
-        )
+        let optimisticMovie = movie.updating(recommendations: remainingRecommendations)
         applyOptimisticMovie(optimisticMovie, requestedStatus: nil)
 
         let success = await networkService.removeRecommendation(imdbId: movie.imdbId, person: trimmedRecommender)
@@ -272,7 +253,7 @@ final class MovieRepository: DataRepository {
         }
 
         let message = networkService.lastError ?? "Unknown network error"
-        if isLikelyNetworkError(message) {
+        if NetworkErrorHeuristics.isLikelyConnectivityIssue(message) {
             queueOperation(
                 type: PendingOperationType.removeRecommendation,
                 payload: RemoveRecommendationOperationPayload(imdbId: movie.imdbId, recommender: trimmedRecommender)
@@ -313,7 +294,7 @@ final class MovieRepository: DataRepository {
             return .failure(.notFound("Pending movie not found"))
         }
 
-        let addResult = await addMovie(tmdbId: tmdbId, recommender: pendingMovie.recommender)
+        let addResult = await addMovie(tmdbId: tmdbId, recommender: pendingMovie.recommender, mediaType: "movie")
         switch addResult {
         case .success:
             databaseManager.deletePendingMovie(id: pendingMovieId)
@@ -342,7 +323,7 @@ final class MovieRepository: DataRepository {
         }
 
         let message = networkService.lastError ?? "Unknown network error"
-        if isLikelyNetworkError(message) {
+        if NetworkErrorHeuristics.isLikelyConnectivityIssue(message) {
             queueOperation(
                 type: PendingOperationType.updateMovie,
                 payload: UpdateMovieOperationPayload(imdbId: movie.imdbId, rating: rating, status: status)
@@ -386,7 +367,7 @@ final class MovieRepository: DataRepository {
         }
 
         let message = networkService.lastError ?? "Unknown network error"
-        if isLikelyNetworkError(message) {
+        if NetworkErrorHeuristics.isLikelyConnectivityIssue(message) {
             queueOperation(
                 type: PendingOperationType.updatePerson,
                 payload: UpdatePersonOperationPayload(name: name, isTrusted: isTrusted)
@@ -413,15 +394,22 @@ final class MovieRepository: DataRepository {
     }
 
     func performInitialSyncIfNeeded() async {
-        guard AuthManager.shared.isAuthenticated else { return }
+        guard let userID = AuthManager.shared.user?.id, AuthManager.shared.isAuthenticated else { return }
 
-        let hasPerformedInitialSync = UserDefaults.standard.bool(forKey: firstSyncKey)
-        guard !hasPerformedInitialSync else { return }
+        let defaults = UserDefaults.standard
+        let previousUserID = defaults.string(forKey: activeUserKey)
+        let hasPerformedInitialSync = defaults.bool(forKey: firstSyncKey(for: userID))
 
-        databaseManager.clearAll()
-        _ = await syncPeople(force: true)
-        _ = await syncMovies(force: true)
-        UserDefaults.standard.set(true, forKey: firstSyncKey)
+        if previousUserID != userID || !hasPerformedInitialSync {
+            clearLocalState(clearPersistent: true)
+            defaults.set(userID, forKey: activeUserKey)
+            defaults.set(true, forKey: firstSyncKey(for: userID))
+        }
+    }
+
+    func handleLogoutCleanup() {
+        clearLocalState(clearPersistent: true)
+        UserDefaults.standard.removeObject(forKey: activeUserKey)
     }
 
     @discardableResult
@@ -470,6 +458,21 @@ final class MovieRepository: DataRepository {
         people = databaseManager.cachedPeople.map { $0.toPerson() }
     }
 
+    private func clearLocalState(clearPersistent: Bool) {
+        if clearPersistent {
+            databaseManager.clearAll()
+        }
+        movies = []
+        people = []
+        lastSyncTime = nil
+        lastMoviesSyncAt = nil
+        lastPeopleSyncAt = nil
+    }
+
+    private func firstSyncKey(for userID: String) -> String {
+        "\(firstSyncKeyPrefix)\(userID)"
+    }
+
     private func mergeMovies(_ incoming: [Movie]) {
         var byImdb = Dictionary(uniqueKeysWithValues: movies.map { ($0.imdbId, $0) })
         for movie in incoming {
@@ -501,32 +504,17 @@ final class MovieRepository: DataRepository {
 
         let nextDateWatched: String?
         if nextStatus == "watched" {
-            nextDateWatched = movie.dateWatched ?? isoTimestampNow()
+            nextDateWatched = movie.dateWatched ?? DateFormatting.isoTimestampNow()
         } else if nextStatus == "to_watch" {
             nextDateWatched = nil
         } else {
             nextDateWatched = movie.dateWatched
         }
 
-        return Movie(
-            id: movie.id,
-            imdbId: movie.imdbId,
-            tmdbId: movie.tmdbId,
-            title: movie.title,
-            posterPath: movie.posterPath,
-            overview: movie.overview,
-            releaseDate: movie.releaseDate,
-            voteAverage: movie.voteAverage,
-            imdbRating: movie.imdbRating,
-            rottenTomatoesRating: movie.rottenTomatoesRating,
-            metacriticScore: movie.metacriticScore,
-            genres: movie.genres,
-            director: movie.director,
-            actors: movie.actors,
+        return movie.updating(
             status: nextStatus,
-            myRating: nextRating,
-            dateWatched: nextDateWatched,
-            recommendations: movie.recommendations
+            myRating: .some(nextRating),
+            dateWatched: .some(nextDateWatched)
         )
     }
 
@@ -553,8 +541,7 @@ final class MovieRepository: DataRepository {
 
     private func applyOptimisticPersonUpdate(name: String, isTrusted: Bool) {
         if let index = people.firstIndex(where: { $0.name == name }) {
-            let existing = people[index]
-            people[index] = Person(name: existing.name, isTrusted: isTrusted, movieCount: existing.movieCount)
+            people[index] = people[index].updating(isTrusted: isTrusted)
         }
         databaseManager.cachePeople(people)
     }
@@ -570,32 +557,53 @@ final class MovieRepository: DataRepository {
         databaseManager.enqueuePendingOperation(type: type, payload: json)
     }
 
-    private func isLikelyNetworkError(_ message: String) -> Bool {
-        let text = message.lowercased()
-        let markers = [
-            "offline",
-            "internet",
-            "not connected",
-            "cannot connect",
-            "could not connect",
-            "connection",
-            "timed out",
-            "host",
-            "dns",
-            "network",
-            "socket"
-        ]
-        return markers.contains { text.contains($0) }
-    }
-
     private func shouldSync(lastSync: Date?) -> Bool {
         guard let lastSync else { return true }
         return Date().timeIntervalSince(lastSync) >= backgroundSyncInterval
     }
+}
 
-    private func isoTimestampNow() -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.string(from: .now)
+private extension Movie {
+    func updating(
+        status: String? = nil,
+        myRating: Int?? = nil,
+        dateWatched: String?? = nil,
+        recommendations: [Recommendation]? = nil
+    ) -> Movie {
+        Movie(
+            id: id,
+            imdbId: imdbId,
+            tmdbId: tmdbId,
+            title: title,
+            posterPath: posterPath,
+            overview: overview,
+            releaseDate: releaseDate,
+            voteAverage: voteAverage,
+            imdbRating: imdbRating,
+            rottenTomatoesRating: rottenTomatoesRating,
+            metacriticScore: metacriticScore,
+            genres: genres,
+            director: director,
+            actors: actors,
+            status: status ?? self.status,
+            myRating: myRating ?? self.myRating,
+            dateWatched: dateWatched ?? self.dateWatched,
+            mediaType: mediaType,
+            recommendations: recommendations ?? self.recommendations
+        )
+    }
+}
+
+private extension Person {
+    func updating(isTrusted: Bool) -> Person {
+        Person(
+            personId: personId,
+            name: name,
+            isTrusted: isTrusted,
+            movieCount: movieCount,
+            color: color,
+            emoji: emoji,
+            quickKey: quickKey
+        )
     }
 }

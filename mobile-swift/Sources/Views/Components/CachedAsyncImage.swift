@@ -135,7 +135,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     private func validateImageResponse(_ data: Data, _ response: URLResponse, url: URL) throws {
         if let http = response as? HTTPURLResponse, !(200...299).contains(http.statusCode) {
             throw URLError(.badServerResponse, userInfo: [
-                NSURLErrorFailingURLStringErrorKey: url.absoluteString
+                NSURLErrorFailingURLErrorKey: url
             ])
         }
 

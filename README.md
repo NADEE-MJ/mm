@@ -242,6 +242,23 @@ Install flow:
 - Import IPA into SideStore / LiveContainer.
 - Use iOS Shortcuts + custom icons to launch multiple LiveContainer apps.
 
+## CLI Shortcuts
+
+From repo root:
+
+```bash
+# Database migrations
+npm run backend:migrate
+npm run backend:migrate:status
+npm run backend:migrate:down -- -1
+
+# Convert movie + TV CSV exports into a single import JSON file
+npm run import:convert -- \
+  --movies-csv "for_importing/Movies 181d7abfdf8b807a83cfe1ba7e6f3e7d.csv" \
+  --tv-csv "for_importing/TV Shows 181d7abfdf8b80569ae8ce7fa7d6567d.csv" \
+  --output "for_importing/converted-import.json"
+```
+
 ## Usage
 
 ### Adding a Movie

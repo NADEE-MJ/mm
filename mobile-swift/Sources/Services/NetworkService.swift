@@ -20,6 +20,7 @@ struct Movie: Identifiable, Hashable, Decodable {
     let status: String
     let myRating: Int?
     let dateWatched: String?
+    let mediaType: String
     let recommendations: [Recommendation]
 
     var posterURL: URL? {
@@ -44,6 +45,8 @@ struct Movie: Identifiable, Hashable, Decodable {
         case status
         case myRating = "my_rating"
         case dateWatched = "date_watched"
+        case mediaType = "media_type"
+        case mediaTypeCamel = "mediaType"
         case recommendations
     }
 
@@ -79,6 +82,7 @@ struct Movie: Identifiable, Hashable, Decodable {
             director = omdbData?.director
             actors = omdbData?.actors ?? []
             status = Self.mapBackendStatusToApp(backendStatus)
+            mediaType = Self.normalizeMediaType(backendMovie.mediaType ?? tmdbData?.mediaType)
             if let watchHistory = backendMovie.watchHistory {
                 myRating = Int(round(watchHistory.myRating))
                 dateWatched = Self.formatUnixTimestamp(watchHistory.dateWatched)
@@ -110,6 +114,10 @@ struct Movie: Identifiable, Hashable, Decodable {
         status = try c.decodeIfPresent(String.self, forKey: .status) ?? "to_watch"
         myRating = try c.decodeIfPresent(Int.self, forKey: .myRating)
         dateWatched = try c.decodeIfPresent(String.self, forKey: .dateWatched)
+        mediaType = Self.normalizeMediaType(
+            (try? c.decodeIfPresent(String.self, forKey: .mediaType)) ??
+                (try? c.decodeIfPresent(String.self, forKey: .mediaTypeCamel))
+        )
         recommendations = (try? c.decodeIfPresent([Recommendation].self, forKey: .recommendations)) ?? []
     }
 
@@ -131,6 +139,7 @@ struct Movie: Identifiable, Hashable, Decodable {
         status: String,
         myRating: Int?,
         dateWatched: String?,
+        mediaType: String = "movie",
         recommendations: [Recommendation]
     ) {
         self.id = id
@@ -150,6 +159,7 @@ struct Movie: Identifiable, Hashable, Decodable {
         self.status = status
         self.myRating = myRating
         self.dateWatched = dateWatched
+        self.mediaType = Self.normalizeMediaType(mediaType)
         self.recommendations = recommendations
     }
 
@@ -176,10 +186,17 @@ struct Movie: Identifiable, Hashable, Decodable {
         return abs(hash)
     }
 
+    private static func normalizeMediaType(_ mediaType: String?) -> String {
+        switch mediaType?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "tv":
+            return "tv"
+        default:
+            return "movie"
+        }
+    }
+
     private static func formatUnixTimestamp(_ seconds: Double) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter.string(from: Date(timeIntervalSince1970: seconds))
+        DateFormatting.isoTimestamp(fromEpochSeconds: seconds)
     }
 }
 
@@ -206,9 +223,7 @@ struct Recommendation: Hashable, Decodable {
         if let dateString = try? c.decode(String.self, forKey: .dateRecommended) {
             dateRecommended = dateString
         } else if let dateEpoch = try? c.decode(Double.self, forKey: .dateRecommended) {
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            dateRecommended = formatter.string(from: Date(timeIntervalSince1970: dateEpoch))
+            dateRecommended = DateFormatting.isoTimestamp(fromEpochSeconds: dateEpoch)
         } else {
             dateRecommended = ""
         }
@@ -236,6 +251,9 @@ struct Person: Identifiable, Hashable, Codable {
     let name: String
     let isTrusted: Bool
     let movieCount: Int
+    let color: String?
+    let emoji: String?
+    let quickKey: String?
 
     var id: String {
         if let personId {
@@ -249,6 +267,9 @@ struct Person: Identifiable, Hashable, Codable {
         case name
         case isTrusted = "is_trusted"
         case movieCount = "movie_count"
+        case color
+        case emoji
+        case quickKey = "quick_key"
     }
 
     init(from decoder: Decoder) throws {
@@ -257,14 +278,32 @@ struct Person: Identifiable, Hashable, Codable {
         name = try c.decode(String.self, forKey: .name)
         isTrusted = (try? c.decode(Bool.self, forKey: .isTrusted)) ?? false
         movieCount = (try? c.decode(Int.self, forKey: .movieCount)) ?? 0
+        color = try c.decodeIfPresent(String.self, forKey: .color)
+        emoji = try c.decodeIfPresent(String.self, forKey: .emoji)
+        quickKey = try c.decodeIfPresent(String.self, forKey: .quickKey)
     }
 
-    init(personId: Int? = nil, name: String, isTrusted: Bool, movieCount: Int) {
+    init(
+        personId: Int? = nil,
+        name: String,
+        isTrusted: Bool,
+        movieCount: Int,
+        color: String? = nil,
+        emoji: String? = nil,
+        quickKey: String? = nil
+    ) {
         self.personId = personId
         self.name = name
         self.isTrusted = isTrusted
         self.movieCount = movieCount
+        self.color = color
+        self.emoji = emoji
+        self.quickKey = quickKey
     }
+}
+
+extension Person {
+    var isQuick: Bool { quickKey != nil }
 }
 
 struct TMDBMovie: Identifiable, Hashable, Decodable {
@@ -274,6 +313,8 @@ struct TMDBMovie: Identifiable, Hashable, Decodable {
     let overview: String?
     let releaseDate: String?
     let voteAverage: Double?
+    let mediaType: String
+    let knownFor: [String]
 
     var posterURL: URL? {
         guard let posterPath else { return nil }
@@ -292,6 +333,9 @@ struct TMDBMovie: Identifiable, Hashable, Decodable {
         case year
         case voteAverage = "vote_average"
         case voteAverageCamel = "voteAverage"
+        case mediaType = "mediaType"
+        case mediaTypeSnake = "media_type"
+        case knownFor
     }
 
     init(from decoder: Decoder) throws {
@@ -324,15 +368,40 @@ struct TMDBMovie: Identifiable, Hashable, Decodable {
         } else {
             voteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverageCamel)
         }
+
+        let decodedMediaType =
+            (try? c.decodeIfPresent(String.self, forKey: .mediaType)) ??
+            (try? c.decodeIfPresent(String.self, forKey: .mediaTypeSnake))
+        switch decodedMediaType?.lowercased() {
+        case "tv":
+            mediaType = "tv"
+        case "person":
+            mediaType = "person"
+        default:
+            mediaType = "movie"
+        }
+
+        knownFor = (try? c.decodeIfPresent([String].self, forKey: .knownFor)) ?? []
     }
 
-    init(id: Int, title: String, posterPath: String?, overview: String?, releaseDate: String?, voteAverage: Double?) {
+    init(
+        id: Int,
+        title: String,
+        posterPath: String?,
+        overview: String?,
+        releaseDate: String?,
+        voteAverage: Double?,
+        mediaType: String = "movie",
+        knownFor: [String] = []
+    ) {
         self.id = id
         self.title = title
         self.posterPath = posterPath
         self.overview = overview
         self.releaseDate = releaseDate
         self.voteAverage = voteAverage
+        self.mediaType = mediaType
+        self.knownFor = knownFor
     }
 }
 
@@ -390,6 +459,7 @@ private struct TMDBDetailPayload: Codable {
     let imdbId: String?
     let title: String?
     let year: String?
+    let mediaType: String?
     let poster: String?
     let posterSmall: String?
     let posterPath: String?
@@ -397,12 +467,15 @@ private struct TMDBDetailPayload: Codable {
     let genres: [String]?
     let voteAverage: Double?
     let voteCount: Int?
+    let numberOfSeasons: Int?
+    let numberOfEpisodes: Int?
 
     enum CodingKeys: String, CodingKey {
         case tmdbId
         case imdbId
         case title
         case year
+        case mediaType
         case poster
         case posterSmall
         case posterPath = "poster_path"
@@ -410,11 +483,14 @@ private struct TMDBDetailPayload: Codable {
         case genres
         case voteAverage
         case voteCount
+        case numberOfSeasons
+        case numberOfEpisodes
     }
 
     private enum AlternateDecodingKeys: String, CodingKey {
         case voteAverageSnake = "vote_average"
         case voteCountSnake = "vote_count"
+        case mediaTypeSnake = "media_type"
     }
 
     init(from decoder: Decoder) throws {
@@ -430,6 +506,7 @@ private struct TMDBDetailPayload: Codable {
         } else {
             year = nil
         }
+        var decodedMediaType = try c.decodeIfPresent(String.self, forKey: .mediaType)
 
         poster = try c.decodeIfPresent(String.self, forKey: .poster)
         posterSmall = try c.decodeIfPresent(String.self, forKey: .posterSmall)
@@ -439,7 +516,7 @@ private struct TMDBDetailPayload: Codable {
         var decodedVoteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverage)
         var decodedVoteCount = try c.decodeIfPresent(Int.self, forKey: .voteCount)
 
-        if decodedVoteAverage == nil || decodedVoteCount == nil {
+        if decodedVoteAverage == nil || decodedVoteCount == nil || decodedMediaType == nil {
             let alt = try decoder.container(keyedBy: AlternateDecodingKeys.self)
             if decodedVoteAverage == nil {
                 decodedVoteAverage = try alt.decodeIfPresent(Double.self, forKey: .voteAverageSnake)
@@ -447,10 +524,16 @@ private struct TMDBDetailPayload: Codable {
             if decodedVoteCount == nil {
                 decodedVoteCount = try alt.decodeIfPresent(Int.self, forKey: .voteCountSnake)
             }
+            if decodedMediaType == nil {
+                decodedMediaType = try alt.decodeIfPresent(String.self, forKey: .mediaTypeSnake)
+            }
         }
 
+        mediaType = decodedMediaType
         voteAverage = decodedVoteAverage
         voteCount = decodedVoteCount
+        numberOfSeasons = try c.decodeIfPresent(Int.self, forKey: .numberOfSeasons)
+        numberOfEpisodes = try c.decodeIfPresent(Int.self, forKey: .numberOfEpisodes)
     }
 
     init(
@@ -458,18 +541,22 @@ private struct TMDBDetailPayload: Codable {
         imdbId: String?,
         title: String?,
         year: String?,
+        mediaType: String?,
         poster: String?,
         posterSmall: String?,
         posterPath: String?,
         plot: String?,
         genres: [String]?,
         voteAverage: Double?,
-        voteCount: Int?
+        voteCount: Int?,
+        numberOfSeasons: Int? = nil,
+        numberOfEpisodes: Int? = nil
     ) {
         self.tmdbId = tmdbId
         self.imdbId = imdbId
         self.title = title
         self.year = year
+        self.mediaType = mediaType
         self.poster = poster
         self.posterSmall = posterSmall
         self.posterPath = posterPath
@@ -477,6 +564,8 @@ private struct TMDBDetailPayload: Codable {
         self.genres = genres
         self.voteAverage = voteAverage
         self.voteCount = voteCount
+        self.numberOfSeasons = numberOfSeasons
+        self.numberOfEpisodes = numberOfEpisodes
     }
 }
 
@@ -517,6 +606,7 @@ private struct BackendMovie: Decodable {
     let imdbId: String
     let tmdbData: TMDBDetailPayload?
     let omdbData: OMDBDetailPayload?
+    let mediaType: String?
     let status: String?
     let recommendations: [BackendRecommendation]
     let watchHistory: BackendWatchHistory?
@@ -525,6 +615,7 @@ private struct BackendMovie: Decodable {
         case imdbId = "imdb_id"
         case tmdbData = "tmdb_data"
         case omdbData = "omdb_data"
+        case mediaType = "media_type"
         case status
         case recommendations
         case watchHistory = "watch_history"
@@ -535,6 +626,7 @@ private struct BackendMovie: Decodable {
         imdbId = try c.decode(String.self, forKey: .imdbId)
         tmdbData = try c.decodeIfPresent(TMDBDetailPayload.self, forKey: .tmdbData)
         omdbData = try c.decodeIfPresent(OMDBDetailPayload.self, forKey: .omdbData)
+        mediaType = try c.decodeIfPresent(String.self, forKey: .mediaType)
         status = try c.decodeIfPresent(String.self, forKey: .status)
         recommendations = (try? c.decodeIfPresent([BackendRecommendation].self, forKey: .recommendations)) ?? []
         watchHistory = try c.decodeIfPresent(BackendWatchHistory.self, forKey: .watchHistory)
@@ -546,12 +638,14 @@ private struct AddRecommendationRequest: Encodable {
     let voteType: String
     let tmdbData: TMDBDetailPayload?
     let omdbData: OMDBDetailPayload?
+    let mediaType: String?
 
     enum CodingKeys: String, CodingKey {
         case person
         case voteType = "vote_type"
         case tmdbData = "tmdb_data"
         case omdbData = "omdb_data"
+        case mediaType = "media_type"
     }
 }
 
@@ -560,12 +654,14 @@ private struct BulkAddRecommendationRequest: Encodable {
     let voteType: String
     let tmdbData: TMDBDetailPayload?
     let omdbData: OMDBDetailPayload?
+    let mediaType: String?
 
     enum CodingKeys: String, CodingKey {
         case people
         case voteType = "vote_type"
         case tmdbData = "tmdb_data"
         case omdbData = "omdb_data"
+        case mediaType = "media_type"
     }
 }
 
@@ -605,6 +701,58 @@ private struct AddPersonRequest: Encodable {
         case name
         case isTrusted = "is_trusted"
     }
+}
+
+struct BackupSettings: Decodable {
+    let backupEnabled: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case backupEnabled = "backup_enabled"
+    }
+}
+
+struct BackupFileInfo: Decodable {
+    let filename: String
+    let createdAt: Double
+    let sizeBytes: Int
+
+    enum CodingKeys: String, CodingKey {
+        case filename
+        case createdAt = "created_at"
+        case sizeBytes = "size_bytes"
+    }
+}
+
+struct ImportResult: Decodable {
+    let success: Bool
+    let importedCounts: ImportCounts
+    let imdbIdsNeedingEnrichment: [String]
+    let errors: [String]
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case importedCounts = "imported_counts"
+        case imdbIdsNeedingEnrichment = "imdb_ids_needing_enrichment"
+        case errors
+    }
+}
+
+struct ImportCounts: Decodable {
+    let movies: Int
+    let people: Int
+    let lists: Int
+}
+
+private struct BackupSettingsUpdateRequest: Encodable {
+    let backupEnabled: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case backupEnabled = "backup_enabled"
+    }
+}
+
+private struct BackupListResponse: Decodable {
+    let backups: [BackupFileInfo]
 }
 
 private struct EmptyRequest: Encodable {}
@@ -651,7 +799,7 @@ final class NetworkService {
         }
     }
 
-    func addMovie(tmdbId: Int, recommender: String) async -> Bool {
+    func addMovie(tmdbId: Int, recommender: String, mediaType: String = "movie") async -> Bool {
         lastError = nil
         let trimmedRecommender = recommender.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedRecommender.isEmpty else {
@@ -659,7 +807,8 @@ final class NetworkService {
             return false
         }
 
-        guard let tmdbDetails = await fetchTMDBDetails(tmdbId: tmdbId) else {
+        let normalizedMediaType = normalizeMediaType(mediaType)
+        guard let tmdbDetails = await fetchTMDBDetails(tmdbId: tmdbId, mediaType: normalizedMediaType) else {
             return false
         }
 
@@ -680,7 +829,8 @@ final class NetworkService {
             person: trimmedRecommender,
             voteType: "upvote",
             tmdbData: tmdbDetails,
-            omdbData: omdbDetails
+            omdbData: omdbDetails,
+            mediaType: normalizedMediaType
         )
 
         return await post(
@@ -690,7 +840,7 @@ final class NetworkService {
         )
     }
 
-    func addMovieBulk(tmdbId: Int, recommenders: [String]) async -> Bool {
+    func addMovieBulk(tmdbId: Int, recommenders: [String], mediaType: String = "movie") async -> Bool {
         lastError = nil
         let trimmedRecommenders = recommenders.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         guard !trimmedRecommenders.isEmpty else {
@@ -698,7 +848,8 @@ final class NetworkService {
             return false
         }
 
-        guard let tmdbDetails = await fetchTMDBDetails(tmdbId: tmdbId) else {
+        let normalizedMediaType = normalizeMediaType(mediaType)
+        guard let tmdbDetails = await fetchTMDBDetails(tmdbId: tmdbId, mediaType: normalizedMediaType) else {
             return false
         }
 
@@ -719,7 +870,8 @@ final class NetworkService {
             people: trimmedRecommenders,
             voteType: "upvote",
             tmdbData: tmdbDetails,
-            omdbData: omdbDetails
+            omdbData: omdbDetails,
+            mediaType: normalizedMediaType
         )
 
         return await post(
@@ -749,7 +901,8 @@ final class NetworkService {
             person: trimmedPerson,
             voteType: normalizedVoteType,
             tmdbData: nil,
-            omdbData: nil
+            omdbData: nil,
+            mediaType: nil
         )
 
         return await post(
@@ -1006,6 +1159,113 @@ final class NetworkService {
         _ = await put("\(baseURL)/people/\(encoded)", body: body, validStatusCodes: [200])
     }
 
+    // MARK: - Backup
+
+    func exportBackup() async throws -> Data {
+        lastError = nil
+        guard let data = await get("\(baseURL)/backup/export") else {
+            throw NSError(
+                domain: "NetworkService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: lastError ?? "Failed to export backup"]
+            )
+        }
+        return data
+    }
+
+    func importBackup(_ payload: [String: Any]) async throws -> ImportResult {
+        lastError = nil
+        guard JSONSerialization.isValidJSONObject(payload) else {
+            throw NSError(
+                domain: "NetworkService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Backup payload must be valid JSON"]
+            )
+        }
+
+        let bodyData = try JSONSerialization.data(withJSONObject: payload)
+        guard let responseData = await postData(
+            "\(baseURL)/backup/import",
+            bodyData: bodyData,
+            validStatusCodes: [200]
+        ) else {
+            throw NSError(
+                domain: "NetworkService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: lastError ?? "Failed to import backup"]
+            )
+        }
+
+        do {
+            return try JSONDecoder().decode(ImportResult.self, from: responseData)
+        } catch {
+            throw NSError(
+                domain: "NetworkService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to decode import response"]
+            )
+        }
+    }
+
+    func getBackupSettings() async throws -> BackupSettings {
+        lastError = nil
+        guard let data = await get("\(baseURL)/backup/settings") else {
+            throw NSError(
+                domain: "NetworkService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: lastError ?? "Failed to load backup settings"]
+            )
+        }
+
+        do {
+            return try JSONDecoder().decode(BackupSettings.self, from: data)
+        } catch {
+            throw NSError(
+                domain: "NetworkService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to decode backup settings"]
+            )
+        }
+    }
+
+    func updateBackupSettings(enabled: Bool) async throws {
+        lastError = nil
+        let request = BackupSettingsUpdateRequest(backupEnabled: enabled)
+        let bodyData = try JSONEncoder().encode(request)
+        guard await putData(
+            "\(baseURL)/backup/settings",
+            bodyData: bodyData,
+            validStatusCodes: [200]
+        ) != nil else {
+            throw NSError(
+                domain: "NetworkService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: lastError ?? "Failed to update backup settings"]
+            )
+        }
+    }
+
+    func listBackups() async throws -> [BackupFileInfo] {
+        lastError = nil
+        guard let data = await get("\(baseURL)/backup/list") else {
+            throw NSError(
+                domain: "NetworkService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: lastError ?? "Failed to list backups"]
+            )
+        }
+
+        do {
+            return try JSONDecoder().decode(BackupListResponse.self, from: data).backups
+        } catch {
+            throw NSError(
+                domain: "NetworkService",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to decode backup list"]
+            )
+        }
+    }
+
     // MARK: - HTTP Helpers
 
     private var authHeaders: [String: String] {
@@ -1075,6 +1335,39 @@ final class NetworkService {
         }
     }
 
+    private func postData(
+        _ urlString: String,
+        bodyData: Data,
+        validStatusCodes: Set<Int> = [200]
+    ) async -> Data? {
+        guard let url = URL(string: urlString) else {
+            AppLog.error("🌐 [NetworkService] Invalid URL in POST: \(urlString)", category: .network)
+            return nil
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        for (key, value) in authHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        request.httpBody = bodyData
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            guard validStatusCodes.contains(status) else {
+                handleHTTPError(method: "POST", urlString: urlString, status: status, data: data)
+                return nil
+            }
+            return data
+        } catch {
+            lastError = error.localizedDescription
+            AppLog.error("🌐 [NetworkService] POST failed: \(error.localizedDescription) @ \(urlString)", category: .network)
+            return nil
+        }
+    }
+
     private func put<T: Encodable>(
         _ urlString: String,
         body: T,
@@ -1105,6 +1398,39 @@ final class NetworkService {
             lastError = error.localizedDescription
             AppLog.error("🌐 [NetworkService] PUT failed: \(error.localizedDescription) @ \(urlString)", category: .network)
             return false
+        }
+    }
+
+    private func putData(
+        _ urlString: String,
+        bodyData: Data,
+        validStatusCodes: Set<Int> = [200]
+    ) async -> Data? {
+        guard let url = URL(string: urlString) else {
+            AppLog.error("🌐 [NetworkService] Invalid URL in PUT: \(urlString)", category: .network)
+            return nil
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        for (key, value) in authHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        request.httpBody = bodyData
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            guard validStatusCodes.contains(status) else {
+                handleHTTPError(method: "PUT", urlString: urlString, status: status, data: data)
+                return nil
+            }
+            return data
+        } catch {
+            lastError = error.localizedDescription
+            AppLog.error("🌐 [NetworkService] PUT failed: \(error.localizedDescription) @ \(urlString)", category: .network)
+            return nil
         }
     }
 
@@ -1155,7 +1481,7 @@ final class NetworkService {
         }
     }
 
-    private func fetchTMDBDetails(tmdbId: Int) async -> TMDBDetailPayload? {
+    private func fetchTMDBMovieDetails(tmdbId: Int) async -> TMDBDetailPayload? {
         guard let data = await get("\(baseURL)/external/tmdb/movie/\(tmdbId)") else {
             return nil
         }
@@ -1167,6 +1493,27 @@ final class NetworkService {
         }
 
         return details
+    }
+
+    private func fetchTMDBTVDetails(tmdbId: Int) async -> TMDBDetailPayload? {
+        guard let data = await get("\(baseURL)/external/tmdb/tv/\(tmdbId)") else {
+            return nil
+        }
+
+        guard let details = try? JSONDecoder().decode(TMDBDetailPayload.self, from: data) else {
+            lastError = "Failed to decode TMDB TV details for tmdb id \(tmdbId)"
+            AppLog.warning("🌐 [NetworkService] Could not decode TMDB TV details for \(tmdbId)", category: .network)
+            return nil
+        }
+
+        return details
+    }
+
+    private func fetchTMDBDetails(tmdbId: Int, mediaType: String) async -> TMDBDetailPayload? {
+        if normalizeMediaType(mediaType) == "tv" {
+            return await fetchTMDBTVDetails(tmdbId: tmdbId)
+        }
+        return await fetchTMDBMovieDetails(tmdbId: tmdbId)
     }
 
     private func fetchOMDBDetails(imdbId: String) async -> OMDBDetailPayload? {
@@ -1197,5 +1544,9 @@ final class NetworkService {
         default:
             return status
         }
+    }
+
+    private func normalizeMediaType(_ mediaType: String) -> String {
+        mediaType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "tv" ? "tv" : "movie"
     }
 }
