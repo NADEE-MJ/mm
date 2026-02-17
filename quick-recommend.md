@@ -150,7 +150,7 @@ No changes needed for core calls. Optionally: remove `isDefault` from `addPerson
 
 ## Step 8 — Mobile: Data Model
 
-### `mobile-swift/Sources/Services/MovieRepository.swift`
+### `mobile/Sources/Services/MovieRepository.swift`
 
 Update `Person` struct (lines 234–268):
 ```swift
@@ -179,7 +179,7 @@ extension Person {
 }
 ```
 
-### `mobile-swift/Sources/Services/DatabaseManager.swift`
+### `mobile/Sources/Services/DatabaseManager.swift`
 
 Update `CachedPerson` struct (lines 193–220):
 ```swift
@@ -211,7 +211,7 @@ migrator.registerMigration("v3_people_quick_key_color_emoji") { db in
 
 ## Step 9 — Mobile: People Page
 
-### `mobile-swift/Sources/Views/Tabs/PeoplePageView.swift`
+### `mobile/Sources/Views/Tabs/PeoplePageView.swift`
 
 1. **`TrustedFilter` enum** (lines 8–11): Add `.quick` case.
 
@@ -235,7 +235,7 @@ migrator.registerMigration("v3_people_quick_key_color_emoji") { db in
 
 ## Step 10 — Mobile: Add Movie Recommender Picker
 
-### `mobile-swift/Sources/Views/AddMoviePageView.swift`
+### `mobile/Sources/Views/AddMoviePageView.swift`
 
 In the `AddMovieSheet` recommender list (lines 1603–1623):
 
@@ -263,10 +263,10 @@ The selection logic (toggle Set<String>) is unchanged.
 | `frontend/src/hooks/usePeople.ts`                                    | Remove merge/auto-create logic             |
 | `frontend/src/components/features/AddMovie/AddMovieContainer.tsx`    | Remove defaults merge                      |
 | `frontend/src/components/features/People/PeopleManagerContainer.tsx` | Use quick_key not name-match               |
-| `mobile-swift/.../MovieRepository.swift`                             | Add quickKey/color/emoji to Person struct  |
-| `mobile-swift/.../DatabaseManager.swift`                             | Add v3 migration + fields to CachedPerson  |
-| `mobile-swift/.../PeoplePageView.swift`                              | Add Quick filter tab + badge               |
-| `mobile-swift/.../AddMoviePageView.swift`                            | Add Quick section + badges in picker       |
+| `mobile/.../MovieRepository.swift`                             | Add quickKey/color/emoji to Person struct  |
+| `mobile/.../DatabaseManager.swift`                             | Add v3 migration + fields to CachedPerson  |
+| `mobile/.../PeoplePageView.swift`                              | Add Quick filter tab + badge               |
+| `mobile/.../AddMoviePageView.swift`                            | Add Quick section + badges in picker       |
 
 ---
 

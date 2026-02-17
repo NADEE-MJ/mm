@@ -97,7 +97,7 @@ Add a "Data & Backup" card section with:
 - **Export Library button** — calls `exportBackup()`, triggers browser download of `moviemanager-export-{date}.json`
 - **Import Library button** — `<input type="file" accept=".json">` hidden, button triggers it; on file selected calls `importBackup()`, shows result toast (counts + enrichment notice if any)
 
-### 8. Mobile Swift — `mobile-swift/Sources/Services/NetworkService.swift`
+### 8. Mobile Swift — `mobile/Sources/Services/NetworkService.swift`
 Add functions to `NetworkService`:
 - `exportBackup() async throws -> Data` — `GET /backup/export`
 - `importBackup(_ payload: [String: Any]) async throws -> ImportResult` — `POST /backup/import`
@@ -105,7 +105,7 @@ Add functions to `NetworkService`:
 - `updateBackupSettings(enabled: Bool) async throws` — `PUT /backup/settings`
 - `listBackups() async throws -> [BackupFileInfo]` — `GET /backup/list`
 
-### 9. Mobile Swift — `mobile-swift/Sources/Views/Tabs/AccountPageView.swift`
+### 9. Mobile Swift — `mobile/Sources/Views/Tabs/AccountPageView.swift`
 Add a "Data & Backup" section inside `SettingsView` (or a new `BackupView` navigated from SettingsView):
 - **Auto-backup toggle** — `@State var backupEnabled: Bool`, loaded on appear, calls `updateBackupSettings()` on change
 - **Export Library button** — calls `exportBackup()`, wraps data in a temp file, presents `ShareLink` / `UIActivityViewController`
@@ -124,8 +124,8 @@ Add a "Data & Backup" section inside `SettingsView` (or a new `BackupView` navig
 | `backend/alembic/versions/<new>.py`                     | Migration for backup_enabled column                                     |
 | `frontend/src/services/api.ts`                          | New backup API functions                                                |
 | `frontend/src/pages/AccountPage.tsx`                    | Data & Backup section                                                   |
-| `mobile-swift/Sources/Services/NetworkService.swift`    | New backup network calls                                                |
-| `mobile-swift/Sources/Views/Tabs/AccountPageView.swift` | Data & Backup UI in SettingsView                                        |
+| `mobile/Sources/Services/NetworkService.swift`    | New backup network calls                                                |
+| `mobile/Sources/Views/Tabs/AccountPageView.swift` | Data & Backup UI in SettingsView                                        |
 
 ---
 

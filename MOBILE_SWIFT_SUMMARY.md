@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully created a new native iOS app (`mobile-swift/`) built with Swift and SwiftUI that:
+Successfully created a new native iOS app (`mobile/`) built with Swift and SwiftUI that:
 - Uses modern iOS 26 design and theming
 - Implements full Movie Manager functionality from `mobile` and `frontend` apps
 - Has its own GitHub Actions pipeline with path-based filtering
@@ -12,7 +12,7 @@ Successfully created a new native iOS app (`mobile-swift/`) built with Swift and
 
 ### 1. Mobile Swift App Structure
 ```
-mobile-swift/
+mobile/
 ├── Sources/
 │   ├── MobileSwiftApp.swift           # App entry point with biometric auth
 │   ├── Models/
@@ -39,15 +39,15 @@ mobile-swift/
 ```
 
 ### 2. GitHub Actions Workflow
-- **File**: `.github/workflows/build-mobile-swift.yml`
+- **File**: `.github/workflows/build-mobile.yml`
 - **Purpose**: Build unsigned IPA for sideloading
 - **Triggers**:
   - Manual dispatch with options (runner, deployment target, release publishing)
-  - Pull requests touching `mobile-swift/**`
-  - Pushes to main touching `mobile-swift/**`
+  - Pull requests touching `mobile/**`
+  - Pushes to main touching `mobile/**`
 - **Output**:
-  - Artifact: `mobile-swift-unsigned-ipa` (30 day retention)
-  - Release: `mobile-swift-latest` tag (auto-published on main)
+  - Artifact: `mobile-unsigned-ipa` (30 day retention)
+  - Release: `mobile-latest` tag (auto-published on main)
 
 ### 3. Updated Existing Workflows
 - **build-ios-simple.yml**: Added path filtering for `mobile/**` changes
@@ -86,7 +86,7 @@ mobile-swift/
 
 | Pipeline | Folder | Triggers | Release Tag |
 |----------|--------|----------|-------------|
-| **mobile-swift** | `mobile-swift/` | Dispatch, PR, Push | `mobile-swift-latest` |
+| **mobile** | `mobile/` | Dispatch, PR, Push | `mobile-latest` |
 | **mobile** | `mobile/` | Dispatch, PR, Push | `ios-latest` |
 
 All pipelines now use **path-based filtering** to only run when their respective folders change.
@@ -134,10 +134,10 @@ The workflow uses:
 
 ## Files Modified
 
-1. `.github/workflows/build-mobile-swift.yml` - New workflow
+1. `.github/workflows/build-mobile.yml` - New workflow
 2. `.github/workflows/build-ios-simple.yml` - Added path filters
 3. `README.md` - Updated project structure and CI/CD documentation
-5. All new files in `mobile-swift/` - Complete iOS app implementation
+5. All new files in `mobile/` - Complete iOS app implementation
 
 ## Total Code Stats
 
@@ -155,12 +155,12 @@ The workflow uses:
 - ✅ GitHub Actions workflows syntax valid
 - ✅ Path-based filtering configured correctly
 - ✅ Documentation updated
-- ✅ README includes mobile-swift
+- ✅ README includes mobile
 - ⏳ Build validation (requires macOS runner)
 
 ## Summary
 
-The mobile-swift implementation successfully combines:
+The mobile implementation successfully combines:
 - **Modern iOS 26 UI** design and theming
 - The **functionality** of mobile and web apps (Movie Manager features)
 - A **dedicated pipeline** with path-based filtering for efficiency

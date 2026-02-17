@@ -2,7 +2,7 @@
 
 This repo uses iOS workflows:
 
-- `.github/workflows/build-mobile-swift.yml` (main Mobile Swift app)
+- `.github/workflows/build-mobile.yml` (main Mobile Swift app)
 - `.github/workflows/build-ios-simple.yml` (Expo app)
 
 ## Expo workflow

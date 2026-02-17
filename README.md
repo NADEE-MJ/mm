@@ -71,7 +71,7 @@ mm/
 │   ├── .env.example         # EXPO_PUBLIC_API_URL template
 │   └── README.md            # Mobile-specific setup
 │
-├── mobile-swift/
+├── mobile/
 │   ├── Sources/             # Swift source code
 │   │   ├── MobileSwiftApp.swift  # App entry point
 │   │   ├── Models/          # Data models
@@ -199,7 +199,7 @@ This section covers the iOS unsigned build workflows:
 
 - Expo app: `.github/workflows/build-ios-simple.yml`
 
-For the main native Swift app pipeline, see `.github/workflows/build-mobile-swift.yml`.
+For the main native Swift app pipeline, see `.github/workflows/build-mobile.yml`.
 
 Expo app flow:
 1. Set GitHub repository variable or secret `EXPO_PUBLIC_API_URL` (production API URL used by CI builds).
@@ -437,15 +437,15 @@ MIT License - see LICENSE file
 
 The repository includes automated build pipelines for all iOS apps that build unsigned IPAs for sideloading:
 
-### Mobile Swift App (`mobile-swift/`)
-- **Workflow**: `.github/workflows/build-mobile-swift.yml`
+### Mobile Swift App (`mobile/`)
+- **Workflow**: `.github/workflows/build-mobile.yml`
 - **Triggers**: 
   - Manual dispatch from GitHub Actions UI
-  - Pull requests when `mobile-swift/**` changes
-  - Push to main when `mobile-swift/**` changes
+  - Pull requests when `mobile/**` changes
+  - Push to main when `mobile/**` changes
 - **Outputs**: 
-  - Artifact: `mobile-swift-unsigned-ipa`
-  - Release: `mobile-swift-latest` tag
+  - Artifact: `mobile-unsigned-ipa`
+  - Release: `mobile-latest` tag
 
 ### Mobile React Native App (`mobile/`)
 - **Workflow**: `.github/workflows/build-ios-simple.yml`

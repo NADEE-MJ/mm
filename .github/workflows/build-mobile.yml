@@ -1,12 +1,12 @@
 name: Build Mobile Swift App (Unsigned)
 
 # Mobile Swift pipeline for Movie Manager app
-# xcodegen -> xcodebuild (unsigned) -> IPA artifact -> rolling release (mobile-swift-latest)
+# xcodegen -> xcodebuild (unsigned) -> IPA artifact -> rolling release (mobile-latest)
 #
 # Triggers:
 #   - workflow_dispatch: manual run from UI, builds IPA + optional release
-#   - pull_request: build check on PRs that touch mobile-swift/
-#   - push to main: automatically build and release when mobile-swift/ changes
+#   - pull_request: build check on PRs that touch mobile/
+#   - push to main: automatically build and release when mobile/ changes
 on:
   workflow_dispatch:
     inputs:
@@ -25,7 +25,7 @@ on:
         default: "26.0"
         type: string
       publish_release:
-        description: "Publish/update mobile-swift-latest release"
+        description: "Publish/update mobile-latest release"
         required: true
         default: true
         type: boolean
@@ -38,17 +38,17 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "mobile-swift/**"
-      - ".github/workflows/build-mobile-swift.yml"
+      - "mobile/**"
+      - ".github/workflows/build-mobile.yml"
 
   push:
     branches: [main]
     paths:
-      - "mobile-swift/**"
-      - ".github/workflows/build-mobile-swift.yml"
+      - "mobile/**"
+      - ".github/workflows/build-mobile.yml"
 
 concurrency:
-  group: mobile-swift-build-${{ github.ref }}
+  group: mobile-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -75,27 +75,27 @@ jobs:
 
       - name: Validate API base URL (required secret)
         env:
-          API_BASE_URL: ${{ secrets.MOBILE_SWIFT_API_BASE_URL }}
+          API_BASE_URL: ${{ secrets.MOBILE_API_BASE_URL }}
         run: |
           set -euo pipefail
           API_BASE_URL=$(echo "${API_BASE_URL:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
 
           if [ -z "$API_BASE_URL" ]; then
-            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL is not set"
-            echo "❌ Please set MOBILE_SWIFT_API_BASE_URL as a repository secret"
+            echo "❌ ERROR: MOBILE_API_BASE_URL is not set"
+            echo "❌ Please set MOBILE_API_BASE_URL as a repository secret"
             echo "❌ Format: https://your-domain.example.com/api"
-            echo "❌ This is a required configuration for building the mobile-swift app"
+            echo "❌ This is a required configuration for building the mobile app"
             exit 1
           fi
 
           if [[ ! "$API_BASE_URL" =~ ^https:// ]]; then
-            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL must start with https://"
+            echo "❌ ERROR: MOBILE_API_BASE_URL must start with https://"
             echo "❌ Received: $API_BASE_URL"
             exit 1
           fi
 
           if [[ "$API_BASE_URL" =~ localhost|127\.0\.0\.1|::1 ]]; then
-            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL cannot point to localhost/loopback in CI"
+            echo "❌ ERROR: MOBILE_API_BASE_URL cannot point to localhost/loopback in CI"
             echo "❌ Received: $API_BASE_URL"
             exit 1
           fi
@@ -105,13 +105,13 @@ jobs:
           elif [[ "$API_BASE_URL" =~ ^https://[^/]+/?$ ]]; then
             API_BASE_URL="${API_BASE_URL%/}/api"
           else
-            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL must be a base host URL (https://host) or end with /api"
+            echo "❌ ERROR: MOBILE_API_BASE_URL must be a base host URL (https://host) or end with /api"
             echo "❌ Received: $API_BASE_URL"
             exit 1
           fi
 
           if [[ "$API_BASE_URL" == *'$('* || "$API_BASE_URL" == *'${'* ]]; then
-            echo "❌ ERROR: MOBILE_SWIFT_API_BASE_URL contains unresolved variable syntax"
+            echo "❌ ERROR: MOBILE_API_BASE_URL contains unresolved variable syntax"
             echo "❌ Received: $API_BASE_URL"
             exit 1
           fi
@@ -120,7 +120,7 @@ jobs:
           echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
 
       - name: Generate CI xcconfig from secret
-        working-directory: mobile-swift
+        working-directory: mobile
         env:
           API_BASE_URL: ${{ env.API_BASE_URL }}
         run: |
@@ -133,18 +133,18 @@ jobs:
           echo "✅ Generated Config/Env.generated.xcconfig"
 
       - name: Generate Xcode project
-        working-directory: mobile-swift
+        working-directory: mobile
         run: xcodegen generate
 
       - name: Resolve SPM dependencies
-        working-directory: mobile-swift
+        working-directory: mobile
         run: |
           xcodebuild -project MobileSwift.xcodeproj \
             -scheme MobileSwift \
             -resolvePackageDependencies
 
       - name: Verify plist build settings
-        working-directory: mobile-swift
+        working-directory: mobile
         run: |
           set -euo pipefail
           SETTINGS=$(xcodebuild \
@@ -190,7 +190,7 @@ jobs:
           fi
 
       - name: Build with xcodebuild
-        working-directory: mobile-swift
+        working-directory: mobile
         run: |
           set -euo pipefail
 
@@ -269,7 +269,7 @@ jobs:
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
       - name: Package IPA
-        working-directory: mobile-swift
+        working-directory: mobile
         run: |
           set -euo pipefail
 
@@ -312,7 +312,7 @@ jobs:
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mobile-swift-unsigned-ipa
+          name: mobile-unsigned-ipa
           path: ${{ env.IPA_PATH }}
           retention-days: 30
           if-no-files-found: error
@@ -333,7 +333,7 @@ jobs:
           # Get current date
           DATE=$(date +%Y%m%d-%H%M%S)
           
-          TAG="pr-mobile-swift-${BRANCH}-${DATE}"
+          TAG="pr-mobile-${BRANCH}-${DATE}"
           RELEASE_TITLE="Mobile Swift PR Build: ${BRANCH}"
           RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
           
@@ -387,7 +387,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          TAG="mobile-swift-latest"
+          TAG="mobile-latest"
           RELEASE_TITLE="Latest Mobile Swift Build"
           RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
 
@@ -421,8 +421,8 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: mobile-swift-build-log
-          path: mobile-swift/build.log
+          name: mobile-build-log
+          path: mobile/build.log
           retention-days: 7
           if-no-files-found: warn
 

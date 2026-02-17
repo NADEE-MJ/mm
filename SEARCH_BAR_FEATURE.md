@@ -70,7 +70,7 @@ Transformed the search bar from a persistent navigation element to an expandable
 - ✅ Smooth animations using spring curves
 
 ## Testing
-The CI pipeline will automatically build the iOS app when changes are pushed to the mobile-swift directory. The build process:
+The CI pipeline will automatically build the iOS app when changes are pushed to the mobile directory. The build process:
 1. Generates Xcode project with XcodeGen
 2. Resolves Swift Package Manager dependencies
 3. Builds unsigned IPA for sideloading

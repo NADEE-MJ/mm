@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND_DIR="$ROOT_DIR/frontend"
 BACKEND_DIR="$ROOT_DIR/backend"
-MOBILE_SWIFT_DIR="$ROOT_DIR/mobile-swift"
+MOBILE_DIR="$ROOT_DIR/mobile"
 
 log() {
   echo "[mm-cli] $*"
@@ -222,7 +222,7 @@ stack_install() {
 swift_xcodegen() {
   require_cmd xcodegen
   log "Generating Xcode project from project.yml"
-  run_in_dir "$MOBILE_SWIFT_DIR" xcodegen generate
+  run_in_dir "$MOBILE_DIR" xcodegen generate
   log "Xcode project generated"
 }
 
@@ -254,7 +254,7 @@ swift_build() {
   done
 
   log "Building Swift app (scheme=$scheme, config=$configuration)"
-  run_in_dir "$MOBILE_SWIFT_DIR" xcodebuild -project MobileSwift.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" build
+  run_in_dir "$MOBILE_DIR" xcodebuild -project MobileSwift.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" build
 }
 
 swift_run() {
@@ -287,8 +287,8 @@ swift_run() {
   log "Building and running Swift app in simulator (scheme=$scheme, config=$configuration)"
 
   # Build and get the app path
-  local build_dir="$MOBILE_SWIFT_DIR/build"
-  run_in_dir "$MOBILE_SWIFT_DIR" xcodebuild -project MobileSwift.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" -derivedDataPath "$build_dir" build
+  local build_dir="$MOBILE_DIR/build"
+  run_in_dir "$MOBILE_DIR" xcodebuild -project MobileSwift.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" -derivedDataPath "$build_dir" build
 
   # Find the app bundle
   local app_path=$(find "$build_dir" -name "*.app" -type d | head -n 1)
