@@ -153,13 +153,13 @@ Workflow: `.github/workflows/build-mobile-swift.yml`
 
 ## Comparison with Other Apps
 
-| Feature | mobile-swift | mobile (React Native) | ios-test-swift |
-|---------|-------------|----------------------|----------------|
-| Platform | iOS 26 Swift | Cross-platform (Expo) | iOS 26 Swift |
-| UI Framework | SwiftUI | React Native | SwiftUI |
-| Purpose | Movie Manager | Movie Manager | UI Demo |
-| Backend | Movie Manager API | Movie Manager API | GitHub API (demo) |
-| Look & Feel | Modern iOS 26 | Material-inspired | Modern iOS 26 |
+| Feature | mobile-swift | mobile (React Native) |
+|---------|-------------|----------------------|
+| Platform | iOS 26 Swift | Cross-platform (Expo) |
+| UI Framework | SwiftUI | React Native |
+| Purpose | Movie Manager | Movie Manager |
+| Backend | Movie Manager API | Movie Manager API |
+| Look & Feel | Modern iOS 26 | Material-inspired |
 
 ## Notes
 

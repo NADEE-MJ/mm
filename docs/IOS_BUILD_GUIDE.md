@@ -1,10 +1,8 @@
 # iOS Build Guide
 
-This guide covers three workflows to create unsigned iOS IPAs:
+This guide covers the workflow to create unsigned iOS IPAs:
 
 - `.github/workflows/build-ios-simple.yml`
-- `.github/workflows/build-ios-swift-test.yml`
-- `.github/workflows/build-landmarks.yml`
 
 ## Pipeline
 
@@ -14,24 +12,6 @@ This guide covers three workflows to create unsigned iOS IPAs:
 4. IPA is published to:
    - Actions artifact: `ios-unsigned-ipa`
    - Rolling release tag: `ios-latest`
-
-## Swift Test App Pipeline
-
-1. XcodeGen generates an Xcode project from `ios-test-swift/project.yml`.
-2. `xcodebuild` compiles the native SwiftUI test app with signing disabled.
-3. Workflow packages `.app` into `.ipa`.
-4. IPA is published to:
-   - Actions artifact: `ios-swift-test-unsigned-ipa`
-   - Rolling release tag: `ios-swift-test-latest` (when run from `main` with `publish_release=true`)
-
-## Landmarks App Pipeline
-
-1. XcodeGen generates an Xcode project from `landmarks-example-app/project.yml`.
-2. `xcodebuild` compiles the native SwiftUI Landmarks app with signing disabled.
-3. Workflow packages `.app` into `.ipa`.
-4. IPA is published to:
-   - Actions artifact: `landmarks-unsigned-ipa`
-   - Rolling release tag: `landmarks-latest` (when run from `main` with `publish_release=true`)
 
 ## Required GitHub setting
 
@@ -50,26 +30,12 @@ CI writes this value into `mobile/.env` before bundling JavaScript.
 - Push to `main`, or
 - Run workflow manually from Actions tab.
 
-For the Swift test app workflow, run it manually from the Actions tab.
-Optional manual inputs for Swift test workflow:
-- `runner_image` to choose runner (`macos-latest` default, `macos-15` fallback, `macos-26` if available).
-- `deployment_target` to override iOS deployment target used at build time (default `26.0`).
-- `publish_release` (default `true`) to control whether `ios-swift-test-latest` is updated.
-- `artifact_suffix` to append a custom suffix to the IPA filename.
-
-For the Landmarks workflow, run it manually from the Actions tab.
-Optional manual inputs for Landmarks workflow:
-- `runner_image` to choose runner (`macos-latest` default, `macos-15` fallback, `macos-26` if available).
-- `deployment_target` to override iOS deployment target used at build time (default `26.0`).
-- `publish_release` (default `true`) to control whether `landmarks-latest` is updated.
-- `artifact_suffix` to append a custom suffix to the IPA filename.
-
 ## Download from phone
 
 1. Open GitHub app.
 2. Go to repository Releases.
-3. Open `ios-latest` for Expo app builds, `ios-swift-test-latest` for the native Swift test app, or `landmarks-latest` for the Landmarks app.
-4. Download `MovieManager-unsigned.ipa`, `SwiftTestApp-unsigned.ipa`, or `Landmarks-unsigned.ipa`.
+3. Open `ios-latest` for Expo app builds.
+4. Download `MovieManager-unsigned.ipa`.
 
 ## Install strategy
 
