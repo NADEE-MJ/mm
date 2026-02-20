@@ -137,12 +137,7 @@ final class SyncManager {
     }
 
     private func placeholderMovie(imdbId: String, status: String?) -> Movie {
-        let digits = imdbId.filter(\.isNumber)
-        let hash = imdbId.hashValue
-        let fallbackId = Int(digits) ?? (hash == Int.min ? 0 : abs(hash))
-
         return Movie(
-            id: fallbackId,
             imdbId: imdbId,
             tmdbId: nil,
             title: imdbId,

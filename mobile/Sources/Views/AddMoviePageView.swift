@@ -718,7 +718,7 @@ struct AddMoviePageView: View {
                         }
                     }
                 )
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
             }
             .sheet(item: $selectedPendingMovie) { pendingMovie in
                 ResolvePendingMovieSheet(pendingMovie: pendingMovie) { selectedMatch in
@@ -766,7 +766,7 @@ struct AddMoviePageView: View {
                         showOfflineAddSheet = false
                     }
                 }
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showSearchFiltersSheet) {
                 NavigationStack {
@@ -1531,6 +1531,25 @@ private struct AddMovieSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isAdding = false
     @State private var newPersonName = ""
+    @State private var filterText = ""
+
+    private var quickPeople: [Person] { people.filter { $0.isQuick } }
+    private var regularPeople: [Person] { people.filter { !$0.isQuick } }
+    private var customPeople: [String] {
+        Array(selectedRecommenders.filter { name in
+            !people.contains { $0.name == name }
+        }).sorted()
+    }
+
+    private var filteredQuickPeople: [Person] {
+        guard !filterText.isEmpty else { return quickPeople }
+        return quickPeople.filter { $0.name.localizedCaseInsensitiveContains(filterText) }
+    }
+
+    private var filteredRegularPeople: [Person] {
+        guard !filterText.isEmpty else { return regularPeople }
+        return regularPeople.filter { $0.name.localizedCaseInsensitiveContains(filterText) }
+    }
 
     var body: some View {
         NavigationStack {
@@ -1571,6 +1590,37 @@ private struct AddMovieSheet: View {
                         }
                     }
 
+                    // Add Movie button — above the list
+                    Section {
+                        Button {
+                            isAdding = true
+                            onAdd()
+                            Task {
+                                try? await Task.sleep(for: .milliseconds(500))
+                                isAdding = false
+                                dismiss()
+                            }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                if isAdding {
+                                    ProgressView()
+                                        .tint(.white)
+                                } else {
+                                    Text(selectedRecommenders.isEmpty
+                                         ? "Select a Recommender"
+                                         : "Add Movie with \(selectedRecommenders.count) Recommender\(selectedRecommenders.count == 1 ? "" : "s")")
+                                        .bold()
+                                }
+                                Spacer()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(selectedRecommenders.isEmpty || isAdding)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                        .listRowBackground(Color.clear)
+                    }
+
                     Section {
                         HStack {
                             TextField("Add new person", text: $newPersonName)
@@ -1592,15 +1642,28 @@ private struct AddMovieSheet: View {
                         Text("Type a name and tap + to add")
                     }
 
-                    let quickPeople = people.filter { $0.isQuick }
-                    let regularPeople = people.filter { !$0.isQuick }
-                    let customPeople = selectedRecommenders.filter { name in
-                        !people.contains { $0.name == name }
+                    // Filter field
+                    Section {
+                        HStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundStyle(.secondary)
+                            TextField("Filter people...", text: $filterText)
+                                .autocorrectionDisabled()
+                            if !filterText.isEmpty {
+                                Button {
+                                    filterText = ""
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
 
                     Section("Recommended By") {
                         if !customPeople.isEmpty {
-                            ForEach(Array(customPeople).sorted(), id: \.self) { personName in
+                            ForEach(customPeople, id: \.self) { personName in
                                 Button {
                                     selectedRecommenders.remove(personName)
                                 } label: {
@@ -1622,9 +1685,9 @@ private struct AddMovieSheet: View {
                         }
                     }
 
-                    if !quickPeople.isEmpty {
+                    if !filteredQuickPeople.isEmpty {
                         Section("Quick") {
-                            ForEach(quickPeople) { person in
+                            ForEach(filteredQuickPeople) { person in
                                 Button {
                                     if selectedRecommenders.contains(person.name) {
                                         selectedRecommenders.remove(person.name)
@@ -1649,9 +1712,9 @@ private struct AddMovieSheet: View {
                         }
                     }
 
-                    if !regularPeople.isEmpty {
+                    if !filteredRegularPeople.isEmpty {
                         Section("People") {
-                            ForEach(regularPeople) { person in
+                            ForEach(filteredRegularPeople) { person in
                                 Button {
                                     if selectedRecommenders.contains(person.name) {
                                         selectedRecommenders.remove(person.name)
@@ -1670,6 +1733,14 @@ private struct AddMovieSheet: View {
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    if !filterText.isEmpty && filteredQuickPeople.isEmpty && filteredRegularPeople.isEmpty {
+                        Section {
+                            Text("No people match \"\(filterText)\"")
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .center)
                         }
                     }
                 }
@@ -1698,19 +1769,6 @@ private struct AddMovieSheet: View {
                     .accessibilityLabel("Close")
                     .disabled(isAdding)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
-                        isAdding = true
-                        onAdd()
-                        Task {
-                            try? await Task.sleep(for: .milliseconds(500))
-                            isAdding = false
-                            dismiss()
-                        }
-                    }
-                    .bold()
-                    .disabled(selectedRecommenders.isEmpty || isAdding)
-                }
             }
         }
     }
@@ -1726,6 +1784,18 @@ private struct OfflineAddMovieSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedRecommenders: Set<String> = []
     @State private var newPersonName = ""
+    @State private var filterText = ""
+
+    private var customPeople: [String] {
+        Array(selectedRecommenders.filter { name in
+            !people.contains { $0.name == name }
+        }).sorted()
+    }
+
+    private var filteredPeople: [Person] {
+        guard !filterText.isEmpty else { return people }
+        return people.filter { $0.name.localizedCaseInsensitiveContains(filterText) }
+    }
 
     var body: some View {
         NavigationStack {
@@ -1733,6 +1803,26 @@ private struct OfflineAddMovieSheet: View {
                 Section("Movie") {
                     Text(title)
                         .font(.headline)
+                }
+
+                // Queue button — above the list
+                Section {
+                    Button {
+                        onAdd(Array(selectedRecommenders))
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text(selectedRecommenders.isEmpty
+                                 ? "Select a Recommender"
+                                 : "Queue with \(selectedRecommenders.count) Recommender\(selectedRecommenders.count == 1 ? "" : "s")")
+                                .bold()
+                            Spacer()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(selectedRecommenders.isEmpty)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowBackground(Color.clear)
                 }
 
                 Section {
@@ -1755,13 +1845,28 @@ private struct OfflineAddMovieSheet: View {
                     Text("Add New Person")
                 }
 
-                Section("Recommended By") {
-                    let customPeople = selectedRecommenders.filter { name in
-                        !people.contains { $0.name == name }
+                // Filter field
+                Section {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("Filter people...", text: $filterText)
+                            .autocorrectionDisabled()
+                        if !filterText.isEmpty {
+                            Button {
+                                filterText = ""
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
+                }
 
+                Section("Recommended By") {
                     if !customPeople.isEmpty {
-                        ForEach(Array(customPeople).sorted(), id: \.self) { personName in
+                        ForEach(customPeople, id: \.self) { personName in
                             Button {
                                 selectedRecommenders.remove(personName)
                             } label: {
@@ -1778,8 +1883,8 @@ private struct OfflineAddMovieSheet: View {
                         }
                     }
 
-                    if !people.isEmpty {
-                        ForEach(people) { person in
+                    if !filteredPeople.isEmpty {
+                        ForEach(filteredPeople) { person in
                             Button {
                                 if selectedRecommenders.contains(person.name) {
                                     selectedRecommenders.remove(person.name)
@@ -1798,6 +1903,12 @@ private struct OfflineAddMovieSheet: View {
                             }
                         }
                     }
+
+                    if !filterText.isEmpty && filteredPeople.isEmpty && customPeople.isEmpty {
+                        Text("No people match \"\(filterText)\"")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
                 }
             }
             .navigationTitle("Queue Offline")
@@ -1810,13 +1921,6 @@ private struct OfflineAddMovieSheet: View {
                         Image(systemName: "xmark")
                     }
                     .accessibilityLabel("Close")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Queue") {
-                        onAdd(Array(selectedRecommenders))
-                    }
-                    .bold()
-                    .disabled(selectedRecommenders.isEmpty)
                 }
             }
         }
