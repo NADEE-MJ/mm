@@ -13,6 +13,7 @@ protocol DataRepository {
     func updateMovie(movie: Movie, rating: Int?, status: String?) async -> Result<Movie, RepositoryError>
     func refreshMovieMetadata(imdbId: String) async -> Result<Movie, RepositoryError>
     func updatePerson(name: String, isTrusted: Bool) async -> Result<Void, RepositoryError>
+    func renamePerson(name: String, newName: String) async -> Result<Void, RepositoryError>
     func syncNow() async
     func performInitialSyncIfNeeded() async
     var isSyncing: Bool { get }

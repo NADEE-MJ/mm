@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect, useMemo } from "react";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { searchMovies as searchTMDB, getMovieDetails, getTVDetails } from "../../../services/tmdbAPI";
 import { getMovieByImdbId } from "../../../services/omdbAPI";
 import SearchStep from "./SearchStep";
@@ -224,6 +224,8 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
             setCustomRecommender={setCustomRecommender}
             addCustomRecommender={addCustomRecommender}
             customInputRef={customInputRef}
+            onAddTitle={handleAddRecommendation}
+            addingMovie={addingMovie}
           />
         )}
 
@@ -235,24 +237,6 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
         )}
       </div>
 
-      {selectedMovie && (
-        <div className="border-t border-ios-separator pt-4 mt-4">
-          <button
-            onClick={handleAddRecommendation}
-            disabled={selectedRecommenders.length === 0 || addingMovie}
-            className="w-full btn-ios-primary py-3.5 disabled:opacity-50"
-          >
-            {addingMovie ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Adding...
-              </span>
-            ) : (
-              `Add Title with ${selectedRecommenders.length} Recommender${selectedRecommenders.length !== 1 ? "s" : ""}`
-            )}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -104,7 +104,7 @@ final class MovieRepository: DataRepository {
         if success {
             _ = await syncMovies()
 
-            if let movie = movies.first(where: { $0.tmdbId == tmdbId || $0.id == tmdbId }) {
+            if let movie = movies.first(where: { $0.tmdbId == tmdbId }) {
                 return .success(movie)
             }
 
@@ -380,6 +380,31 @@ final class MovieRepository: DataRepository {
         return .failure(.networkError(message))
     }
 
+    func renamePerson(name: String, newName: String) async -> Result<Void, RepositoryError> {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return .failure(.networkError("Name cannot be empty"))
+        }
+
+        let previous = people
+        if let index = people.firstIndex(where: { $0.name == name }) {
+            people[index] = people[index].updating(name: trimmed)
+        }
+        databaseManager.cachePeople(people)
+
+        let success = await networkService.renamePerson(name: name, newName: trimmed)
+
+        if success {
+            _ = await syncPeople()
+            return .success(())
+        }
+
+        people = previous
+        databaseManager.cachePeople(people)
+        let message = networkService.lastError ?? "Unknown network error"
+        return .failure(.networkError(message))
+    }
+
     func syncNow() async {
         guard !isSyncing else { return }
         guard AuthManager.shared.isAuthenticated else { return }
@@ -571,7 +596,6 @@ private extension Movie {
         recommendations: [Recommendation]? = nil
     ) -> Movie {
         Movie(
-            id: id,
             imdbId: imdbId,
             tmdbId: tmdbId,
             title: title,
@@ -589,7 +613,8 @@ private extension Movie {
             myRating: myRating ?? self.myRating,
             dateWatched: dateWatched ?? self.dateWatched,
             mediaType: mediaType,
-            recommendations: recommendations ?? self.recommendations
+            recommendations: recommendations ?? self.recommendations,
+            lastModified: lastModified
         )
     }
 }
@@ -603,7 +628,21 @@ private extension Person {
             movieCount: movieCount,
             color: color,
             emoji: emoji,
-            quickKey: quickKey
+            quickKey: quickKey,
+            lastModified: lastModified
+        )
+    }
+
+    func updating(name newName: String) -> Person {
+        Person(
+            personId: personId,
+            name: newName,
+            isTrusted: isTrusted,
+            movieCount: movieCount,
+            color: color,
+            emoji: emoji,
+            quickKey: quickKey,
+            lastModified: lastModified
         )
     }
 }

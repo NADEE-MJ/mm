@@ -19,22 +19,25 @@ final class DatabaseManager {
     struct CachedMovie: Identifiable, Hashable, Codable, FetchableRecord, PersistableRecord {
         static let databaseTableName = "movies"
 
-        let id: Int
-        let tmdbId: Int
         let imdbId: String
+        let tmdbId: Int?
         let title: String
         let posterPath: String?
         let mediaType: String
         let status: String
         let myRating: Int?
         let dateWatched: String?
+        let lastModified: Double?
         let cachedAt: Date
         let jsonData: String
 
+        var id: String { imdbId }
+
         enum CodingKeys: String, CodingKey {
-            case id, tmdbId = "tmdb_id", imdbId = "imdb_id", title, posterPath = "poster_path"
+            case imdbId = "imdb_id", tmdbId = "tmdb_id", title, posterPath = "poster_path"
             case mediaType = "media_type"
             case status, myRating = "my_rating", dateWatched = "date_watched"
+            case lastModified = "last_modified"
             case cachedAt = "cached_at", jsonData = "json_data"
         }
 
@@ -43,7 +46,6 @@ final class DatabaseManager {
                   let snapshot = try? JSONDecoder().decode(MovieSnapshot.self, from: data)
             else {
                 return Movie(
-                    id: id,
                     imdbId: imdbId,
                     tmdbId: tmdbId,
                     title: title,
@@ -58,7 +60,8 @@ final class DatabaseManager {
                     myRating: myRating,
                     dateWatched: dateWatched,
                     mediaType: mediaType,
-                    recommendations: []
+                    recommendations: [],
+                    lastModified: lastModified
                 )
             }
 
@@ -75,22 +78,21 @@ final class DatabaseManager {
             }
 
             return CachedMovie(
-                id: movie.id,
-                tmdbId: movie.tmdbId ?? movie.id,
                 imdbId: movie.imdbId,
+                tmdbId: movie.tmdbId,
                 title: movie.title,
                 posterPath: movie.posterPath,
                 mediaType: movie.mediaType,
                 status: movie.status,
                 myRating: movie.myRating,
                 dateWatched: movie.dateWatched,
+                lastModified: movie.lastModified,
                 cachedAt: .now,
                 jsonData: jsonData
             )
         }
 
         private struct MovieSnapshot: Codable {
-            let id: Int
             let imdbId: String
             let tmdbId: Int?
             let title: String
@@ -109,9 +111,9 @@ final class DatabaseManager {
             let dateWatched: String?
             let mediaType: String
             let recommendations: [RecommendationSnapshot]
+            let lastModified: Double?
 
             init(movie: Movie) {
-                id = movie.id
                 imdbId = movie.imdbId
                 tmdbId = movie.tmdbId
                 title = movie.title
@@ -136,11 +138,11 @@ final class DatabaseManager {
                         voteType: $0.voteType
                     )
                 }
+                lastModified = movie.lastModified
             }
 
             func toMovie() -> Movie {
                 Movie(
-                    id: id,
                     imdbId: imdbId,
                     tmdbId: tmdbId,
                     title: title,
@@ -158,7 +160,8 @@ final class DatabaseManager {
                     myRating: myRating,
                     dateWatched: dateWatched,
                     mediaType: mediaType,
-                    recommendations: recommendations.map { $0.toRecommendation() }
+                    recommendations: recommendations.map { $0.toRecommendation() },
+                    lastModified: lastModified
                 )
             }
         }
@@ -201,42 +204,49 @@ final class DatabaseManager {
         static let databaseTableName = "people"
 
         let name: String
+        let personId: Int?
         let isTrusted: Bool
         let movieCount: Int
         let quickKey: String?
         let color: String?
         let emoji: String?
+        let lastModified: Double?
         let cachedAt: Date
 
         var id: String { name }
 
         enum CodingKeys: String, CodingKey {
-            case name, isTrusted = "is_trusted", movieCount = "movie_count"
+            case name, personId = "person_id", isTrusted = "is_trusted", movieCount = "movie_count"
             case quickKey = "quick_key"
             case color
             case emoji
+            case lastModified = "last_modified"
             case cachedAt = "cached_at"
         }
 
         func toPerson() -> Person {
             Person(
+                personId: personId,
                 name: name,
                 isTrusted: isTrusted,
                 movieCount: movieCount,
                 color: color,
                 emoji: emoji,
-                quickKey: quickKey
+                quickKey: quickKey,
+                lastModified: lastModified
             )
         }
 
         static func from(_ person: Person) -> CachedPerson {
             CachedPerson(
                 name: person.name,
+                personId: person.personId,
                 isTrusted: person.isTrusted,
                 movieCount: person.movieCount,
                 quickKey: person.quickKey,
                 color: person.color,
                 emoji: person.emoji,
+                lastModified: person.lastModified,
                 cachedAt: .now
             )
         }
@@ -387,38 +397,43 @@ final class DatabaseManager {
             try db.execute(sql: "UPDATE movies SET media_type = 'movie' WHERE media_type IS NULL")
         }
 
+        migrator.registerMigration("v4_people_person_id_last_modified") { db in
+            let columns = try db.columns(in: "people").map(\.name)
+            if !columns.contains("person_id") {
+                try db.alter(table: "people") { t in
+                    t.add(column: "person_id", .integer)
+                }
+            }
+            if !columns.contains("last_modified") {
+                try db.alter(table: "people") { t in
+                    t.add(column: "last_modified", .double)
+                }
+            }
+        }
+
+        migrator.registerMigration("v5_movies_imdb_primary_key") { db in
+            // Rebuild movies table with imdb_id as primary key and last_modified column.
+            // Existing cache is dropped — it will be re-fetched from the server.
+            try db.execute(sql: "DROP TABLE IF EXISTS movies")
+            try db.create(table: "movies") { t in
+                t.column("imdb_id", .text).primaryKey()
+                t.column("tmdb_id", .integer)
+                t.column("title", .text).notNull()
+                t.column("poster_path", .text)
+                t.column("media_type", .text).notNull().defaults(to: "movie")
+                t.column("status", .text).notNull()
+                t.column("my_rating", .integer)
+                t.column("date_watched", .text)
+                t.column("last_modified", .double)
+                t.column("cached_at", .double).notNull()
+                t.column("json_data", .text).notNull().defaults(to: "{}")
+            }
+        }
+
         try migrator.migrate(dbQueue)
     }
 
     // MARK: - Cache CRUD
-
-    func cacheMovie(
-        id: Int,
-        tmdbId: Int,
-        title: String,
-        posterPath: String?,
-        status: String,
-        myRating: Int?,
-        dateWatched: String?,
-        mediaType: String = "movie"
-    ) {
-        let movie = Movie(
-            id: id,
-            imdbId: String(id),
-            tmdbId: tmdbId,
-            title: title,
-            posterPath: posterPath,
-            overview: nil,
-            releaseDate: nil,
-            voteAverage: nil,
-            status: status,
-            myRating: myRating,
-            dateWatched: dateWatched,
-            mediaType: mediaType,
-            recommendations: []
-        )
-        cacheMovie(movie)
-    }
 
     func cacheMovie(_ movie: Movie) {
         let cached = CachedMovie.from(movie)
@@ -444,33 +459,6 @@ final class DatabaseManager {
             loadCache()
         } catch {
             logDebug("[GRDB] Batch cache movies error: \(error)")
-        }
-    }
-
-    func cachePerson(
-        name: String,
-        isTrusted: Bool,
-        movieCount: Int,
-        quickKey: String? = nil,
-        color: String? = nil,
-        emoji: String? = nil
-    ) {
-        let person = CachedPerson(
-            name: name,
-            isTrusted: isTrusted,
-            movieCount: movieCount,
-            quickKey: quickKey,
-            color: color,
-            emoji: emoji,
-            cachedAt: .now
-        )
-        do {
-            try dbQueue.write { db in
-                try person.save(db)
-            }
-            loadCache()
-        } catch {
-            logDebug("[GRDB] Insert person error: \(error)")
         }
     }
 

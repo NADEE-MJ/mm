@@ -23,7 +23,7 @@ export default function SearchStep({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search movies, TV shows..."
-            className="ios-input pl-[2.65rem] pr-[6.2rem]"
+            className="ios-input !pl-[2.65rem] pr-[6.2rem]"
             autoComplete="off"
           />
           <button

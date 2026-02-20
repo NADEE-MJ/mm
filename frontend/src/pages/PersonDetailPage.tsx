@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ChevronLeft,
@@ -11,6 +11,8 @@ import {
   Smile,
   Check,
   TrendingUp,
+  Pencil,
+  X,
 } from "lucide-react";
 import { getPoster, formatRating } from "../utils/helpers";
 import { IOS_COLORS } from "../utils/constants";
@@ -34,6 +36,10 @@ export default function PersonDetailPage({ movies = [] }) {
   const navigate = useNavigate();
   const { name } = useParams();
   const { people, loading, updateTrust, updatePerson } = usePeople();
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [nameError, setNameError] = useState("");
+  const nameInputRef = useRef(null);
 
   const decodedName = decodeURIComponent(name || "");
 
@@ -55,6 +61,42 @@ export default function PersonDetailPage({ movies = [] }) {
   const handleUpdatePerson = async (updates) => {
     if (!person) return;
     await updatePerson(person.name, updates);
+  };
+
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, [isEditingName]);
+
+  const handleStartEditName = () => {
+    setNameInput(person?.name || "");
+    setNameError("");
+    setIsEditingName(true);
+  };
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false);
+    setNameError("");
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      setNameError("Name cannot be empty");
+      return;
+    }
+    if (trimmed === person.name) {
+      setIsEditingName(false);
+      return;
+    }
+    try {
+      await updatePerson(person.name, { name: trimmed });
+      setIsEditingName(false);
+      navigate(`/people/${encodeURIComponent(trimmed)}`, { replace: true });
+    } catch {
+      setNameError("Failed to rename. Name may already be taken.");
+    }
   };
 
   const handleBackToPeople = () => {
@@ -135,8 +177,33 @@ export default function PersonDetailPage({ movies = [] }) {
                 <Star className="w-4 h-4 text-ios-yellow fill-current absolute -bottom-1 -right-1 drop-shadow" />
               )}
             </div>
-            <div>
-              <p className="text-ios-body font-semibold text-ios-label">{person.name}</p>
+            <div className="flex-1 min-w-0">
+              {isEditingName ? (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={nameInputRef}
+                      type="text"
+                      value={nameInput}
+                      onChange={(e) => { setNameInput(e.target.value); setNameError(""); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveName(); if (e.key === "Escape") handleCancelEditName(); }}
+                      className="flex-1 min-w-0 rounded-lg bg-ios-fill px-2 py-1 text-ios-body font-semibold text-ios-label border border-ios-blue/50 focus:outline-none focus:border-ios-blue"
+                    />
+                    <button onClick={handleSaveName} className="text-ios-blue text-sm font-semibold shrink-0">Save</button>
+                    <button onClick={handleCancelEditName} className="text-ios-secondary-label shrink-0"><X className="w-4 h-4" /></button>
+                  </div>
+                  {nameError && <p className="text-[0.72rem] text-ios-red">{nameError}</p>}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="text-ios-body font-semibold text-ios-label truncate">{person.name}</p>
+                  {!person.isDefault && (
+                    <button onClick={handleStartEditName} className="text-ios-secondary-label hover:text-ios-label shrink-0">
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
               <p className="text-ios-caption1 text-ios-secondary-label">
                 {person.is_trusted ? "Trusted Recommender" : "Not Trusted"}
               </p>

@@ -34,6 +34,7 @@ class PersonResponse(BaseModel):
 
 
 class PersonUpdate(BaseModel):
+    name: Optional[str] = None
     is_trusted: Optional[bool] = None
     color: Optional[str] = None
     emoji: Optional[str] = None

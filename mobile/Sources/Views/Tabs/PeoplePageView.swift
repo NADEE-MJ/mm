@@ -324,6 +324,10 @@ private struct PersonDetailView: View {
     let onUpdate: () async -> Void
     @State private var isTrusted: Bool
     @State private var recommendedMovies: [Movie] = []
+    @State private var showRenameAlert = false
+    @State private var editedName = ""
+    @State private var renameError: String? = nil
+    @Environment(\.dismiss) private var dismiss
 
     init(person: Person, onUpdate: @escaping () async -> Void) {
         self.person = person
@@ -339,6 +343,11 @@ private struct PersonDetailView: View {
                 }
                 LabeledContent("Votes") {
                     Text("\(person.movieCount)")
+                }
+                Button("Rename") {
+                    editedName = person.name
+                    renameError = nil
+                    showRenameAlert = true
                 }
             }
 
@@ -421,6 +430,33 @@ private struct PersonDetailView: View {
         .toolbarTitleDisplayMode(.inline)
         .task {
             await loadRecommendedMovies()
+        }
+        .alert("Rename Person", isPresented: $showRenameAlert) {
+            TextField("Name", text: $editedName)
+            Button("Save") {
+                Task { await performRename() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let error = renameError {
+                Text(error)
+            } else {
+                Text("Enter a new name for \(person.name)")
+            }
+        }
+    }
+
+    private func performRename() async {
+        let trimmed = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != person.name else { return }
+        let result = await MovieRepository.shared.renamePerson(name: person.name, newName: trimmed)
+        switch result {
+        case .success:
+            await onUpdate()
+            dismiss()
+        case .failure(let error):
+            renameError = error.localizedDescription
+            showRenameAlert = true
         }
     }
 

@@ -104,6 +104,23 @@ async def update_person(
             status_code=status.HTTP_404_NOT_FOUND, detail="Person not found"
         )
 
+    if person_update.name is not None:
+        new_name = person_update.name.strip()
+        if not new_name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Name cannot be empty"
+            )
+        if new_name != person.name:
+            conflict = (
+                db.query(Person)
+                .filter(Person.name == new_name, Person.user_id == user.id)
+                .first()
+            )
+            if conflict:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT, detail="A person with that name already exists"
+                )
+            person.name = new_name
     if person_update.is_trusted is not None:
         person.is_trusted = person_update.is_trusted
     if person_update.color is not None:

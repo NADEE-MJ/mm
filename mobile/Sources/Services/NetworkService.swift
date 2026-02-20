@@ -3,7 +3,6 @@ import Foundation
 // MARK: - Data Models
 
 struct Movie: Identifiable, Hashable, Decodable {
-    let id: Int
     let imdbId: String
     let tmdbId: Int?
     let title: String
@@ -22,6 +21,9 @@ struct Movie: Identifiable, Hashable, Decodable {
     let dateWatched: String?
     let mediaType: String
     let recommendations: [Recommendation]
+    let lastModified: Double?
+
+    var id: String { imdbId }
 
     var posterURL: URL? {
         guard let posterPath else { return nil }
@@ -30,7 +32,6 @@ struct Movie: Identifiable, Hashable, Decodable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id
         case imdbId = "imdb_id"
         case tmdbId = "tmdb_id"
         case title
@@ -48,6 +49,7 @@ struct Movie: Identifiable, Hashable, Decodable {
         case mediaType = "media_type"
         case mediaTypeCamel = "mediaType"
         case recommendations
+        case lastModified = "last_modified"
     }
 
     init(from decoder: Decoder) throws {
@@ -63,9 +65,7 @@ struct Movie: Identifiable, Hashable, Decodable {
 
             let tmdbData = backendMovie.tmdbData
             let omdbData = backendMovie.omdbData
-            let fallbackId = Self.stableID(from: backendMovie.imdbId)
 
-            id = tmdbData?.tmdbId ?? fallbackId
             imdbId = backendMovie.imdbId
             tmdbId = tmdbData?.tmdbId
             title = tmdbData?.title ?? omdbData?.title ?? backendMovie.imdbId
@@ -91,14 +91,12 @@ struct Movie: Identifiable, Hashable, Decodable {
                 dateWatched = nil
             }
             recommendations = mappedRecommendations
+            lastModified = backendMovie.lastModified
             return
         }
 
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        let legacyId = try c.decode(Int.self, forKey: .id)
-
-        id = legacyId
-        imdbId = (try? c.decode(String.self, forKey: .imdbId)) ?? String(legacyId)
+        imdbId = (try? c.decode(String.self, forKey: .imdbId)) ?? ""
         tmdbId = try c.decodeIfPresent(Int.self, forKey: .tmdbId)
         title = try c.decode(String.self, forKey: .title)
         posterPath = try c.decodeIfPresent(String.self, forKey: .posterPath)
@@ -119,10 +117,10 @@ struct Movie: Identifiable, Hashable, Decodable {
                 (try? c.decodeIfPresent(String.self, forKey: .mediaTypeCamel))
         )
         recommendations = (try? c.decodeIfPresent([Recommendation].self, forKey: .recommendations)) ?? []
+        lastModified = try? c.decodeIfPresent(Double.self, forKey: .lastModified)
     }
 
     init(
-        id: Int,
         imdbId: String,
         tmdbId: Int?,
         title: String,
@@ -140,9 +138,9 @@ struct Movie: Identifiable, Hashable, Decodable {
         myRating: Int?,
         dateWatched: String?,
         mediaType: String = "movie",
-        recommendations: [Recommendation]
+        recommendations: [Recommendation],
+        lastModified: Double? = nil
     ) {
-        self.id = id
         self.imdbId = imdbId
         self.tmdbId = tmdbId
         self.title = title
@@ -161,6 +159,7 @@ struct Movie: Identifiable, Hashable, Decodable {
         self.dateWatched = dateWatched
         self.mediaType = Self.normalizeMediaType(mediaType)
         self.recommendations = recommendations
+        self.lastModified = lastModified
     }
 
     private static func mapBackendStatusToApp(_ backendStatus: String) -> String {
@@ -170,20 +169,6 @@ struct Movie: Identifiable, Hashable, Decodable {
         default:
             return backendStatus
         }
-    }
-
-    private static func stableID(from imdbId: String) -> Int {
-        let digits = imdbId.filter(\.isNumber)
-        if let parsed = Int(digits), parsed > 0 {
-            return parsed
-        }
-
-        // Deterministic fallback when tmdb id is absent.
-        var hash = 5381
-        for scalar in imdbId.unicodeScalars {
-            hash = ((hash << 5) &+ hash) &+ Int(scalar.value)
-        }
-        return abs(hash)
     }
 
     private static func normalizeMediaType(_ mediaType: String?) -> String {
@@ -254,6 +239,7 @@ struct Person: Identifiable, Hashable, Codable {
     let color: String?
     let emoji: String?
     let quickKey: String?
+    let lastModified: Double?
 
     var id: String {
         if let personId {
@@ -270,6 +256,7 @@ struct Person: Identifiable, Hashable, Codable {
         case color
         case emoji
         case quickKey = "quick_key"
+        case lastModified = "last_modified"
     }
 
     init(from decoder: Decoder) throws {
@@ -281,6 +268,7 @@ struct Person: Identifiable, Hashable, Codable {
         color = try c.decodeIfPresent(String.self, forKey: .color)
         emoji = try c.decodeIfPresent(String.self, forKey: .emoji)
         quickKey = try c.decodeIfPresent(String.self, forKey: .quickKey)
+        lastModified = try? c.decodeIfPresent(Double.self, forKey: .lastModified)
     }
 
     init(
@@ -290,7 +278,8 @@ struct Person: Identifiable, Hashable, Codable {
         movieCount: Int,
         color: String? = nil,
         emoji: String? = nil,
-        quickKey: String? = nil
+        quickKey: String? = nil,
+        lastModified: Double? = nil
     ) {
         self.personId = personId
         self.name = name
@@ -299,6 +288,7 @@ struct Person: Identifiable, Hashable, Codable {
         self.color = color
         self.emoji = emoji
         self.quickKey = quickKey
+        self.lastModified = lastModified
     }
 }
 
@@ -610,6 +600,7 @@ private struct BackendMovie: Decodable {
     let status: String?
     let recommendations: [BackendRecommendation]
     let watchHistory: BackendWatchHistory?
+    let lastModified: Double?
 
     enum CodingKeys: String, CodingKey {
         case imdbId = "imdb_id"
@@ -619,6 +610,7 @@ private struct BackendMovie: Decodable {
         case status
         case recommendations
         case watchHistory = "watch_history"
+        case lastModified = "last_modified"
     }
 
     init(from decoder: Decoder) throws {
@@ -630,6 +622,7 @@ private struct BackendMovie: Decodable {
         status = try c.decodeIfPresent(String.self, forKey: .status)
         recommendations = (try? c.decodeIfPresent([BackendRecommendation].self, forKey: .recommendations)) ?? []
         watchHistory = try c.decodeIfPresent(BackendWatchHistory.self, forKey: .watchHistory)
+        lastModified = try c.decodeIfPresent(Double.self, forKey: .lastModified)
     }
 }
 
@@ -691,6 +684,10 @@ private struct UpdatePersonRequest: Encodable {
     enum CodingKeys: String, CodingKey {
         case isTrusted = "is_trusted"
     }
+}
+
+private struct RenamePersonRequest: Encodable {
+    let name: String
 }
 
 private struct AddPersonRequest: Encodable {
@@ -1157,6 +1154,13 @@ final class NetworkService {
         guard let encoded = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else { return }
         let body = UpdatePersonRequest(isTrusted: isTrusted)
         _ = await put("\(baseURL)/people/\(encoded)", body: body, validStatusCodes: [200])
+    }
+
+    func renamePerson(name: String, newName: String) async -> Bool {
+        lastError = nil
+        guard let encoded = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else { return false }
+        let body = RenamePersonRequest(name: newName)
+        return await put("\(baseURL)/people/\(encoded)", body: body, validStatusCodes: [200])
     }
 
     // MARK: - Backup
