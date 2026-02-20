@@ -1,0 +1,453 @@
+name: Build Mobile Swift App (Unsigned)
+
+# Mobile Swift pipeline for Movie Manager app
+# xcodegen -> xcodebuild (unsigned) -> IPA artifact -> rolling release (mobile-latest)
+#
+# Triggers:
+#   - workflow_dispatch: manual run from UI, builds IPA + optional release
+#   - pull_request: build check on PRs that touch mobile/
+#   - push to main: automatically build and release when mobile/ changes
+on:
+  workflow_dispatch:
+    inputs:
+      runner_image:
+        description: "GitHub macOS runner image"
+        required: true
+        default: "macos-26"
+        type: choice
+        options:
+          - macos-latest
+          - macos-15
+          - macos-26
+      deployment_target:
+        description: "iOS deployment target for build setting (e.g. 26.0)"
+        required: true
+        default: "26.0"
+        type: string
+      publish_release:
+        description: "Publish/update mobile-latest release"
+        required: true
+        default: true
+        type: boolean
+      artifact_suffix:
+        description: "Optional suffix for IPA filename (letters, numbers, . _ -)"
+        required: false
+        default: ""
+        type: string
+
+  pull_request:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/build-mobile.yml"
+
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/build-mobile.yml"
+
+concurrency:
+  group: mobile-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Unsigned Mobile Swift App
+    runs-on: ${{ github.event.inputs.runner_image || 'macos-26' }}
+    timeout-minutes: 45
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Show Xcode and SDK info
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Validate API base URL (required secret)
+        env:
+          API_BASE_URL: ${{ secrets.MOBILE_API_BASE_URL }}
+        run: |
+          set -euo pipefail
+          API_BASE_URL=$(echo "${API_BASE_URL:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+
+          if [ -z "$API_BASE_URL" ]; then
+            echo "❌ ERROR: MOBILE_API_BASE_URL is not set"
+            echo "❌ Please set MOBILE_API_BASE_URL as a repository secret"
+            echo "❌ Format: https://your-domain.example.com/api"
+            echo "❌ This is a required configuration for building the mobile app"
+            exit 1
+          fi
+
+          if [[ ! "$API_BASE_URL" =~ ^https:// ]]; then
+            echo "❌ ERROR: MOBILE_API_BASE_URL must start with https://"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          if [[ "$API_BASE_URL" =~ localhost|127\.0\.0\.1|::1 ]]; then
+            echo "❌ ERROR: MOBILE_API_BASE_URL cannot point to localhost/loopback in CI"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          if [[ "$API_BASE_URL" =~ /api/?$ ]]; then
+            API_BASE_URL="${API_BASE_URL%/}"
+          elif [[ "$API_BASE_URL" =~ ^https://[^/]+/?$ ]]; then
+            API_BASE_URL="${API_BASE_URL%/}/api"
+          else
+            echo "❌ ERROR: MOBILE_API_BASE_URL must be a base host URL (https://host) or end with /api"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          if [[ "$API_BASE_URL" == *'$('* || "$API_BASE_URL" == *'${'* ]]; then
+            echo "❌ ERROR: MOBILE_API_BASE_URL contains unresolved variable syntax"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          echo "✅ API base URL validated: $API_BASE_URL"
+          echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
+
+      - name: Generate CI xcconfig from secret
+        working-directory: mobile
+        env:
+          API_BASE_URL: ${{ env.API_BASE_URL }}
+        run: |
+          set -euo pipefail
+          ./scripts/generate-env-xcconfig.sh
+          if [ ! -f Config/Env.generated.xcconfig ]; then
+            echo "❌ Missing Config/Env.generated.xcconfig"
+            exit 1
+          fi
+          echo "✅ Generated Config/Env.generated.xcconfig"
+
+      - name: Generate Xcode project
+        working-directory: mobile
+        run: xcodegen generate
+
+      - name: Resolve SPM dependencies
+        working-directory: mobile
+        run: |
+          xcodebuild -project MobileSwift.xcodeproj \
+            -scheme MobileSwift \
+            -resolvePackageDependencies
+
+      - name: Verify plist build settings
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          SETTINGS=$(xcodebuild \
+            -project MobileSwift.xcodeproj \
+            -target MobileSwift \
+            -configuration Release \
+            -showBuildSettings 2>/dev/null)
+
+          get_setting() {
+            local key="$1"
+            awk -F ' = ' -v key="$key" '
+              $1 ~ "^[[:space:]]*" key "[[:space:]]*$" { value=$2 }
+              END {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+                print value
+              }
+            ' <<< "$SETTINGS"
+          }
+
+          GENERATE_INFOPLIST_FILE_VALUE="$(get_setting GENERATE_INFOPLIST_FILE)"
+          INFOPLIST_FILE_VALUE="$(get_setting INFOPLIST_FILE)"
+          API_BASE_URL_VALUE="$(get_setting API_BASE_URL)"
+
+          echo "GENERATE_INFOPLIST_FILE = ${GENERATE_INFOPLIST_FILE_VALUE:-<unset>}"
+          echo "INFOPLIST_FILE = ${INFOPLIST_FILE_VALUE:-<unset>}"
+          echo "API_BASE_URL = ${API_BASE_URL_VALUE:-<unset>}"
+
+          if [ "${GENERATE_INFOPLIST_FILE_VALUE:-}" != "NO" ]; then
+            echo "❌ GENERATE_INFOPLIST_FILE must be NO"
+            exit 1
+          fi
+          if [[ -z "${INFOPLIST_FILE_VALUE:-}" || "${INFOPLIST_FILE_VALUE}" != *"Sources/Info.plist" ]]; then
+            echo "❌ INFOPLIST_FILE must point to Sources/Info.plist"
+            exit 1
+          fi
+          if [[ -z "${API_BASE_URL_VALUE:-}" || "${API_BASE_URL_VALUE}" == "__UNSET_API_BASE_URL__" ]]; then
+            echo "❌ API_BASE_URL is unresolved in build settings"
+            exit 1
+          fi
+          if [ "${API_BASE_URL_VALUE}" = "https:" ]; then
+            echo "❌ API_BASE_URL resolved to https: only (likely bad xcconfig escaping)"
+            exit 1
+          fi
+
+      - name: Build with xcodebuild
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+
+          if [ -z "${API_BASE_URL:-}" ]; then
+            echo "❌ API_BASE_URL is missing in build environment"
+            exit 1
+          fi
+
+          if [ ! -f "Config/Env.generated.xcconfig" ]; then
+            echo "❌ Missing Config/Env.generated.xcconfig"
+            exit 1
+          fi
+
+          DEPLOYMENT_TARGET_RAW="${{ github.event.inputs.deployment_target }}"
+          DEPLOYMENT_TARGET=$(echo "$DEPLOYMENT_TARGET_RAW" | tr -cd '0-9.')
+          if [ -z "$DEPLOYMENT_TARGET" ]; then
+            DEPLOYMENT_TARGET="26.0"
+          fi
+          echo "Using IPHONEOS_DEPLOYMENT_TARGET=$DEPLOYMENT_TARGET"
+
+          set -o pipefail
+          xcodebuild \
+            -project MobileSwift.xcodeproj \
+            -scheme MobileSwift \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            IPHONEOS_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build 2>&1 | tee build.log
+
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -name "*.app" -type d 2>/dev/null | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ No .app bundle produced"
+            find build/Build/Products -maxdepth 3 -type d | sort
+            exit 1
+          fi
+
+          BUILT_INFO_PLIST="$APP_PATH/Info.plist"
+          if [ ! -f "$BUILT_INFO_PLIST" ]; then
+            echo "❌ Built app Info.plist not found: $BUILT_INFO_PLIST"
+            exit 1
+          fi
+
+          # Force-write API_BASE_URL into the built app plist so runtime config is guaranteed.
+          /usr/libexec/PlistBuddy -c "Set :API_BASE_URL $API_BASE_URL" "$BUILT_INFO_PLIST" >/dev/null 2>&1 || \
+            /usr/libexec/PlistBuddy -c "Add :API_BASE_URL string $API_BASE_URL" "$BUILT_INFO_PLIST"
+
+          BUILT_API_BASE_URL=$(/usr/bin/plutil -extract API_BASE_URL raw -o - "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          if [ -z "${BUILT_API_BASE_URL:-}" ]; then
+            BUILT_API_BASE_URL=$(/usr/libexec/PlistBuddy -c "Print :API_BASE_URL" "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          fi
+          BUILT_API_BASE_URL=$(echo "${BUILT_API_BASE_URL:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+          if [ -z "$BUILT_API_BASE_URL" ]; then
+            echo "❌ Built app API_BASE_URL is empty or missing in Info.plist"
+            echo "ℹ️ Built Info.plist snapshot:"
+            /usr/bin/plutil -p "$BUILT_INFO_PLIST" | sed -n '1,120p' || true
+            exit 1
+          fi
+
+          if [ "$BUILT_API_BASE_URL" != "$API_BASE_URL" ]; then
+            echo "❌ Built app API_BASE_URL does not match pipeline secret"
+            echo "❌ Actual built value: $BUILT_API_BASE_URL"
+            exit 1
+          fi
+
+          echo "✅ Found app bundle: $APP_PATH"
+          echo "✅ Built Info.plist API_BASE_URL verified: $BUILT_API_BASE_URL"
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Package IPA
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+
+          if [ -z "${{ env.APP_PATH }}" ]; then
+            echo "❌ APP_PATH is empty"
+            exit 1
+          fi
+
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "${{ env.APP_PATH }}" Payload/
+
+          APP_NAME=$(basename "${{ env.APP_PATH }}" .app)
+
+          # Build the IPA filename based on trigger type
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Sanitize branch name for use in filename
+            BRANCH_RAW="${{ github.head_ref }}"
+            BRANCH=$(echo "$BRANCH_RAW" | tr -cd '[:alnum:]._-' | cut -c1-60)
+            IPA_NAME="${APP_NAME}-${BRANCH}-unsigned.ipa"
+          else
+            SUFFIX_RAW="${{ github.event.inputs.artifact_suffix }}"
+            SUFFIX=$(echo "$SUFFIX_RAW" | tr -cd '[:alnum:]._-')
+            if [ -n "$SUFFIX" ]; then
+              IPA_NAME="${APP_NAME}-${SUFFIX}-unsigned.ipa"
+            else
+              IPA_NAME="${APP_NAME}-unsigned.ipa"
+            fi
+          fi
+
+          zip -r -9 "$IPA_NAME" Payload/
+
+          mv "$IPA_NAME" "$GITHUB_WORKSPACE/$IPA_NAME"
+          echo "IPA_PATH=$GITHUB_WORKSPACE/$IPA_NAME" >> "$GITHUB_ENV"
+          echo "IPA_NAME=$IPA_NAME" >> "$GITHUB_ENV"
+
+          echo "✅ Created $IPA_NAME"
+          du -h "$GITHUB_WORKSPACE/$IPA_NAME"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-unsigned-ipa
+          path: ${{ env.IPA_PATH }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publish PR build release
+        id: publish_pr_release
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "published=false" >> "$GITHUB_OUTPUT"
+          
+          # Sanitize branch name for tag
+          BRANCH_RAW="${{ github.head_ref }}"
+          BRANCH=$(echo "$BRANCH_RAW" | tr -cd '[:alnum:]._-' | cut -c1-50)
+          
+          # Get current date
+          DATE=$(date +%Y%m%d-%H%M%S)
+          
+          TAG="pr-mobile-${BRANCH}-${DATE}"
+          RELEASE_TITLE="Mobile Swift PR Build: ${BRANCH}"
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
+          
+          # Create tag
+          if ! CREATE_REF_OUTPUT=$(gh api -X POST "repos/${{ github.repository }}/git/refs" \
+            -f ref="refs/tags/${TAG}" \
+            -f sha="${{ github.sha }}" 2>&1); then
+            echo "::warning::Skipping PR release publish: token cannot create refs in this context."
+            echo "::warning::$CREATE_REF_OUTPUT"
+            exit 0
+          fi
+          
+          NOTES=$(cat <<EOF_NOTES
+          PR build for branch \`${BRANCH}\` from commit ${{ github.sha }}.
+          
+          **Branch:** ${{ github.head_ref }}
+          **PR:** #${{ github.event.pull_request.number }}
+          **Date:** ${DATE}
+          
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF_NOTES
+          )
+          
+          # Create release
+          if ! CREATE_RELEASE_OUTPUT=$(gh release create "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" \
+            --title "$RELEASE_TITLE" \
+            --notes "$NOTES" \
+            --prerelease 2>&1); then
+            echo "::warning::Tag was created but release publish is not permitted in this context."
+            echo "::warning::$CREATE_RELEASE_OUTPUT"
+            exit 0
+          fi
+          
+          echo "RELEASE_URL=$RELEASE_URL" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "✅ Created PR release: $RELEASE_URL"
+
+      - name: Comment on PR with build artifact
+        if: success() && github.event_name == 'pull_request' && steps.publish_pr_release.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          gh pr comment ${{ github.event.pull_request.number }} --body "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})"
+
+      - name: Publish latest IPA release
+        if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')) && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          TAG="mobile-latest"
+          RELEASE_TITLE="Latest Mobile Swift Build"
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
+
+          gh api -X PATCH "repos/${{ github.repository }}/git/refs/tags/${TAG}" \
+            -f sha="${{ github.sha }}" \
+            -F force=true \
+            >/dev/null 2>&1 || \
+          gh api -X POST "repos/${{ github.repository }}/git/refs" \
+            -f ref="refs/tags/${TAG}" \
+            -f sha="${{ github.sha }}" \
+            >/dev/null
+
+          NOTES=$(cat <<EOF_NOTES
+          Automated unsigned Mobile Swift iOS build from commit ${{ github.sha }}.
+
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF_NOTES
+          )
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$RELEASE_TITLE" --notes "$NOTES" --prerelease
+          else
+            gh release create "$TAG" --title "$RELEASE_TITLE" --notes "$NOTES" --prerelease
+          fi
+
+          gh release upload "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" --clobber
+          echo "RELEASE_URL=$RELEASE_URL" >> "$GITHUB_ENV"
+          echo "✅ Updated rolling release: $RELEASE_URL"
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-build-log
+          path: mobile/build.log
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Comment on PR with failure details
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh pr comment ${{ github.event.pull_request.number }} --body "❌ ${{ github.workflow }}: [Failed build](${WORKFLOW_URL})"
+
+      - name: Build summary
+        if: success() && github.event_name == 'workflow_dispatch'
+        run: |
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: PR check summary
+        if: success() && github.event_name == 'pull_request'
+        run: |
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push summary
+        if: success() && github.event_name == 'push'
+        run: |
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"

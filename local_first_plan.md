@@ -17,7 +17,7 @@ This implementation restores the local-first architecture, enabling:
 
 ### Problem 1: Forced Logout When Offline
 
-**Location**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/AuthManager.swift:245-253`
+**Location**: `/home/nadeem/Documents/random/mm/mobile/Sources/Services/AuthManager.swift:245-253`
 
 When the app launches, `verifyToken()` calls the `/auth/me` endpoint. If this fails due to **network errors** (no internet), it calls `logout()` which clears the Keychain and forces re-login. This happens even though the user has valid credentials stored locally.
 
@@ -26,9 +26,9 @@ The `fetchMe()` method (lines 271-313) returns `nil` for both network errors (UR
 ### Problem 2: No Local-First Data Access
 
 **Locations**:
-- `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/HomePageView.swift`
-- `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/PeoplePageView.swift`
-- `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/NetworkService.swift`
+- `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/HomePageView.swift`
+- `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/PeoplePageView.swift`
+- `/home/nadeem/Documents/random/mm/mobile/Sources/Services/NetworkService.swift`
 
 All views call `NetworkService` directly, which makes API calls on every access. The `DatabaseManager` has `cacheMovie()` and `cachePerson()` methods but they are **never called**. Data flow is:
 
@@ -80,7 +80,7 @@ Update `CachedMovie` to store full movie data including:
 
 ### Phase 1: Fix Offline Authentication (Critical)
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/AuthManager.swift`
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Services/AuthManager.swift`
 
 **Step 1.1**: Add `AuthVerificationResult` enum after line 323:
 ```swift
@@ -118,7 +118,7 @@ func verifyToken() async {
 
 ### Phase 2: Enhanced Database Schema
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/DatabaseManager.swift`
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Services/DatabaseManager.swift`
 
 **Step 2.1**: Add `imdbId` and `jsonData` columns to `CachedMovie` struct (lines 19-36):
 ```swift
@@ -222,7 +222,7 @@ func deletePendingMovie(id: String) { ... }
 
 ### Phase 3: Repository Layer for Local-First Access
 
-**New File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/Repository.swift`
+**New File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Services/Repository.swift`
 
 Create `DataRepository` protocol defining the contract for local-first data access:
 ```swift
@@ -242,7 +242,7 @@ enum RepositoryError: Error {
 }
 ```
 
-**New File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/MovieRepository.swift`
+**New File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Services/MovieRepository.swift`
 
 Implement the repository pattern:
 
@@ -320,7 +320,7 @@ final class MovieRepository: DataRepository {
 
 ### Phase 4: Offline Write Queue & Sync Manager
 
-**New File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/SyncManager.swift`
+**New File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Services/SyncManager.swift`
 
 Create sync manager to process pending operations:
 
@@ -383,7 +383,7 @@ final class SyncManager {
 
 ### Phase 5: Update Views to Use Repository
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/HomePageView.swift`
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/HomePageView.swift`
 
 Replace direct `NetworkService` calls with `MovieRepository`:
 
@@ -408,11 +408,11 @@ private func loadAllMovies() async {
 _ = await MovieRepository.shared.updateMovie(...)
 ```
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/PeoplePageView.swift`
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/PeoplePageView.swift`
 
 Similar updates for people operations.
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/AddMoviePageView.swift` (if exists)
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/AddMoviePageView.swift` (if exists)
 
 Update to support offline movie additions:
 - Allow adding movie with just a name when offline
@@ -421,7 +421,7 @@ Update to support offline movie additions:
 
 ### Phase 6: Integrate Sync Triggers
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/MobileSwiftApp.swift`
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/MobileSwiftApp.swift`
 
 Add sync triggers when app becomes active (already has WebSocket reconnect logic):
 
@@ -442,7 +442,7 @@ Add sync triggers when app becomes active (already has WebSocket reconnect logic
 
 ### Phase 7: Initial Data Sync & Migration
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/MovieRepository.swift`
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Services/MovieRepository.swift`
 
 Add method to detect first launch after update and trigger full sync:
 
@@ -468,7 +468,7 @@ Call this from `MobileSwiftApp.swift` in the `.task` block after `verifyToken()`
 
 **Solution**: Configure persistent URLCache for image caching and create a custom AsyncImage wrapper for better control.
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/MobileSwiftApp.swift`
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/MobileSwiftApp.swift`
 
 **Step 8.1**: Configure URLCache with custom cache policy in app initialization:
 
@@ -500,7 +500,7 @@ private func configureImageCache() {
 - Movie posters rarely change, so 90 days is a good balance
 - Manual clear option available in Settings
 
-**New File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Components/CachedAsyncImage.swift`
+**New File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Components/CachedAsyncImage.swift`
 
 Create a reusable cached image component:
 ```swift
@@ -597,7 +597,7 @@ extension CachedAsyncImage where Content == Image, Placeholder == Color {
 
 **Step 8.2**: Replace `AsyncImage` with `CachedAsyncImage` in views:
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/HomePageView.swift`
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/HomePageView.swift`
 
 Find all `AsyncImage` usages and replace with `CachedAsyncImage`:
 ```swift
@@ -617,13 +617,13 @@ CachedAsyncImage(url: movie.posterURL) { image in
 ```
 
 Apply similar changes to:
-- `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/GlobalSearchPageView.swift`
-- `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/AddMoviePageView.swift`
+- `/home/nadeem/Documents/random/mm/mobile/Sources/Views/GlobalSearchPageView.swift`
+- `/home/nadeem/Documents/random/mm/mobile/Sources/Views/AddMoviePageView.swift`
 - Any other views displaying movie posters
 
 **Step 8.3**: Add cache management to Settings (optional):
 
-**File**: `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/AccountPageView.swift`
+**File**: `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/AccountPageView.swift`
 
 Add button to clear image cache:
 ```swift
@@ -644,25 +644,25 @@ Button("Clear Image Cache") {
 ## Critical Files
 
 ### Files to Modify:
-1. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/AuthManager.swift` - Fix offline auth
-2. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/DatabaseManager.swift` - Enhanced schema and queue methods
-3. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/HomePageView.swift` - Use repository + cached images
-4. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/PeoplePageView.swift` - Use repository
-5. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/MobileSwiftApp.swift` - Add sync triggers + URLCache config
-6. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/GlobalSearchPageView.swift` - Use cached images
-7. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/AddMoviePageView.swift` - Use cached images
-8. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Tabs/AccountPageView.swift` - Add cache clear option (optional)
+1. `/home/nadeem/Documents/random/mm/mobile/Sources/Services/AuthManager.swift` - Fix offline auth
+2. `/home/nadeem/Documents/random/mm/mobile/Sources/Services/DatabaseManager.swift` - Enhanced schema and queue methods
+3. `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/HomePageView.swift` - Use repository + cached images
+4. `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/PeoplePageView.swift` - Use repository
+5. `/home/nadeem/Documents/random/mm/mobile/Sources/MobileSwiftApp.swift` - Add sync triggers + URLCache config
+6. `/home/nadeem/Documents/random/mm/mobile/Sources/Views/GlobalSearchPageView.swift` - Use cached images
+7. `/home/nadeem/Documents/random/mm/mobile/Sources/Views/AddMoviePageView.swift` - Use cached images
+8. `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Tabs/AccountPageView.swift` - Add cache clear option (optional)
 
 ### Files to Create:
-1. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/Repository.swift` - Protocol definition
-2. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/MovieRepository.swift` - Repository implementation
-3. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/SyncManager.swift` - Sync orchestration
-4. `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/Components/CachedAsyncImage.swift` - Image caching component
+1. `/home/nadeem/Documents/random/mm/mobile/Sources/Services/Repository.swift` - Protocol definition
+2. `/home/nadeem/Documents/random/mm/mobile/Sources/Services/MovieRepository.swift` - Repository implementation
+3. `/home/nadeem/Documents/random/mm/mobile/Sources/Services/SyncManager.swift` - Sync orchestration
+4. `/home/nadeem/Documents/random/mm/mobile/Sources/Views/Components/CachedAsyncImage.swift` - Image caching component
 
 ### Existing Files Referenced (Read Only):
-- `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/NetworkService.swift` - Movie/Person structs and API calls
-- `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Services/AppConfiguration.swift` - API URL config
-- `/home/nadeem/Documents/random/mm/mobile-swift/Sources/Views/RootTabHostView.swift` - Main navigation
+- `/home/nadeem/Documents/random/mm/mobile/Sources/Services/NetworkService.swift` - Movie/Person structs and API calls
+- `/home/nadeem/Documents/random/mm/mobile/Sources/Services/AppConfiguration.swift` - API URL config
+- `/home/nadeem/Documents/random/mm/mobile/Sources/Views/RootTabHostView.swift` - Main navigation
 
 ## Testing Plan
 

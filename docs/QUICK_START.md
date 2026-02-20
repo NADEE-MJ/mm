@@ -30,21 +30,13 @@ Set GitHub repository variable or secret:
 
 Then push to `main`.
 
-For the standalone native Swift test app pipeline, run:
-
-- **Actions > Build iOS Swift Test App (Unsigned) > Run workflow**
-- Optional: choose `runner_image=macos-latest` (or `macos-15` fallback, `macos-26` if available).
-- Optional: set `deployment_target` (default `26.0`).
-- Optional: set `publish_release=false` to skip updating `ios-swift-test-latest`.
-- Optional: set `artifact_suffix` to customize the IPA filename.
-
 ## 3. Download on iPhone
 
 In GitHub app:
 
 1. Repo → Releases
-2. Open `ios-latest` (Expo app) or `ios-swift-test-latest` (Swift test app)
-3. Download `MovieManager-unsigned.ipa` or `SwiftTestApp-unsigned.ipa`
+2. Open `ios-latest` (Expo app)
+3. Download `MovieManager-unsigned.ipa`
 
 ## 4. Install
 
