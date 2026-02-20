@@ -417,6 +417,7 @@ struct AddMoviePageView: View {
     @State private var curatedMoviesByCategory: [DiscoverRailCategory: [TMDBMovie]] = [:]
     @State private var isLoadingCuratedMovies = false
     @State private var didAttemptCuratedLoad = false
+    @State private var isKeyboardShowing = false
 
     init(
         onClose: (() -> Void)? = nil,
@@ -639,9 +640,25 @@ struct AddMoviePageView: View {
                     }
                     .accessibilityLabel("Search filters")
                 }
-                ToolbarItem(placement: .keyboard) {
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if isKeyboardShowing {
                     keyboardToolbarView
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(.bar)
                 }
+            }
+            .onReceive(
+                NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+            ) { _ in
+                isKeyboardShowing = true
+            }
+            .onReceive(
+                NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+            ) { _ in
+                isKeyboardShowing = false
             }
             .onAppear {
                 isSearchPresented = true
