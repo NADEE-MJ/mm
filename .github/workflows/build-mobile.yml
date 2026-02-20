@@ -1,7 +1,7 @@
-name: Build Mobile Swift App (Unsigned)
+name: Build iOS App
 
-# Mobile Swift pipeline for Movie Manager app
-# xcodegen -> xcodebuild (unsigned) -> IPA artifact -> rolling release (mobile-latest)
+# iOS build pipeline for Movie Manager
+# xcodegen -> xcodebuild (unsigned) -> IPA artifact -> versioned release (mobile-v{version})
 #
 # Triggers:
 #   - workflow_dispatch: manual run from UI, builds IPA + optional release
@@ -25,7 +25,7 @@ on:
         default: "26.0"
         type: string
       publish_release:
-        description: "Publish/update mobile-latest release"
+        description: "Publish/update versioned iOS release"
         required: true
         default: true
         type: boolean
@@ -53,7 +53,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build Unsigned Mobile Swift App
+    name: Build iOS App
     runs-on: ${{ github.event.inputs.runner_image || 'macos-26' }}
     timeout-minutes: 45
 
@@ -282,21 +282,24 @@ jobs:
           mkdir -p Payload
           cp -R "${{ env.APP_PATH }}" Payload/
 
-          APP_NAME=$(basename "${{ env.APP_PATH }}" .app)
+          VERSION=$(grep 'MARKETING_VERSION:' project.yml | head -1 | sed 's/.*MARKETING_VERSION:[[:space:]]*//' | tr -d '[:space:]')
+          if [ -z "$VERSION" ]; then
+            echo "❌ Could not read MARKETING_VERSION from mobile/project.yml"
+            exit 1
+          fi
+
+          VERSION_TAG="v$(echo "$VERSION" | tr '.' '_')"
 
           # Build the IPA filename based on trigger type
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            # Sanitize branch name for use in filename
-            BRANCH_RAW="${{ github.head_ref }}"
-            BRANCH=$(echo "$BRANCH_RAW" | tr -cd '[:alnum:]._-' | cut -c1-60)
-            IPA_NAME="${APP_NAME}-${BRANCH}-unsigned.ipa"
+            IPA_NAME="mm-${VERSION_TAG}-pr${{ github.event.pull_request.number }}.ipa"
           else
             SUFFIX_RAW="${{ github.event.inputs.artifact_suffix }}"
             SUFFIX=$(echo "$SUFFIX_RAW" | tr -cd '[:alnum:]._-')
             if [ -n "$SUFFIX" ]; then
-              IPA_NAME="${APP_NAME}-${SUFFIX}-unsigned.ipa"
+              IPA_NAME="mm-${VERSION_TAG}-${SUFFIX}.ipa"
             else
-              IPA_NAME="${APP_NAME}-unsigned.ipa"
+              IPA_NAME="mm-${VERSION_TAG}.ipa"
             fi
           fi
 
@@ -340,13 +343,13 @@ jobs:
           fi
 
           TAG="mobile-v${VERSION}"
-          RELEASE_TITLE="Mobile v${VERSION}"
+          RELEASE_TITLE="iOS v${VERSION}"
           RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
 
           echo "Version: $VERSION  Tag: $TAG"
 
           NOTES=$(cat <<EOF_NOTES
-          Unsigned Mobile Swift iOS build for v${VERSION}.
+          Unsigned iOS build for v${VERSION}.
 
           **Commit:** ${{ github.sha }}
           **Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -364,9 +367,9 @@ jobs:
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$RELEASE_TITLE" --notes "$NOTES" --prerelease
+            gh release edit "$TAG" --title "$RELEASE_TITLE" --notes "$NOTES"
           else
-            gh release create "$TAG" --title "$RELEASE_TITLE" --notes "$NOTES" --prerelease
+            gh release create "$TAG" --title "$RELEASE_TITLE" --notes "$NOTES"
           fi
 
           gh release upload "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" --clobber

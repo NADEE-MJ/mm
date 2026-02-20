@@ -15,7 +15,7 @@ This repo has one iOS workflow:
 
 - Push to `main` when `mobile/` changes
 - Pull request targeting `main` when `mobile/` changes
-- Manual run via **Actions > Build Mobile Swift App (Unsigned) > Run workflow**
+- Manual run via **Actions > Build iOS App > Run workflow**
 
 ### Required secret
 
@@ -35,6 +35,6 @@ On GitHub mobile app:
 
 1. Open repo **Releases**.
 2. Open the latest `mobile-v*` release.
-3. Download `MobileSwift-unsigned.ipa`.
+3. Download `mm-v*.ipa`.
 
 Then import into SideStore/LiveContainer as needed.
