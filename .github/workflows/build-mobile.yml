@@ -348,7 +348,7 @@ jobs:
 
           echo "Version: $VERSION  Tag: $TAG"
 
-          BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M UTC')
+          BUILD_TIME=$(TZ=America/Los_Angeles date '+%Y-%m-%d %H:%M %Z')
           FULL_SHA="${{ github.sha }}"
           SHORT_SHA="${FULL_SHA:0:7}"
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
