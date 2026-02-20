@@ -6,6 +6,7 @@ struct HomePageView: View {
     @State private var repository = MovieRepository.shared
     @State private var allMovies: [Movie] = []
     @State private var isLoading = false
+    @State private var hasLoadedInitialData = false
     @State private var searchText = ""
     @State private var isSearchPresented = false
     @State private var selectedStatus = "to_watch"
@@ -119,27 +120,31 @@ struct HomePageView: View {
         uniqueSorted(allMovies.flatMap(\.actors))
     }
 
-    private var moviesSectionTitle: String {
+    private func moviesSectionTitle(count: Int) -> String {
         if selectedStatus == "to_watch" {
-            return "\(filteredMovies.count) movie\(filteredMovies.count == 1 ? "" : "s") to watch"
+            return "\(count) movie\(count == 1 ? "" : "s") to watch"
         }
-        return "\(filteredMovies.count) watched movie\(filteredMovies.count == 1 ? "" : "s")"
+        return "\(count) watched movie\(count == 1 ? "" : "s")"
     }
 
-    private var toWatchFooterMessage: String? {
+    private func toWatchFooterMessage(filteredCount: Int) -> String? {
         let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard selectedStatus == "to_watch", trimmedQuery.isEmpty else { return nil }
 
-        if filteredMovies.count <= 3 {
+        if filteredCount <= 3 {
             return "Hey, ask your friends for more recommendations."
         }
-        if filteredMovies.count >= 12 {
+        if filteredCount >= 12 {
             return "Hey buddy, you got a lot of movies to watch."
         }
         return "Solid queue. Keep chipping away."
     }
 
     var body: some View {
+        let visibleMovies = filteredMovies
+        let visibleMoviesCount = visibleMovies.count
+        let footerMessage = toWatchFooterMessage(filteredCount: visibleMoviesCount)
+
         NavigationStack {
             List {
                 Section {
@@ -159,7 +164,7 @@ struct HomePageView: View {
                             Spacer()
                         }
                     }
-                } else if filteredMovies.isEmpty {
+                } else if visibleMovies.isEmpty {
                     Section {
                         ContentUnavailableView(
                             searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Movies" : "No Results",
@@ -175,7 +180,7 @@ struct HomePageView: View {
                     }
                 } else {
                     Section {
-                        ForEach(filteredMovies) { movie in
+                        ForEach(visibleMovies) { movie in
                             NavigationLink {
                                 MovieDetailView(movie: movie)
                             } label: {
@@ -231,10 +236,10 @@ struct HomePageView: View {
                             }
                         }
                     } header: {
-                        Text(moviesSectionTitle)
+                        Text(moviesSectionTitle(count: visibleMoviesCount))
                     } footer: {
-                        if let toWatchFooterMessage {
-                            Text(toWatchFooterMessage)
+                        if let footerMessage {
+                            Text(footerMessage)
                         }
                     }
                 }
@@ -252,10 +257,9 @@ struct HomePageView: View {
                 await loadAllMovies(forceSync: true)
             }
             .task {
-                await loadAllMovies()
-            }
-            .onAppear {
-                Task {
+                guard !hasLoadedInitialData else { return }
+                hasLoadedInitialData = true
+                if allMovies.isEmpty {
                     await loadAllMovies()
                 }
             }
@@ -342,7 +346,9 @@ struct HomePageView: View {
     }
 
     private func loadAllMovies(forceSync: Bool = false) async {
+        guard !isLoading else { return }
         isLoading = true
+        defer { isLoading = false }
         if forceSync {
             _ = await repository.syncMovies(force: true)
         }
@@ -353,7 +359,6 @@ struct HomePageView: View {
         case .failure:
             allMovies = repository.movies
         }
-        isLoading = false
     }
 
     private func sortedMovies(_ input: [Movie]) -> [Movie] {
@@ -818,7 +823,6 @@ private struct MovieDetailView: View {
         }
         .task {
             ratingValue = currentMovie.myRating ?? 7
-            await loadPeople()
             await refreshCurrentMovie()
         }
         .sheet(isPresented: $showRatingSheet, onDismiss: {

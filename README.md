@@ -79,9 +79,8 @@ VITE_API_URL=http://localhost:8155
 
 ```bash
 cd mobile
-cat > .env <<'ENV'
-API_BASE_URL=http://localhost:8155/api
-ENV
+cp .env.example .env
+# edit .env if needed
 ./scripts/generate-env-xcconfig.sh
 xcodegen generate
 open MovieManager.xcodeproj
@@ -89,6 +88,7 @@ open MovieManager.xcodeproj
 
 Notes:
 - CI requires HTTPS via `MOBILE_API_BASE_URL`.
+- Optional file logging is controlled by `FILE_LOGGING_ENABLED` (`YES`/`NO`, defaults to `NO`).
 - Local HTTP development may require ATS exceptions in `mobile/Sources/Info.plist`.
 
 ## CI/CD

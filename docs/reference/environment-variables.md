@@ -31,12 +31,10 @@ cp frontend/.env.example frontend/.env
 
 ## iOS App (`mobile/.env`)
 
-Create manually (no committed template file):
+Copy template:
 
 ```bash
-cat > mobile/.env <<'ENV'
-API_BASE_URL=https://api.example.com/api
-ENV
+cp mobile/.env.example mobile/.env
 ```
 
 Accepted keys (either works):
@@ -45,6 +43,8 @@ Accepted keys (either works):
 |---|---|---|---|
 | `API_BASE_URL` | Yes | `https://api.example.com/api` | Preferred key |
 | `MOBILE_API_BASE_URL` | Alternative | `https://api.example.com/api` | Backward-compatible alias |
+| `FILE_LOGGING_ENABLED` | Optional | `NO` | Must be `YES` or `NO`; defaults to `NO` |
+| `MOBILE_FILE_LOGGING_ENABLED` | Alternative | `NO` | Backward-compatible alias |
 
 Used by `mobile/scripts/generate-env-xcconfig.sh` to generate:
 - `mobile/Config/Env.generated.xcconfig`
@@ -53,11 +53,12 @@ Used by `mobile/scripts/generate-env-xcconfig.sh` to generate:
 
 ### iOS build workflow (`.github/workflows/build-mobile.yml`)
 
-| Secret | Required | Example |
-|---|---|---|
-| `MOBILE_API_BASE_URL` | Yes | `https://api.example.com/api` |
+| Name | Type | Required | Example |
+|---|---|---|---|
+| `MOBILE_API_BASE_URL` | Secret | Yes | `https://api.example.com/api` |
+| `MOBILE_FILE_LOGGING_ENABLED` | Variable or Secret | No | `NO` |
 
-The workflow validates this value and fails fast if it is missing/invalid.
+`MOBILE_FILE_LOGGING_ENABLED` must be `YES` or `NO` (case-insensitive). If omitted, CI defaults it to `NO`.
 
 ## Summary
 
@@ -71,7 +72,9 @@ The workflow validates this value and fails fast if it is missing/invalid.
 | `SECRET_KEY` | `backend/.env` |
 | `VITE_API_URL` | `frontend/.env` |
 | `API_BASE_URL` | `mobile/.env` |
+| `FILE_LOGGING_ENABLED` | `mobile/.env` |
 | `MOBILE_API_BASE_URL` | GitHub Actions secret (and optionally `mobile/.env`) |
+| `MOBILE_FILE_LOGGING_ENABLED` | GitHub Actions variable/secret (and optionally `mobile/.env`) |
 
 ## Related Docs
 

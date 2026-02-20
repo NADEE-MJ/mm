@@ -20,6 +20,8 @@ struct PeoplePageView: View {
     }
 
     @State private var people: [Person] = []
+    @State private var isLoading = false
+    @State private var hasLoadedInitialData = false
     @State private var searchText = ""
     @State private var isSearchPresented = false
     @State private var filter: TrustedFilter = .all
@@ -56,10 +58,12 @@ struct PeoplePageView: View {
     }
 
     var body: some View {
+        let visiblePeople = filteredPeople
+
         NavigationStack {
             List {
                 Section {
-                    if filteredPeople.isEmpty {
+                    if visiblePeople.isEmpty {
                         ContentUnavailableView(
                             searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No People" : "No Results",
                             systemImage: "person.2.slash",
@@ -70,7 +74,7 @@ struct PeoplePageView: View {
                             )
                         )
                     } else {
-                        ForEach(filteredPeople) { person in
+                        ForEach(visiblePeople) { person in
                             NavigationLink {
                                 PersonDetailView(person: person) {
                                     await loadPeople()
@@ -114,7 +118,7 @@ struct PeoplePageView: View {
                         }
                     }
                 } header: {
-                    Text("\(filteredPeople.count) people")
+                    Text("\(visiblePeople.count) people")
                 } footer: {
                     Text("Swipe right or use the context menu to toggle trust.")
                 }
@@ -132,10 +136,9 @@ struct PeoplePageView: View {
                 await loadPeople(forceSync: true)
             }
             .task {
-                await loadPeople()
-            }
-            .onAppear {
-                Task {
+                guard !hasLoadedInitialData else { return }
+                hasLoadedInitialData = true
+                if people.isEmpty {
                     await loadPeople()
                 }
             }
@@ -184,6 +187,9 @@ struct PeoplePageView: View {
     }
 
     private func loadPeople(forceSync: Bool = false) async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
         if forceSync {
             _ = await repository.syncPeople(force: true)
         }

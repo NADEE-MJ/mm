@@ -74,6 +74,7 @@ cd backend && uv run uvicorn main:app --host 0.0.0.0 --port $PORT
 ## iOS Build Dependency
 
 The iOS workflow bakes backend URL into IPA via `MOBILE_API_BASE_URL`.
+File log export behavior can be controlled with optional `MOBILE_FILE_LOGGING_ENABLED` (`YES`/`NO`, defaults to `NO`).
 When backend URL changes:
 1. Update `MOBILE_API_BASE_URL` secret.
 2. Trigger a new iOS build.

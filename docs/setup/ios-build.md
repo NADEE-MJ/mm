@@ -30,22 +30,24 @@ The native iOS app is built as an unsigned IPA via GitHub Actions.
   - PR builds: `mm-vX_Y-pr<PR_NUMBER>.ipa`
   - Main/manual builds: `mm-vX_Y.ipa` or `mm-vX_Y-<suffix>.ipa`
 
-## Required Secret
+## Pipeline Configuration
 
-Set in repository Actions secrets:
+Set in repository Actions settings:
 
-| Secret | Required | Example |
-|---|---|---|
-| `MOBILE_API_BASE_URL` | Yes | `https://api.example.com/api` |
+| Name | Type | Required | Example |
+|---|---|---|---|
+| `MOBILE_API_BASE_URL` | Secret | Yes | `https://api.example.com/api` |
+| `MOBILE_FILE_LOGGING_ENABLED` | Variable or Secret | No | `NO` |
 
 Validation rules in workflow:
 - Must be set
 - Must use HTTPS
 - Must be a base host URL or end in `/api`
+- `MOBILE_FILE_LOGGING_ENABLED` must be `YES` or `NO` (case-insensitive); defaults to `NO` when omitted.
 
 ## Build Pipeline Summary
 
-1. Generate `Config/Env.generated.xcconfig` from `MOBILE_API_BASE_URL`
+1. Generate `Config/Env.generated.xcconfig` from `MOBILE_API_BASE_URL` and optional `MOBILE_FILE_LOGGING_ENABLED`
 2. Run `xcodegen generate`
 3. Resolve SPM packages
 4. Build unsigned app with `xcodebuild` (no signing)

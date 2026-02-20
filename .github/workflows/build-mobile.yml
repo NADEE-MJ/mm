@@ -119,10 +119,41 @@ jobs:
           echo "✅ API base URL validated: $API_BASE_URL"
           echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
 
-      - name: Generate CI xcconfig from secret
+      - name: Resolve file logging flag (optional)
+        env:
+          FILE_LOGGING_ENABLED_FROM_VAR: ${{ vars.MOBILE_FILE_LOGGING_ENABLED }}
+          FILE_LOGGING_ENABLED_FROM_SECRET: ${{ secrets.MOBILE_FILE_LOGGING_ENABLED }}
+        run: |
+          set -euo pipefail
+
+          RAW_VALUE="${FILE_LOGGING_ENABLED_FROM_VAR:-}"
+          if [ -z "$RAW_VALUE" ]; then
+            RAW_VALUE="${FILE_LOGGING_ENABLED_FROM_SECRET:-}"
+          fi
+
+          RAW_VALUE=$(echo "${RAW_VALUE:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+          RAW_VALUE_LOWER=$(echo "$RAW_VALUE" | tr '[:upper:]' '[:lower:]')
+
+          if [ -z "$RAW_VALUE_LOWER" ]; then
+            FILE_LOGGING_ENABLED="NO"
+          elif [ "$RAW_VALUE_LOWER" = "yes" ]; then
+            FILE_LOGGING_ENABLED="YES"
+          elif [ "$RAW_VALUE_LOWER" = "no" ]; then
+            FILE_LOGGING_ENABLED="NO"
+          else
+            echo "❌ ERROR: MOBILE_FILE_LOGGING_ENABLED must be YES or NO"
+            echo "❌ Received: $RAW_VALUE"
+            exit 1
+          fi
+
+          echo "✅ FILE_LOGGING_ENABLED resolved to: $FILE_LOGGING_ENABLED"
+          echo "FILE_LOGGING_ENABLED=$FILE_LOGGING_ENABLED" >> "$GITHUB_ENV"
+
+      - name: Generate CI xcconfig from env
         working-directory: mobile
         env:
           API_BASE_URL: ${{ env.API_BASE_URL }}
+          FILE_LOGGING_ENABLED: ${{ env.FILE_LOGGING_ENABLED }}
         run: |
           set -euo pipefail
           ./scripts/generate-env-xcconfig.sh
@@ -167,10 +198,12 @@ jobs:
           GENERATE_INFOPLIST_FILE_VALUE="$(get_setting GENERATE_INFOPLIST_FILE)"
           INFOPLIST_FILE_VALUE="$(get_setting INFOPLIST_FILE)"
           API_BASE_URL_VALUE="$(get_setting API_BASE_URL)"
+          FILE_LOGGING_ENABLED_VALUE="$(get_setting FILE_LOGGING_ENABLED)"
 
           echo "GENERATE_INFOPLIST_FILE = ${GENERATE_INFOPLIST_FILE_VALUE:-<unset>}"
           echo "INFOPLIST_FILE = ${INFOPLIST_FILE_VALUE:-<unset>}"
           echo "API_BASE_URL = ${API_BASE_URL_VALUE:-<unset>}"
+          echo "FILE_LOGGING_ENABLED = ${FILE_LOGGING_ENABLED_VALUE:-<unset>}"
 
           if [ "${GENERATE_INFOPLIST_FILE_VALUE:-}" != "NO" ]; then
             echo "❌ GENERATE_INFOPLIST_FILE must be NO"
@@ -188,6 +221,10 @@ jobs:
             echo "❌ API_BASE_URL resolved to https: only (likely bad xcconfig escaping)"
             exit 1
           fi
+          if [[ -z "${FILE_LOGGING_ENABLED_VALUE:-}" || ! "${FILE_LOGGING_ENABLED_VALUE}" =~ ^(YES|NO)$ ]]; then
+            echo "❌ FILE_LOGGING_ENABLED must resolve to YES or NO"
+            exit 1
+          fi
 
       - name: Build with xcodebuild
         working-directory: mobile
@@ -196,6 +233,10 @@ jobs:
 
           if [ -z "${API_BASE_URL:-}" ]; then
             echo "❌ API_BASE_URL is missing in build environment"
+            exit 1
+          fi
+          if [[ -z "${FILE_LOGGING_ENABLED:-}" || ! "${FILE_LOGGING_ENABLED}" =~ ^(YES|NO)$ ]]; then
+            echo "❌ FILE_LOGGING_ENABLED must be set to YES or NO in build environment"
             exit 1
           fi
 
@@ -245,14 +286,28 @@ jobs:
           # Force-write API_BASE_URL into the built app plist so runtime config is guaranteed.
           /usr/libexec/PlistBuddy -c "Set :API_BASE_URL $API_BASE_URL" "$BUILT_INFO_PLIST" >/dev/null 2>&1 || \
             /usr/libexec/PlistBuddy -c "Add :API_BASE_URL string $API_BASE_URL" "$BUILT_INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :FILE_LOGGING_ENABLED $FILE_LOGGING_ENABLED" "$BUILT_INFO_PLIST" >/dev/null 2>&1 || \
+            /usr/libexec/PlistBuddy -c "Add :FILE_LOGGING_ENABLED string $FILE_LOGGING_ENABLED" "$BUILT_INFO_PLIST"
 
           BUILT_API_BASE_URL=$(/usr/bin/plutil -extract API_BASE_URL raw -o - "$BUILT_INFO_PLIST" 2>/dev/null || true)
           if [ -z "${BUILT_API_BASE_URL:-}" ]; then
             BUILT_API_BASE_URL=$(/usr/libexec/PlistBuddy -c "Print :API_BASE_URL" "$BUILT_INFO_PLIST" 2>/dev/null || true)
           fi
           BUILT_API_BASE_URL=$(echo "${BUILT_API_BASE_URL:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+          BUILT_FILE_LOGGING_ENABLED=$(/usr/bin/plutil -extract FILE_LOGGING_ENABLED raw -o - "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          if [ -z "${BUILT_FILE_LOGGING_ENABLED:-}" ]; then
+            BUILT_FILE_LOGGING_ENABLED=$(/usr/libexec/PlistBuddy -c "Print :FILE_LOGGING_ENABLED" "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          fi
+          BUILT_FILE_LOGGING_ENABLED=$(echo "${BUILT_FILE_LOGGING_ENABLED:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+
           if [ -z "$BUILT_API_BASE_URL" ]; then
             echo "❌ Built app API_BASE_URL is empty or missing in Info.plist"
+            echo "ℹ️ Built Info.plist snapshot:"
+            /usr/bin/plutil -p "$BUILT_INFO_PLIST" | sed -n '1,120p' || true
+            exit 1
+          fi
+          if [[ -z "$BUILT_FILE_LOGGING_ENABLED" || ! "$BUILT_FILE_LOGGING_ENABLED" =~ ^(YES|NO)$ ]]; then
+            echo "❌ Built app FILE_LOGGING_ENABLED is empty/invalid in Info.plist"
             echo "ℹ️ Built Info.plist snapshot:"
             /usr/bin/plutil -p "$BUILT_INFO_PLIST" | sed -n '1,120p' || true
             exit 1
@@ -263,9 +318,15 @@ jobs:
             echo "❌ Actual built value: $BUILT_API_BASE_URL"
             exit 1
           fi
+          if [ "$BUILT_FILE_LOGGING_ENABLED" != "$FILE_LOGGING_ENABLED" ]; then
+            echo "❌ Built app FILE_LOGGING_ENABLED does not match pipeline value"
+            echo "❌ Actual built value: $BUILT_FILE_LOGGING_ENABLED"
+            exit 1
+          fi
 
           echo "✅ Found app bundle: $APP_PATH"
           echo "✅ Built Info.plist API_BASE_URL verified: $BUILT_API_BASE_URL"
+          echo "✅ Built Info.plist FILE_LOGGING_ENABLED verified: $BUILT_FILE_LOGGING_ENABLED"
           echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
 
       - name: Package IPA

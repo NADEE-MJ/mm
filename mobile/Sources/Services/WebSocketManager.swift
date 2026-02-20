@@ -25,6 +25,7 @@ final class WebSocketManager {
     private var reconnectTask: Task<Void, Never>?
     private var reconnectAttempt = 0
     private var shouldMaintainConnection = false
+    private let maxStoredMessages = 250
     private let session = URLSession(configuration: .default)
     private let wsBaseURL = AppConfiguration.webSocketURL
 
@@ -107,7 +108,7 @@ final class WebSocketManager {
     func send(_ text: String) {
         guard let task, isConnected else { return }
         let message = URLSessionWebSocketTask.Message.string(text)
-        messages.append(WSMessage(text: text, isOutgoing: true, timestamp: .now))
+        appendMessage(WSMessage(text: text, isOutgoing: true, timestamp: .now))
         AppLog.debug("🔌 [WebSocket] Sending message (\(text.count) chars)", category: .websocket)
         task.send(message) { error in
             if let error {
@@ -156,12 +157,12 @@ final class WebSocketManager {
                 case .success(let msg):
                     switch msg {
                     case .string(let text):
-                        self.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
+                        self.appendMessage(WSMessage(text: text, isOutgoing: false, timestamp: .now))
                         self.handlePotentialServerEvent(from: text)
                         AppLog.debug("🔌 [WebSocket] Received text message (\(text.count) chars)", category: .websocket)
                     case .data(let data):
                         let text = String(data: data, encoding: .utf8) ?? "<binary \(data.count) bytes>"
-                        self.messages.append(WSMessage(text: text, isOutgoing: false, timestamp: .now))
+                        self.appendMessage(WSMessage(text: text, isOutgoing: false, timestamp: .now))
                         self.handlePotentialServerEvent(from: text)
                         AppLog.debug("🔌 [WebSocket] Received binary message (\(data.count) bytes)", category: .websocket)
                     @unknown default:
@@ -204,7 +205,14 @@ final class WebSocketManager {
     }
 
     private func addSystemMessage(_ text: String) {
-        messages.append(WSMessage(text: "⚙️ \(text)", isOutgoing: false, timestamp: .now))
+        appendMessage(WSMessage(text: "⚙️ \(text)", isOutgoing: false, timestamp: .now))
+    }
+
+    private func appendMessage(_ message: WSMessage) {
+        messages.append(message)
+        if messages.count > maxStoredMessages {
+            messages.removeFirst(messages.count - maxStoredMessages)
+        }
     }
 
     private func handlePotentialServerEvent(from rawText: String) {

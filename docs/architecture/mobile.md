@@ -74,11 +74,12 @@ This supports offline reads and deferred write replay.
 
 Build-time API URL flow:
 1. `mobile/.env` contains `API_BASE_URL` (or `MOBILE_API_BASE_URL`).
-2. `scripts/generate-env-xcconfig.sh` writes `Config/Env.generated.xcconfig`.
-3. `Sources/Info.plist` reads `$(API_BASE_URL)`.
-4. `NetworkService` reads URL from app config.
+2. Optional file log flag comes from `FILE_LOGGING_ENABLED` (or `MOBILE_FILE_LOGGING_ENABLED`) and must be `YES`/`NO` (defaults to `NO`).
+3. `scripts/generate-env-xcconfig.sh` writes `Config/Env.generated.xcconfig`.
+4. `Sources/Info.plist` reads `$(API_BASE_URL)` and `$(FILE_LOGGING_ENABLED)`.
+5. `NetworkService` reads URL from app config.
 
-CI sets `MOBILE_API_BASE_URL` secret and generates the same xcconfig in workflow.
+CI sets `MOBILE_API_BASE_URL` secret and optionally `MOBILE_FILE_LOGGING_ENABLED` (variable/secret), then generates the same xcconfig in workflow.
 
 ## Build and Run
 

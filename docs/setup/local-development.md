@@ -68,13 +68,11 @@ npm run dev
 
 ## Native iOS App (Swift)
 
-Create `mobile/.env` manually (there is no committed `.env.example`):
+Create `mobile/.env` from template:
 
 ```bash
 cd mobile
-cat > .env <<'ENV'
-API_BASE_URL=http://localhost:8155/api
-ENV
+cp .env.example .env
 ```
 
 Generate config and project:
@@ -87,6 +85,7 @@ open MovieManager.xcodeproj
 
 Notes:
 - CI enforces HTTPS for `MOBILE_API_BASE_URL`.
+- `FILE_LOGGING_ENABLED` accepts only `YES`/`NO` and defaults to `NO` if omitted.
 - For local HTTP endpoints on a physical device, add ATS exceptions in `mobile/Sources/Info.plist`.
 
 ## Root CLI Shortcuts

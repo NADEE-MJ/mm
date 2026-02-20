@@ -29,6 +29,18 @@ Example value:
 
 The workflow validates the secret is set and injects it into `Config/Env.generated.xcconfig` before building.
 
+### Optional logging flag
+
+Set either a repository variable or secret to control file-log export in the iOS build:
+
+- `MOBILE_FILE_LOGGING_ENABLED` (optional)
+
+Accepted values:
+
+- `YES`/`NO` (case-insensitive)
+
+If omitted, it defaults to `NO`.
+
 ### Download from phone
 
 On GitHub mobile app:

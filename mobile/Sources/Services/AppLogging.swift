@@ -44,28 +44,45 @@ final class FileLogStore: @unchecked Sendable {
 
     private let queue = DispatchQueue(label: "com.moviemanager.app.filelog")
     private let formatter = ISO8601DateFormatter()
-    private let fileURL: URL
-    private let rotatedFileURL: URL
+    private let dayFormatter: DateFormatter
+    private let logsDirectoryURL: URL
+    private let disabledLogURL: URL
+    private let filePrefix = "app-debug-"
     private let maxSizeBytes = 2 * 1024 * 1024
+    private let enabled: Bool
 
     private init() {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        fileURL = documents.appendingPathComponent("app-debug.log")
-        rotatedFileURL = documents.appendingPathComponent("app-debug.log.1")
+        logsDirectoryURL = documents.appendingPathComponent("logs", isDirectory: true)
+        disabledLogURL = documents.appendingPathComponent("logs-disabled.txt")
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        ensureFileExists()
+        dayFormatter = DateFormatter()
+        dayFormatter.calendar = Calendar(identifier: .gregorian)
+        dayFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dayFormatter.dateFormat = "yyyy-MM-dd"
+        enabled = Self.readBuildToggle()
+        queue.sync {
+            self.prepareCurrentDayLogFile()
+        }
+    }
+
+    var isEnabled: Bool {
+        enabled
     }
 
     func append(level: String, category: String, message: String) {
+        guard enabled else { return }
         let line = "\(formatter.string(from: Date())) [\(level)] [\(category)] \(message)\n"
         queue.async {
-            self.rotateIfNeeded()
+            self.prepareCurrentDayLogFile()
+            let fileURL = self.currentDayLogFileURL()
             guard let data = line.data(using: .utf8) else { return }
-            if let handle = try? FileHandle(forWritingTo: self.fileURL) {
+            if let handle = try? FileHandle(forWritingTo: fileURL) {
                 do {
                     try handle.seekToEnd()
                     try handle.write(contentsOf: data)
                     try handle.close()
+                    self.trimIfNeeded(fileURL: fileURL)
                 } catch {
                     try? handle.close()
                 }
@@ -74,36 +91,106 @@ final class FileLogStore: @unchecked Sendable {
     }
 
     func clear() {
+        guard enabled else { return }
         queue.async {
-            try? "".write(to: self.fileURL, atomically: true, encoding: .utf8)
+            let fileURL = self.currentDayLogFileURL()
+            try? "".write(to: fileURL, atomically: true, encoding: .utf8)
         }
     }
 
     func exportURL() -> URL {
-        queue.sync {
-            ensureFileExists()
+        guard enabled else {
+            queue.sync {
+                writeDisabledLogNoticeIfNeeded()
+            }
+            return disabledLogURL
         }
-        return fileURL
+
+        queue.sync {
+            prepareCurrentDayLogFile()
+        }
+        return currentDayLogFileURL()
     }
 
-    private func ensureFileExists() {
+    private static func readBuildToggle() -> Bool {
+        guard let value = Bundle.main.object(forInfoDictionaryKey: "FILE_LOGGING_ENABLED") else {
+            return true
+        }
+
+        if let boolValue = value as? Bool {
+            return boolValue
+        }
+
+        if let number = value as? NSNumber {
+            return number.boolValue
+        }
+
+        if let string = value as? String {
+            let normalized = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            return normalized == "1" || normalized == "true" || normalized == "yes"
+        }
+
+        return true
+    }
+
+    private func currentDayLogFileURL(date: Date = Date()) -> URL {
+        let day = dayFormatter.string(from: date)
+        return logsDirectoryURL.appendingPathComponent("\(filePrefix)\(day).log")
+    }
+
+    private func prepareCurrentDayLogFile() {
+        guard enabled else { return }
+        try? FileManager.default.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
+        purgeLogsOutsideCurrentDay()
+        let fileURL = currentDayLogFileURL()
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             try? "".write(to: fileURL, atomically: true, encoding: .utf8)
         }
     }
 
-    private func rotateIfNeeded() {
-        ensureFileExists()
-        guard let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
-              let size = attrs[.size] as? NSNumber,
-              size.intValue > maxSizeBytes
-        else { return }
+    private func purgeLogsOutsideCurrentDay() {
+        let todayFile = currentDayLogFileURL().lastPathComponent
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: logsDirectoryURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )) ?? []
 
-        try? FileManager.default.removeItem(at: rotatedFileURL)
-        try? FileManager.default.moveItem(at: fileURL, to: rotatedFileURL)
-        ensureFileExists()
+        for file in files where file.lastPathComponent.hasPrefix(filePrefix) && file.lastPathComponent != todayFile {
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
+    private func trimIfNeeded(fileURL: URL) {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+              let size = attrs[.size] as? NSNumber
+        else { return }
+        let totalBytes = size.intValue
+        guard totalBytes > maxSizeBytes else { return }
+
+        let keepBytes = maxSizeBytes / 2
+        let offset = max(0, totalBytes - keepBytes)
+
+        guard let readHandle = try? FileHandle(forReadingFrom: fileURL) else { return }
+        do {
+            try readHandle.seek(toOffset: UInt64(offset))
+            let data = try readHandle.readToEnd() ?? Data()
+            try readHandle.close()
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            try? readHandle.close()
+        }
+    }
+
+    private func writeDisabledLogNoticeIfNeeded() {
+        let message = """
+        File logging is disabled for this build.
+        Set FILE_LOGGING_ENABLED=YES in App.xcconfig (or your generated xcconfig) to enable exports.
+        """
+        try? message.write(to: disabledLogURL, atomically: true, encoding: .utf8)
     }
 }
+
 
 enum AppLog {
     private static let subsystem = Bundle.main.bundleIdentifier ?? "com.moviemanager.app"
@@ -139,8 +226,6 @@ enum AppLog {
             logger.error("\(message, privacy: .public)")
         }
 
-        #if DEBUG
         FileLogStore.shared.append(level: level.rawValue, category: category.rawValue, message: message)
-        #endif
     }
 }
