@@ -42,7 +42,7 @@ private enum AppLogLevel: String {
 final class FileLogStore: @unchecked Sendable {
     static let shared = FileLogStore()
 
-    private let queue = DispatchQueue(label: "com.moviemanager.mobileswift.filelog")
+    private let queue = DispatchQueue(label: "com.moviemanager.app.filelog")
     private let formatter = ISO8601DateFormatter()
     private let fileURL: URL
     private let rotatedFileURL: URL
@@ -106,7 +106,7 @@ final class FileLogStore: @unchecked Sendable {
 }
 
 enum AppLog {
-    private static let subsystem = Bundle.main.bundleIdentifier ?? "com.moviemanager.mobileswift"
+    private static let subsystem = Bundle.main.bundleIdentifier ?? "com.moviemanager.app"
 
     static func debug(_ message: @autoclosure () -> String, category: AppLogCategory = .app) {
         guard DebugSettings.loggingEnabled else { return }

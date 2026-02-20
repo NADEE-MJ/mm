@@ -25,7 +25,7 @@ Manual dispatch options:
 
 1. Install XcodeGen
 2. Generate `Config/Env.generated.xcconfig` from the `MOBILE_API_BASE_URL` secret
-3. Run `xcodegen generate` to produce `MobileSwift.xcodeproj`
+3. Run `xcodegen generate` to produce `MovieManager.xcodeproj`
 4. Resolve Swift Package Manager dependencies
 5. `xcodebuild archive` with code signing disabled
 6. Package `.app` into `.ipa`
@@ -52,14 +52,14 @@ The workflow validates this is set and **fails immediately** with a clear messag
 2. Navigate to this repository
 3. Tap **Releases**
 4. Open the `mobile-latest` release
-5. Download `MobileSwift-unsigned.ipa`
+5. Download `MovieManager-unsigned.ipa`
 
 ### From GitHub Web
 
 1. Go to the repository on github.com
 2. Click **Releases** in the sidebar
 3. Open `mobile-latest`
-4. Download `MobileSwift-unsigned.ipa`
+4. Download `MovieManager-unsigned.ipa`
 
 ### From Actions Artifacts
 

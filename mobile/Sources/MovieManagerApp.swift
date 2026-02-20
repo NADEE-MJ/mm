@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct MobileSwiftApp: App {
+struct MovieManagerApp: App {
     @Environment(\.scenePhase) private var scenePhase
     @State private var authManager = AuthManager.shared
     @State private var bioManager = BiometricAuthManager()

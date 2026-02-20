@@ -130,14 +130,14 @@ xcodegen generate
 Open in Xcode:
 
 ```bash
-open MobileSwift.xcodeproj
+open MovieManager.xcodeproj
 ```
 
 Build and run on a simulator or connected device.
 
 ### Regenerating After `project.yml` Changes
 
-`MobileSwift.xcodeproj` is gitignored. Any time `project.yml` changes (new source files, new dependencies, build setting changes), re-run:
+`MovieManager.xcodeproj` is gitignored. Any time `project.yml` changes (new source files, new dependencies, build setting changes), re-run:
 
 ```bash
 cd mobile

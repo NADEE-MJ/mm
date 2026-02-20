@@ -75,7 +75,7 @@ mm/
 │
 ├── mobile/
 │   ├── Sources/             # Swift source code
-│   │   ├── MobileSwiftApp.swift  # App entry point
+│   │   ├── MovieManagerApp.swift  # App entry point
 │   │   ├── Models/          # Data models
 │   │   ├── Services/        # Network, database, WebSocket
 │   │   ├── Views/           # SwiftUI views

@@ -139,8 +139,8 @@ jobs:
       - name: Resolve SPM dependencies
         working-directory: mobile
         run: |
-          xcodebuild -project MobileSwift.xcodeproj \
-            -scheme MobileSwift \
+          xcodebuild -project MovieManager.xcodeproj \
+            -scheme MovieManager \
             -resolvePackageDependencies
 
       - name: Verify plist build settings
@@ -148,8 +148,8 @@ jobs:
         run: |
           set -euo pipefail
           SETTINGS=$(xcodebuild \
-            -project MobileSwift.xcodeproj \
-            -target MobileSwift \
+            -project MovieManager.xcodeproj \
+            -target MovieManager \
             -configuration Release \
             -showBuildSettings 2>/dev/null)
 
@@ -213,8 +213,8 @@ jobs:
 
           set -o pipefail
           xcodebuild \
-            -project MobileSwift.xcodeproj \
-            -scheme MobileSwift \
+            -project MovieManager.xcodeproj \
+            -scheme MovieManager \
             -configuration Release \
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \

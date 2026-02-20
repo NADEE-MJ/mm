@@ -228,7 +228,7 @@ swift_xcodegen() {
 
 swift_build() {
   require_cmd xcodebuild
-  local scheme="MobileSwift"
+  local scheme="MovieManager"
   local configuration="Debug"
   local destination="platform=iOS Simulator,name=iPhone 17 Pro"
 
@@ -254,12 +254,12 @@ swift_build() {
   done
 
   log "Building Swift app (scheme=$scheme, config=$configuration)"
-  run_in_dir "$MOBILE_DIR" xcodebuild -project MobileSwift.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" build
+  run_in_dir "$MOBILE_DIR" xcodebuild -project MovieManager.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" build
 }
 
 swift_run() {
   require_cmd xcodebuild
-  local scheme="MobileSwift"
+  local scheme="MovieManager"
   local configuration="Debug"
   local destination="platform=iOS Simulator,name=iPhone 17 Pro"
 
@@ -288,7 +288,7 @@ swift_run() {
 
   # Build and get the app path
   local build_dir="$MOBILE_DIR/build"
-  run_in_dir "$MOBILE_DIR" xcodebuild -project MobileSwift.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" -derivedDataPath "$build_dir" build
+  run_in_dir "$MOBILE_DIR" xcodebuild -project MovieManager.xcodeproj -scheme "$scheme" -configuration "$configuration" -destination "$destination" -derivedDataPath "$build_dir" build
 
   # Find the app bundle
   local app_path=$(find "$build_dir" -name "*.app" -type d | head -n 1)
@@ -306,7 +306,7 @@ swift_run() {
     xcrun simctl boot "$device_id" 2>/dev/null || true
     open -a Simulator --args -CurrentDeviceUDID "$device_id"
     xcrun simctl install "$device_id" "$app_path"
-    xcrun simctl launch "$device_id" "com.moviemanager.mobileswift"
+    xcrun simctl launch "$device_id" "com.moviemanager.app"
     log "App launched in simulator"
   else
     log "Could not find iPhone 17 Pro simulator"

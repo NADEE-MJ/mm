@@ -558,7 +558,7 @@ struct DevToolsView: View {
             Text("Live logs are written via os.Logger and can be viewed with idevicesyslog.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Text("idevicesyslog | grep -i \"\(Bundle.main.bundleIdentifier ?? "com.moviemanager.mobileswift")\"")
+            Text("idevicesyslog | grep -i \"\(Bundle.main.bundleIdentifier ?? "com.moviemanager.app")\"")
                 .font(.system(.footnote, design: .monospaced))
                 .textSelection(.enabled)
         }

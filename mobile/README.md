@@ -26,7 +26,7 @@ Native iOS app built with Swift and SwiftUI for managing movie recommendations.
 mobile/
 ├── project.yml              # XcodeGen configuration
 ├── Sources/
-│   ├── MobileSwiftApp.swift # App entry point
+│   ├── MovieManagerApp.swift # App entry point
 │   ├── Models/              # Data models
 │   ├── Services/            # Network, database, WebSocket
 │   ├── Views/               # SwiftUI views
@@ -54,7 +54,7 @@ mobile/
 
 2. Open project:
    ```bash
-   open MobileSwift.xcodeproj
+   open MovieManager.xcodeproj
    ```
 
 3. Build and run in Xcode (select iOS Simulator)
@@ -109,7 +109,7 @@ xcodegen generate
 
 On Arch Linux, view live device logs:
 ```bash
-idevicesyslog | grep -i "com.moviemanager.mobileswift"
+idevicesyslog | grep -i "com.moviemanager.app"
 ```
 
 ## CI/CD Pipeline
@@ -133,7 +133,7 @@ Workflow: `.github/workflows/build-mobile.yml`
 
 1. Open GitHub mobile app → Releases
 2. Find `mobile-latest` release
-3. Download `MobileSwift-unsigned.ipa`
+3. Download `MovieManager-unsigned.ipa`
 4. Import into SideStore or LiveContainer
 5. Install and run
 
