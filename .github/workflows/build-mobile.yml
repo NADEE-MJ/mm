@@ -354,14 +354,8 @@ jobs:
           COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          NOTES=$(cat <<EOF_NOTES
-Unsigned iOS build for v${VERSION}.
-
-**Built:** ${BUILD_TIME}
-**Commit:** [${SHORT_SHA}](${COMMIT_URL})
-**Workflow run:** [#${{ github.run_number }}](${RUN_URL})
-EOF_NOTES
-          )
+          NOTES=$(printf 'Unsigned iOS build for v%s.\n\n**Built:** %s\n**Commit:** [%s](%s)\n**Workflow run:** [#%s](%s)' \
+            "${VERSION}" "${BUILD_TIME}" "${SHORT_SHA}" "${COMMIT_URL}" "${{ github.run_number }}" "${RUN_URL}")
 
           # Create tag only if it doesn't exist yet
           if ! gh api "repos/${{ github.repository }}/git/ref/tags/${TAG}" >/dev/null 2>&1; then
