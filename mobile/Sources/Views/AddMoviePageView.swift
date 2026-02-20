@@ -408,6 +408,7 @@ struct AddMoviePageView: View {
     @State private var pendingFilterKind: DiscoverFilterKind?
     @State private var pendingFilterValue: String = ""
     @State private var existingMovieTmdbIds: Set<Int> = []
+    @State private var selectedExistingMovie: Movie? = nil
     @State private var showOfflineAddSheet = false
     @State private var selectedPendingMovie: DatabaseManager.PendingMovie?
     @State private var pendingOfflineMovies: [DatabaseManager.PendingMovie] = []
@@ -463,6 +464,16 @@ struct AddMoviePageView: View {
         visibleFilterChips.count
     }
 
+    private var existingTmdbIdToMovie: [Int: Movie] {
+        Dictionary(
+            repository.movies.compactMap { movie -> (Int, Movie)? in
+                guard let tmdbId = movie.tmdbId else { return nil }
+                return (tmdbId, movie)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -510,7 +521,11 @@ struct AddMoviePageView: View {
                                 movies: movies,
                                 existingMovieTmdbIds: existingMovieTmdbIds
                             ) { selected in
-                                selectedMovie = selected
+                                if existingMovieTmdbIds.contains(selected.id) {
+                                    selectedExistingMovie = existingTmdbIdToMovie[selected.id]
+                                } else {
+                                    selectedMovie = selected
+                                }
                             }
                             .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                             .listRowSeparator(.hidden)
@@ -563,14 +578,15 @@ struct AddMoviePageView: View {
                                 ForEach(addableDiscoverResults) { movie in
                                     let isAlreadyAdded = existingMovieTmdbIds.contains(movie.id)
                                     Button {
-                                        if !isAlreadyAdded {
+                                        if isAlreadyAdded {
+                                            selectedExistingMovie = existingTmdbIdToMovie[movie.id]
+                                        } else {
                                             selectedMovie = movie
                                         }
                                     } label: {
                                         SearchResultRow(movie: movie, isAlreadyAdded: isAlreadyAdded)
                                     }
                                     .buttonStyle(.plain)
-                                    .disabled(isAlreadyAdded)
                                 }
                             }
                         }
@@ -622,6 +638,9 @@ struct AddMoviePageView: View {
                         }
                     }
                     .accessibilityLabel("Search filters")
+                }
+                ToolbarItem(placement: .keyboard) {
+                    keyboardToolbarView
                 }
             }
             .onAppear {
@@ -839,6 +858,9 @@ struct AddMoviePageView: View {
                     Text("Enter a value for \(pendingFilterKind.label).")
                 }
             }
+            .navigationDestination(item: $selectedExistingMovie) { movie in
+                MovieDetailView(movie: movie)
+            }
         }
     }
 
@@ -891,6 +913,62 @@ struct AddMoviePageView: View {
         var filters = parsedFilters
         filters.removeChip(chip)
         searchText = filters.toQueryString()
+    }
+
+    @ViewBuilder
+    private var keyboardToolbarView: some View {
+        HStack(spacing: 0) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(
+                        [DiscoverFilterKind.title, .genre, .actor, .director, .year, .rating],
+                        id: \.rawValue
+                    ) { kind in
+                        Button {
+                            insertTemplateToken(kind)
+                        } label: {
+                            Text("+\(kind.label)")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(Color(.secondarySystemFill))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.leading, 2)
+            }
+
+            Divider()
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+
+            Menu {
+                ForEach(DiscoverSearchScope.allCases, id: \.rawValue) { scope in
+                    Button {
+                        updateScope(scope)
+                    } label: {
+                        if parsedFilters.scope == scope {
+                            Label(scope.label, systemImage: "checkmark")
+                        } else {
+                            Text(scope.label)
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "antenna.radiowaves.left.and.right.circle")
+                    Text(parsedFilters.scope.label)
+                        .font(.caption.weight(.medium))
+                }
+                .foregroundStyle(AppTheme.blue)
+            }
+            .padding(.trailing, 2)
+        }
     }
 
     private func searchDiscoverMovies(_ filters: DiscoverParsedFilters) async -> [TMDBMovie] {
@@ -1302,9 +1380,7 @@ private struct CuratedMovieRailRow: View {
                 ForEach(movies) { movie in
                     let isAlreadyAdded = existingMovieTmdbIds.contains(movie.id)
                     Button {
-                        if !isAlreadyAdded {
-                            onSelect(movie)
-                        }
+                        onSelect(movie)
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
                             ZStack(alignment: .topTrailing) {
@@ -1338,7 +1414,6 @@ private struct CuratedMovieRailRow: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(isAlreadyAdded)
                 }
             }
             .padding(.horizontal, 12)

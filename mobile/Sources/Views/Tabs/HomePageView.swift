@@ -508,7 +508,7 @@ private struct MovieRowView: View {
 
 // MARK: - Movie Detail View
 
-private struct MovieDetailView: View {
+struct MovieDetailView: View {
     @State private var currentMovie: Movie
     @State private var ratingValue = 0
     @State private var showRatingSheet = false
@@ -579,70 +579,60 @@ private struct MovieDetailView: View {
                     }
                 }
 
-                if !uniqueGenres.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Genres")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(uniqueGenres, id: \.self) { genre in
-                            NavigationLink {
-                                MovieGenreExplorerView(
-                                    genre: genre,
-                                    movies: relatedMovies,
-                                    sourceImdbId: currentMovie.imdbId
-                                )
-                            } label: {
-                                Text(genre)
-                            }
+            }
+
+            if !uniqueGenres.isEmpty {
+                Section("Genres") {
+                    ForEach(uniqueGenres, id: \.self) { genre in
+                        NavigationLink {
+                            MovieGenreExplorerView(
+                                genre: genre,
+                                movies: relatedMovies,
+                                sourceImdbId: currentMovie.imdbId
+                            )
+                        } label: {
+                            Text(genre)
                         }
                     }
                 }
+            }
 
-                if !uniqueDirectors.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Director")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(uniqueDirectors, id: \.self) { director in
-                            NavigationLink {
-                                MovieCreditExplorerView(
-                                    personName: director,
-                                    movies: relatedMovies,
-                                    sourceImdbId: currentMovie.imdbId,
-                                    preferredSearchType: .director
-                                )
-                            } label: {
-                                Text(director)
-                            }
+            if !uniqueDirectors.isEmpty {
+                Section("Director") {
+                    ForEach(uniqueDirectors, id: \.self) { director in
+                        NavigationLink {
+                            MovieCreditExplorerView(
+                                personName: director,
+                                movies: relatedMovies,
+                                sourceImdbId: currentMovie.imdbId,
+                                preferredSearchType: .director
+                            )
+                        } label: {
+                            Text(director)
                         }
                     }
                 }
+            }
 
-                if !uniqueActors.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Actors")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(uniqueActors, id: \.self) { actor in
-                            NavigationLink {
-                                MovieCreditExplorerView(
-                                    personName: actor,
-                                    movies: relatedMovies,
-                                    sourceImdbId: currentMovie.imdbId,
-                                    preferredSearchType: .actor
-                                )
-                            } label: {
-                                Text(actor)
-                            }
+            if !uniqueActors.isEmpty {
+                Section("Actors") {
+                    ForEach(uniqueActors, id: \.self) { actor in
+                        NavigationLink {
+                            MovieCreditExplorerView(
+                                personName: actor,
+                                movies: relatedMovies,
+                                sourceImdbId: currentMovie.imdbId,
+                                preferredSearchType: .actor
+                            )
+                        } label: {
+                            Text(actor)
                         }
                     }
                 }
             }
 
             Section("Ratings") {
-                HStack(spacing: 12) {
-                    Text("IMDb")
-                    Spacer(minLength: 12)
+                LabeledContent("IMDb") {
                     if let imdbRating = currentMovie.imdbRating {
                         Label("\(String(format: "%.1f", imdbRating))/10", systemImage: "star.fill")
                             .foregroundStyle(.yellow)
@@ -652,9 +642,7 @@ private struct MovieDetailView: View {
                     }
                 }
 
-                HStack(spacing: 12) {
-                    Text("Rotten Tomatoes")
-                    Spacer(minLength: 12)
+                LabeledContent("Rotten Tomatoes") {
                     if let rottenTomatoes = currentMovie.rottenTomatoesRating {
                         if rottenTomatoes >= 75 {
                             Label("\(rottenTomatoes)%", systemImage: "burst.fill")
@@ -672,9 +660,7 @@ private struct MovieDetailView: View {
                     }
                 }
 
-                HStack(spacing: 12) {
-                    Text("Metacritic")
-                    Spacer(minLength: 12)
+                LabeledContent("Metacritic") {
                     if let metacritic = currentMovie.metacriticScore {
                         Label("\(metacritic)/100", systemImage: "gauge.medium")
                             .foregroundStyle(.orange)
@@ -985,7 +971,7 @@ private struct MovieDetailView: View {
 
 // MARK: - Rating Sheet
 
-private struct RatingSheet: View {
+struct RatingSheet: View {
     let movie: Movie
     @State private var selectedRating = 7
     @Environment(\.dismiss) private var dismiss
@@ -1045,7 +1031,7 @@ private struct RatingSheet: View {
 
 // MARK: - Add Recommender Sheet
 
-private struct AddRecommenderSheet: View {
+struct AddRecommenderSheet: View {
     let people: [Person]
     let existingRecommenders: [String]
     let fallbackPeopleNames: [String]
