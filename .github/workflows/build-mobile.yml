@@ -377,18 +377,10 @@ jobs:
         id: upload_artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mobile-unsigned-ipa
+          name: ${{ env.IPA_NAME || 'mobile-unsigned-ipa' }}
           path: ${{ env.IPA_PATH }}
           retention-days: 30
           if-no-files-found: error
-
-      - name: Comment on PR with build artifact
-        if: success() && github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifact.outputs.artifact-id }}"
-          gh pr comment ${{ github.event.pull_request.number }} --body "✅ ${{ github.workflow }}: [Download IPA](${ARTIFACT_URL})"
 
       - name: Publish versioned IPA release
         if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')) && github.ref == 'refs/heads/main'
@@ -447,13 +439,88 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-      - name: Comment on PR with failure details
-        if: failure() && github.event_name == 'pull_request'
+      - name: Update PR build history comment
+        if: always() && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          IPA_NAME: ${{ env.IPA_NAME }}
+          ARTIFACT_URL: ${{ steps.upload_artifact.outputs['artifact-url'] }}
         run: |
-          WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          gh pr comment ${{ github.event.pull_request.number }} --body "❌ ${{ github.workflow }}: [Failed build](${WORKFLOW_URL})"
+          set -euo pipefail
+
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          RUN_URL="${{ github.server_url }}/${REPO}/actions/runs/${{ github.run_id }}"
+          ARTIFACTS_URL="${RUN_URL}#artifacts"
+          FULL_SHA="${{ github.sha }}"
+          SHORT_SHA="${FULL_SHA:0:7}"
+          COMMIT_URL="${{ github.server_url }}/${REPO}/commit/${FULL_SHA}"
+          CREATED_AT_UTC="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          MARKER="<!-- ios-build-history-comment -->"
+
+          RESULT_LABEL="⚪ Unknown"
+          IPA_LABEL="—"
+          DOWNLOAD_TARGET="${ARTIFACTS_URL}"
+          if [ -n "${ARTIFACT_URL:-}" ]; then
+            DOWNLOAD_TARGET="${ARTIFACT_URL}"
+          fi
+          DOWNLOAD_LABEL="[Artifacts](${DOWNLOAD_TARGET})"
+
+          case "${JOB_STATUS}" in
+            success)
+              RESULT_LABEL="✅ Success"
+              if [ -n "${IPA_NAME:-}" ]; then
+                IPA_LABEL="\`${IPA_NAME}\`"
+              else
+                IPA_LABEL="(not available)"
+              fi
+              ;;
+            failure)
+              RESULT_LABEL="❌ Failed ([Logs](${RUN_URL}))"
+              IPA_LABEL="—"
+              ;;
+            cancelled)
+              RESULT_LABEL="⛔ Cancelled ([Run](${RUN_URL}))"
+              IPA_LABEL="—"
+              ;;
+            *)
+              RESULT_LABEL="⚪ ${JOB_STATUS} ([Run](${RUN_URL}))"
+              IPA_LABEL="—"
+              ;;
+          esac
+
+          NEW_ROW="| ${CREATED_AT_UTC} | [\`${SHORT_SHA}\`](${COMMIT_URL}) | ${RESULT_LABEL} | ${IPA_LABEL} | ${DOWNLOAD_LABEL} |"
+
+          COMMENTS_JSON="$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100")"
+          COMMENT_ID="$(echo "$COMMENTS_JSON" | jq -r --arg marker "$MARKER" '.[] | select(.user.login == "github-actions[bot]" and (.body | contains($marker))) | .id' | head -n1)"
+
+          HEADER_TEXT="$(printf '%s\n## iOS Build History\n\n| Created (UTC) | Commit | Result | IPA | Download |\n|---|---|---|---|---|' "$MARKER")"
+
+          TMP_BODY="$(mktemp)"
+          trap 'rm -f "$TMP_BODY"' EXIT
+
+          if [ -n "${COMMENT_ID}" ]; then
+            CURRENT_BODY="$(gh api "repos/${REPO}/issues/comments/${COMMENT_ID}" --jq '.body')"
+            printf '%s\n%s\n' "$CURRENT_BODY" "$NEW_ROW" > "$TMP_BODY"
+            gh api "repos/${REPO}/issues/comments/${COMMENT_ID}" -X PATCH -F "body=@${TMP_BODY}" >/dev/null
+            echo "✅ Updated existing iOS build history comment (id=${COMMENT_ID})"
+          else
+            printf '%s\n%s\n' "$HEADER_TEXT" "$NEW_ROW" > "$TMP_BODY"
+            gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" -X POST -F "body=@${TMP_BODY}" >/dev/null
+            echo "✅ Created iOS build history comment"
+          fi
+
+          # Cleanup old one-off bot comments from prior workflow behavior.
+          LEGACY_IDS="$(echo "$COMMENTS_JSON" | jq -r '.[] | select(.user.login == "github-actions[bot]" and ((.body | startswith("✅ Build iOS App:")) or (.body | startswith("❌ Build iOS App:")))) | .id')"
+          if [ -n "${LEGACY_IDS}" ]; then
+            while IFS= read -r legacy_id; do
+              if [ -n "$legacy_id" ]; then
+                gh api "repos/${REPO}/issues/comments/${legacy_id}" -X DELETE >/dev/null
+                echo "🧹 Deleted legacy PR comment ${legacy_id}"
+              fi
+            done <<< "$LEGACY_IDS"
+          fi
 
       - name: Build summary
         if: success() && github.event_name == 'workflow_dispatch'
