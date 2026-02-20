@@ -1,6 +1,8 @@
 # Movie Manager
 
-A full-stack Progressive Web App for tracking movie recommendations with offline-first architecture. Built with React, FastAPI, and SQLite.
+A full-stack, offline-first movie recommendation tracker. Add movies from TMDB, record who recommended them, mark them watched, and rate them. Available as a web PWA and a native iOS app.
+
+**[Full documentation →](docs/README.md)**
 
 ## Features
 

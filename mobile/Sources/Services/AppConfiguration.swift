@@ -6,7 +6,7 @@ enum AppConfiguration {
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         guard !raw.isEmpty else {
-            fatalError("Missing API_BASE_URL in Info.plist. CI must inject MOBILE_SWIFT_API_BASE_URL.")
+            fatalError("Missing API_BASE_URL in Info.plist. Set MOBILE_API_BASE_URL secret in CI, or generate Config/Env.generated.xcconfig locally.")
         }
 
         guard let components = URLComponents(string: raw),

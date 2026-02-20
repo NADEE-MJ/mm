@@ -41,35 +41,35 @@ if [ -z "$API_BASE_URL_VALUE" ]; then
 fi
 
 if [ -z "$API_BASE_URL_VALUE" ]; then
-  API_BASE_URL_VALUE="$(read_dotenv_value MOBILE_SWIFT_API_BASE_URL || true)"
+  API_BASE_URL_VALUE="$(read_dotenv_value MOBILE_API_BASE_URL || true)"
 fi
 
 API_BASE_URL_VALUE="$(trim "$API_BASE_URL_VALUE")"
 
 if [ -z "$API_BASE_URL_VALUE" ]; then
   echo "❌ ERROR: API_BASE_URL is missing."
-  echo "Set API_BASE_URL in environment, or add API_BASE_URL (or MOBILE_SWIFT_API_BASE_URL) to $ENV_FILE."
+  echo "Set API_BASE_URL in environment, or add API_BASE_URL (or MOBILE_API_BASE_URL) to $ENV_FILE."
   exit 1
 fi
 
-if [[ ! "$API_BASE_URL_VALUE" =~ ^https:// ]]; then
-  echo "❌ ERROR: API_BASE_URL must start with https://"
+if [[ ! "$API_BASE_URL_VALUE" =~ ^https?:// ]]; then
+  echo "❌ ERROR: API_BASE_URL must start with http:// or https://"
   echo "Received: $API_BASE_URL_VALUE"
   exit 1
 fi
 
+# Allow localhost for local development; CI validates separately via the workflow
+IS_LOCALHOST=false
 if [[ "$API_BASE_URL_VALUE" =~ localhost|127\.0\.0\.1|::1 ]]; then
-  echo "❌ ERROR: API_BASE_URL cannot point to localhost/loopback."
-  echo "Received: $API_BASE_URL_VALUE"
-  exit 1
+  IS_LOCALHOST=true
 fi
 
 if [[ "$API_BASE_URL_VALUE" =~ /api/?$ ]]; then
   API_BASE_URL_VALUE="${API_BASE_URL_VALUE%/}"
-elif [[ "$API_BASE_URL_VALUE" =~ ^https://[^/]+/?$ ]]; then
+elif [[ "$API_BASE_URL_VALUE" =~ ^https?://[^/]+(:[0-9]+)?/?$ ]]; then
   API_BASE_URL_VALUE="${API_BASE_URL_VALUE%/}/api"
 else
-  echo "❌ ERROR: API_BASE_URL must be a base host URL (https://host) or end with /api."
+  echo "❌ ERROR: API_BASE_URL must be a base host URL (http(s)://host[:port]) or end with /api."
   echo "Received: $API_BASE_URL_VALUE"
   exit 1
 fi
