@@ -9,7 +9,7 @@ This repo has one iOS workflow:
 1. Generates the Xcode project via XcodeGen (`mobile/project.yml`).
 2. Builds an unsigned `.ipa` using `xcodebuild`.
 3. Uploads the file as `mobile-unsigned-ipa` artifact (30-day retention).
-4. Updates a rolling GitHub release: `mobile-latest` (on push to main or manual dispatch).
+4. Publishes a versioned GitHub release: `mobile-v{MARKETING_VERSION}` (on push to main or manual dispatch). The version is read from `mobile/project.yml`. If the tag already exists (same version), the release is updated in place and the IPA is replaced.
 
 ### Triggers
 
@@ -34,7 +34,7 @@ The workflow validates the secret is set and injects it into `Config/Env.generat
 On GitHub mobile app:
 
 1. Open repo **Releases**.
-2. Open release tag `mobile-latest`.
+2. Open the latest `mobile-v*` release.
 3. Download `MobileSwift-unsigned.ipa`.
 
 Then import into SideStore/LiveContainer as needed.
