@@ -411,8 +411,6 @@ struct AddMoviePageView: View {
     @State private var showOfflineAddSheet = false
     @State private var selectedPendingMovie: DatabaseManager.PendingMovie?
     @State private var pendingOfflineMovies: [DatabaseManager.PendingMovie] = []
-    @State private var feedbackMessage = ""
-    @State private var showFeedbackAlert = false
     @State private var discoverNavigation = DiscoverNavigationState.shared
     @State private var handledDiscoverRequestId = 0
     @State private var curatedMoviesByCategory: [DiscoverRailCategory: [TMDBMovie]] = [:]
@@ -686,39 +684,31 @@ struct AddMoviePageView: View {
                     selectedRecommenders: $selectedRecommenders,
                     people: people,
                     onAdd: {
-                        Task {
-                            let result = await repository.addMovieBulk(
-                                tmdbId: movie.id,
-                                recommenders: Array(selectedRecommenders),
-                                mediaType: movie.mediaType
-                            )
-
-                            switch result {
-                            case .success:
-                                feedbackMessage = "Movie added successfully."
-                                _ = await repository.syncPeople(force: true)
-                                let peopleResult = await repository.getPeople()
-                                switch peopleResult {
-                                case .success(let loaded):
-                                    people = loaded
-                                case .failure:
-                                    people = repository.people
-                                }
-                            case .failure(.queued(let message)):
-                                feedbackMessage = message
-                            case .failure(let error):
-                                feedbackMessage = error.localizedDescription
+                        let result = await repository.addMovieBulk(
+                            tmdbId: movie.id,
+                            recommenders: Array(selectedRecommenders),
+                            mediaType: movie.mediaType
+                        )
+                        switch result {
+                        case .success:
+                            _ = await repository.syncPeople(force: true)
+                            let peopleResult = await repository.getPeople()
+                            switch peopleResult {
+                            case .success(let loaded):
+                                people = loaded
+                            case .failure:
+                                people = repository.people
                             }
-
-                            showFeedbackAlert = true
-                            selectedMovie = nil
                             selectedRecommenders = []
                             _ = await repository.getMovies(status: nil)
                             existingMovieTmdbIds = Set(repository.movies.compactMap { $0.tmdbId })
+                            return nil
+                        case .failure(let error):
+                            return error.localizedDescription
                         }
                     }
                 )
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
             }
             .sheet(item: $selectedPendingMovie) { pendingMovie in
                 ResolvePendingMovieSheet(pendingMovie: pendingMovie) { selectedMatch in
@@ -728,16 +718,7 @@ struct AddMoviePageView: View {
                             tmdbId: selectedMatch.id
                         )
 
-                        switch result {
-                        case .success:
-                            feedbackMessage = "Added \"\(selectedMatch.title)\"."
-                        case .failure(.queued(let message)):
-                            feedbackMessage = message
-                        case .failure(let error):
-                            feedbackMessage = error.localizedDescription
-                        }
-
-                        showFeedbackAlert = true
+                        _ = result
                         pendingOfflineMovies = repository.fetchPendingMovies()
                         _ = await repository.getMovies(status: nil)
                         existingMovieTmdbIds = Set(repository.movies.compactMap { $0.tmdbId })
@@ -760,8 +741,6 @@ struct AddMoviePageView: View {
                                 recommender: recommender
                             )
                         }
-                        feedbackMessage = "Saved offline. Pick the exact movie match after reconnecting."
-                        showFeedbackAlert = true
                         pendingOfflineMovies = repository.fetchPendingMovies()
                         showOfflineAddSheet = false
                     }
@@ -859,11 +838,6 @@ struct AddMoviePageView: View {
                 if let pendingFilterKind {
                     Text("Enter a value for \(pendingFilterKind.label).")
                 }
-            }
-            .alert("Add Movie", isPresented: $showFeedbackAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(feedbackMessage)
             }
         }
     }
@@ -1527,9 +1501,10 @@ private struct AddMovieSheet: View {
     let movie: TMDBMovie
     @Binding var selectedRecommenders: Set<String>
     let people: [Person]
-    let onAdd: () -> Void
+    let onAdd: () async -> String?
     @Environment(\.dismiss) private var dismiss
     @State private var isAdding = false
+    @State private var errorMessage: String? = nil
     @State private var newPersonName = ""
     @State private var filterText = ""
 
@@ -1593,12 +1568,16 @@ private struct AddMovieSheet: View {
                     // Add Movie button — above the list
                     Section {
                         Button {
+                            errorMessage = nil
                             isAdding = true
-                            onAdd()
                             Task {
-                                try? await Task.sleep(for: .milliseconds(500))
+                                let error = await onAdd()
                                 isAdding = false
-                                dismiss()
+                                if let error {
+                                    errorMessage = error
+                                } else {
+                                    dismiss()
+                                }
                             }
                         } label: {
                             HStack {
@@ -1619,6 +1598,12 @@ private struct AddMovieSheet: View {
                         .disabled(selectedRecommenders.isEmpty || isAdding)
                         .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                         .listRowBackground(Color.clear)
+
+                        if let errorMessage {
+                            Text(errorMessage)
+                                .foregroundStyle(.red)
+                                .font(.footnote)
+                        }
                     }
 
                     Section {
@@ -1770,6 +1755,7 @@ private struct AddMovieSheet: View {
                     .disabled(isAdding)
                 }
             }
+            .interactiveDismissDisabled(isAdding)
         }
     }
 }

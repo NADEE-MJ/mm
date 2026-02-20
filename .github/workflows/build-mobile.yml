@@ -353,7 +353,9 @@ jobs:
 
           # Build the IPA filename based on trigger type
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            IPA_NAME="mm-${VERSION_TAG}-pr${{ github.event.pull_request.number }}.ipa"
+            FULL_SHA="${{ github.sha }}"
+            SHORT_SHA="${FULL_SHA:0:7}"
+            IPA_NAME="mm-${VERSION_TAG}-pr${{ github.event.pull_request.number }}-${SHORT_SHA}.ipa"
           else
             SUFFIX_RAW="${{ github.event.inputs.artifact_suffix }}"
             SUFFIX=$(echo "$SUFFIX_RAW" | tr -cd '[:alnum:]._-')
@@ -381,6 +383,28 @@ jobs:
           path: ${{ env.IPA_PATH }}
           retention-days: 30
           if-no-files-found: error
+
+      - name: Publish PR IPA prerelease
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="mobile-pr-${{ github.event.pull_request.number }}"
+          DIRECT_URL="${{ github.server_url }}/${{ github.repository }}/releases/download/${TAG}/${{ env.IPA_NAME }}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --prerelease --title "iOS PR #${{ github.event.pull_request.number }}"
+          else
+            gh release create "$TAG" \
+              --prerelease \
+              --title "iOS PR #${{ github.event.pull_request.number }}" \
+              --notes "Unsigned iOS builds for PR #${{ github.event.pull_request.number }}. Each file corresponds to a different commit."
+          fi
+
+          gh release upload "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" --clobber
+          echo "IPA_DIRECT_URL=${DIRECT_URL}" >> "$GITHUB_ENV"
+          echo "✅ Published PR IPA: ${DIRECT_URL}"
 
       - name: Publish versioned IPA release
         if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')) && github.ref == 'refs/heads/main'
@@ -446,6 +470,7 @@ jobs:
           JOB_STATUS: ${{ job.status }}
           IPA_NAME: ${{ env.IPA_NAME }}
           ARTIFACT_URL: ${{ steps.upload_artifact.outputs['artifact-url'] }}
+          IPA_DIRECT_URL: ${{ env.IPA_DIRECT_URL }}
         run: |
           set -euo pipefail
 
@@ -462,10 +487,14 @@ jobs:
           RESULT_LABEL="⚪ Unknown"
           IPA_LABEL="—"
           DOWNLOAD_TARGET="${ARTIFACTS_URL}"
-          if [ -n "${ARTIFACT_URL:-}" ]; then
+          DOWNLOAD_LABEL_TEXT="Artifacts"
+          if [ -n "${IPA_DIRECT_URL:-}" ]; then
+            DOWNLOAD_TARGET="${IPA_DIRECT_URL}"
+            DOWNLOAD_LABEL_TEXT="Download .ipa"
+          elif [ -n "${ARTIFACT_URL:-}" ]; then
             DOWNLOAD_TARGET="${ARTIFACT_URL}"
           fi
-          DOWNLOAD_LABEL="[Artifacts](${DOWNLOAD_TARGET})"
+          DOWNLOAD_LABEL="[${DOWNLOAD_LABEL_TEXT}](${DOWNLOAD_TARGET})"
 
           case "${JOB_STATUS}" in
             success)
