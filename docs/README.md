@@ -1,54 +1,39 @@
-# Movie Manager — Documentation
+# Movie Manager Documentation
 
-Movie Manager is a full-stack, offline-first movie recommendation tracker. Add movies from TMDB, record who recommended them, mark them watched, and rate them.
+Movie Manager is a full-stack movie recommendation tracker with a React web client, a native Swift iOS app, and a FastAPI backend.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                        Clients                          │
-│   ┌──────────────┐        ┌──────────────────────────┐  │
-│   │  Web (PWA)   │        │    iOS Swift App         │  │
-│   │  React/Vite  │        │    SwiftUI / GRDB        │  │
-│   │  IndexedDB   │        │    SQLite (offline)      │  │
-│   └──────┬───────┘        └──────────┬───────────────┘  │
-└──────────┼───────────────────────────┼──────────────────┘
-           │ HTTP / REST + WebSocket   │
-           ▼                           ▼
-┌─────────────────────────────────────────────────────────┐
-│            FastAPI · SQLite · Alembic                   │
-│         Auth · Movies · People · Backup · Sync          │
-└──────────────────────────┬──────────────────────────────┘
-                           │ Proxied + cached
-                           ▼
-           ┌───────────────────────────────┐
-           │  TMDB (movie data)            │
-           │  OMDb (ratings)               │
-           └───────────────────────────────┘
+```text
+Clients (Web + iOS)
+        |
+ REST + WebSocket
+        |
+FastAPI + SQLite + Alembic
+        |
+ TMDB / OMDb proxy + cache
 ```
 
 | Platform | Stack |
 |---|---|
-| Backend | FastAPI · SQLAlchemy · SQLite · Alembic |
-| Web | React · Vite · Tailwind · IndexedDB (PWA) |
-| iOS | Swift 6 · SwiftUI · GRDB · XcodeGen |
-
----
+| Backend | FastAPI, SQLAlchemy, SQLite, Alembic |
+| Web | React, Vite, Tailwind CSS |
+| iOS | SwiftUI, GRDB, XcodeGen |
 
 ## Architecture
-- [Backend](architecture/backend.md) — FastAPI, auth, database models, sync, backup scheduler
-- [Frontend](architecture/frontend.md) — React PWA, IndexedDB, offline sync queue
-- [Mobile](architecture/mobile.md) — SwiftUI, GRDB, repository pattern, image caching, XcodeGen
+- [Backend](architecture/backend.md) - API, auth, models, sync, backups
+- [Frontend](architecture/frontend.md) - React app structure and data flow
+- [Mobile](architecture/mobile.md) - SwiftUI app architecture, offline cache, sync
 
 ## Features
-- [Movies](features/movies.md) — Add, status, rating, watch history
-- [People & Recommenders](features/people.md) — Recommenders, trust, quick recommenders
-- [Backup & Export](features/backup-export.md) — Export format, import, scheduled backups
+- [Movies](features/movies.md) - Add, rate, status, watch history
+- [People & Recommenders](features/people.md) - Recommenders, trust, quick keys
+- [Backup & Export](features/backup-export.md) - Export/import format and scheduled backups
 
 ## Setup
-- [Local Development](setup/local-development.md) — Backend, frontend, and iOS local setup
-- [iOS Build & Distribution](setup/ios-build.md) — CI/CD, unsigned IPAs, AltServer, sideloading
-- [Deployment](setup/deployment.md) — Production build and hosting
+- [Local Development](setup/local-development.md) - Backend, frontend, and iOS local setup
+- [iOS Build & Distribution](setup/ios-build.md) - GitHub Actions IPA build and release flow
+- [Deployment](setup/deployment.md) - Production hosting
 
 ## Reference
-- [API Reference](reference/api.md) — All backend endpoints
-- [Database Schema](reference/database-schema.md) — Backend and mobile SQLite schemas
-- [Environment Variables](reference/environment-variables.md) — All configuration variables
+- [API Reference](reference/api.md) - Backend endpoints
+- [Database Schema](reference/database-schema.md) - Backend and iOS local schema
+- [Environment Variables](reference/environment-variables.md) - Config for local/dev/CI

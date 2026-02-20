@@ -1,161 +1,93 @@
-# iOS Build & Distribution
+# iOS Build and Distribution
 
-The iOS app is built as an **unsigned IPA** via GitHub Actions and distributed by sideloading onto your iPhone using SideStore or LiveContainer. No Apple Developer account is required.
+The native iOS app is built as an unsigned IPA via GitHub Actions.
 
----
+## Workflow
 
-## GitHub Actions Workflow
-
-**File**: `.github/workflows/build-mobile.yml`
+- File: `.github/workflows/build-mobile.yml`
+- Workflow name in Actions UI: `Build iOS App`
 
 ### Triggers
 
 | Trigger | Condition |
 |---|---|
-| Push to `main` | Only when files in `mobile/**` change |
-| Pull request | Only when files in `mobile/**` change |
-| Manual dispatch | Actions tab → "Build Mobile Swift App (Unsigned)" → Run workflow |
+| Push to `main` | when `mobile/**` or workflow file changes |
+| Pull request to `main` | when `mobile/**` or workflow file changes |
+| Manual dispatch | Run from Actions UI |
 
-Manual dispatch options:
-- **Runner**: macOS runner version
-- **Deployment target**: iOS version minimum
-- **Publish release**: whether to update the `mobile-latest` release tag
+### Manual dispatch inputs
 
-### Build Steps
+- `runner_image` (macOS image)
+- `deployment_target` (iOS deployment target)
+- `publish_release` (`true`/`false`)
+- `artifact_suffix` (optional IPA filename suffix)
 
-1. Install XcodeGen
-2. Generate `Config/Env.generated.xcconfig` from the `MOBILE_API_BASE_URL` secret
-3. Run `xcodegen generate` to produce `MovieManager.xcodeproj`
-4. Resolve Swift Package Manager dependencies
-5. `xcodebuild archive` with code signing disabled
-6. Package `.app` into `.ipa`
-7. Upload artifact: `mobile-unsigned-ipa` (30-day retention)
-8. Update rolling release tag `mobile-latest` (push to main / manual only)
+## Build Outputs
 
-### Required Secret
+- Artifact: `mobile-unsigned-ipa` (30-day retention)
+- Release tag (main/manual publish): `mobile-v{MARKETING_VERSION}`
+- IPA filename:
+  - PR builds: `mm-vX_Y-pr<PR_NUMBER>.ipa`
+  - Main/manual builds: `mm-vX_Y.ipa` or `mm-vX_Y-<suffix>.ipa`
 
-Set in **Repository Settings → Secrets and variables → Actions → Secrets**:
+## Required Secret
 
-| Secret | Example value | Notes |
+Set in repository Actions secrets:
+
+| Secret | Required | Example |
 |---|---|---|
-| `MOBILE_API_BASE_URL` | `https://api.example.com/api` | Must be HTTPS. Must end in `/api` or the app appends it. |
+| `MOBILE_API_BASE_URL` | Yes | `https://api.example.com/api` |
 
-The workflow validates this is set and **fails immediately** with a clear message if it is missing or doesn't start with `https://`.
+Validation rules in workflow:
+- Must be set
+- Must use HTTPS
+- Must be a base host URL or end in `/api`
 
----
+## Build Pipeline Summary
 
-## Downloading the IPA
+1. Generate `Config/Env.generated.xcconfig` from `MOBILE_API_BASE_URL`
+2. Run `xcodegen generate`
+3. Resolve SPM packages
+4. Build unsigned app with `xcodebuild` (no signing)
+5. Package IPA
+6. Upload artifact
+7. Publish/update `mobile-v{MARKETING_VERSION}` release (when enabled)
 
-### From GitHub Mobile App (Easiest)
+## Downloading IPA
 
-1. Open the GitHub app on your iPhone
-2. Navigate to this repository
-3. Tap **Releases**
-4. Open the `mobile-latest` release
-5. Download `MovieManager-unsigned.ipa`
+### Releases
 
-### From GitHub Web
+1. Open repository Releases
+2. Open latest `mobile-v*` tag
+3. Download `mm-v*.ipa`
 
-1. Go to the repository on github.com
-2. Click **Releases** in the sidebar
-3. Open `mobile-latest`
-4. Download `MovieManager-unsigned.ipa`
+### Actions artifact
 
-### From Actions Artifacts
+1. Open a successful `Build iOS App` run
+2. Download `mobile-unsigned-ipa`
 
-1. Go to **Actions** tab
-2. Open the latest successful `build-mobile` run
-3. Download `mobile-unsigned-ipa` artifact (ZIP containing the IPA)
+## Install Options
 
----
+- SideStore
+- LiveContainer
 
-## Installing via SideStore
-
-[SideStore](https://sidestore.io) is a self-managed iOS app sideloader that requires pairing your device once.
-
-1. Install SideStore on your iPhone (follow sidestore.io instructions)
-2. In SideStore, tap **+** and select "Import IPA from Files"
-3. Select the downloaded IPA
-4. Tap Install
-5. On first launch: go to **Settings → General → VPN & Device Management** and trust the developer certificate
-
----
-
-## Installing via LiveContainer
-
-[LiveContainer](https://github.com/LiveContainer/LiveContainer) runs multiple sideloaded apps as containers inside one signed app, saving sideloading slots.
-
-1. Install LiveContainer (follow its README)
-2. Import the IPA into LiveContainer
-3. Create an app entry and optionally assign a custom icon
-4. Use iOS Shortcuts to create a home screen shortcut for each app entry
-
----
-
-## Linux: AltServer Setup (for SideStore pairing)
-
-If you are on Linux and need to pair your device with AltServer for SideStore:
-
-### 1. Enable required user services
-
-```bash
-systemctl --user enable --now netmuxd.service
-systemctl --user enable --now altserver.service
-```
-
-### 2. Add your user to the docker group
-
-```bash
-sudo usermod -aG docker $USER
-# Log out and back in for this to take effect
-```
-
-### 3. Start the Anisette server
-
-```bash
-docker run -d \
-  --restart always \
-  --name anisette-v3 \
-  -p 6969:6969 \
-  --volume anisette-v3_data:/home/Alcoholic/.config/anisette-v3/lib/ \
-  dadoum/anisette-v3-server
-```
-
-### 4. Verify services are running
-
-```bash
-systemctl --user status netmuxd.service altserver.service
-```
-
-### 5. Pair your device
-
-Follow the official AltServer/SideStore README for the pairing step.
-
----
+Use your normal sideload workflow for unsigned IPAs.
 
 ## Troubleshooting
 
-### Build fails: "MOBILE_API_BASE_URL is not set"
+### `MOBILE_API_BASE_URL is not set`
 
-The repository secret is missing. Go to **Repository Settings → Secrets and variables → Actions** and add `MOBILE_API_BASE_URL` with a valid HTTPS URL.
+Add the secret under repository Actions secrets.
 
-### Build succeeds but app points to the wrong backend
+### Release was not published
 
-The API URL is baked into the app at build time via Info.plist. Update `MOBILE_API_BASE_URL` in the repository secrets and trigger a new build.
+Check:
+- branch is `main`
+- trigger is push or manual dispatch with `publish_release=true`
 
-### "Untrusted Developer" on first launch
+### IPA missing from release
 
-Go to **Settings → General → VPN & Device Management**, find the developer certificate, and tap **Trust**.
-
-### App installed but crashes immediately
-
-Check that the backend is running and reachable at the URL baked into the app. The app's Info.plist API URL must be accessible from the device's network.
-
-### IPA not showing in the `mobile-latest` release
-
-Check the `Publish latest IPA release` step in the workflow run logs under the **Actions** tab.
-
----
+Open the workflow run and inspect the `Publish versioned IPA release` step.
 
 ## Related Docs
 

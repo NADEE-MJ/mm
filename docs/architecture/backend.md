@@ -8,7 +8,7 @@ The backend is a **FastAPI** application backed by **SQLite** via **SQLAlchemy**
 
 ```
 backend/
-├── main.py                  # FastAPI app entry point, scheduler
+├── main.py                  # Thin entrypoint that imports app.main:app
 ├── models.py                # SQLAlchemy ORM models
 ├── database.py              # Database engine and session factory
 ├── auth.py                  # JWT authentication, user creation, quick recommender seeding
@@ -17,6 +17,7 @@ backend/
 ├── alembic/
 │   └── versions/            # Migration files
 ├── app/
+│   ├── main.py              # FastAPI app factory, scheduler, static serving
 │   ├── api/
 │   │   └── routers/
 │   │       ├── movies.py    # Movie CRUD endpoints
@@ -150,17 +151,15 @@ User creation is **admin-only** — there is no public self-registration endpoin
 
 The backend proxies all TMDB and OMDb calls. Clients never need API keys.
 
-**TMDB endpoints used:**
-- Movie search: `GET /search/movie`
-- Movie details: `GET /movie/{tmdb_id}`
-- Movie credits: `GET /movie/{tmdb_id}/credits`
-
-**OMDb endpoints used:**
-- Movie ratings by IMDb ID: `GET /?i={imdb_id}`
+**Backend proxy endpoints:**
+- `GET /api/external/tmdb/search`
+- `GET /api/external/tmdb/movie/{tmdb_id}`
+- `GET /api/external/tmdb/tv/{tmdb_id}`
+- `GET /api/external/omdb/movie/{imdb_id}`
 
 **Caching:** Responses are cached in-memory with a 1-hour TTL, max 500 entries. This dramatically reduces external API calls for frequently-viewed movies.
 
-**Movie enrichment:** When a movie is imported without full metadata (e.g., from a backup import), the `GET /api/movies/{imdb_id}/refresh` endpoint re-fetches and stores TMDB + OMDb data.
+**Movie enrichment:** When a movie is imported without full metadata (e.g., from a backup import), the `POST /api/movies/{imdb_id}/refresh` endpoint re-fetches and stores TMDB + OMDb data.
 
 ---
 
@@ -174,12 +173,16 @@ The sync system allows clients to send write operations as discrete actions. Thi
 **Action types** (sent in `POST /api/sync` body):
 | Action | Effect |
 |---|---|
-| `addMovie` | Create movie + recommendation |
-| `updateMovieStatus` | Change status |
-| `watchMovie` | Record watch + rating |
+| `addRecommendation` | Add/update one recommendation vote |
+| `removeRecommendation` | Remove recommendation vote |
+| `updateRecommendationVote` | Change upvote/downvote |
+| `markWatched` | Set watch history + rating |
+| `updateRating` | Update rating only |
+| `updateStatus` | Change movie status |
 | `addPerson` | Create person |
-| `updatePerson` | Change name/color/emoji/trust |
+| `updatePerson` / `updatePersonTrust` | Update person metadata/trust |
 | `deletePerson` | Remove person (blocked for quick recommenders) |
+| `addList` / `updateList` / `deleteList` | Manage custom lists |
 
 ---
 
@@ -213,10 +216,10 @@ uv sync
 cp .env.example .env
 # edit .env: add TMDB_API_KEY, OMDB_API_KEY
 uv run alembic upgrade head
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --reload --host 0.0.0.0 --port 8155
 ```
 
-API docs available at `http://localhost:8000/docs`.
+API docs available at `http://localhost:8155/docs`.
 
 ---
 

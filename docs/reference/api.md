@@ -1,484 +1,174 @@
 # API Reference
 
-All endpoints are prefixed with `/api`. The backend is a **FastAPI** application — interactive docs are available at `http://localhost:8000/docs` when running locally.
+All HTTP endpoints are under `/api`.
 
-Authentication uses **JWT Bearer tokens**. Include the token in the `Authorization` header:
+Local docs UI when running backend:
+- `http://localhost:8155/docs`
 
-```
+Auth uses bearer JWT:
+
+```text
 Authorization: Bearer <token>
 ```
-
----
 
 ## Auth
 
-User creation is **admin-only** — accounts are provisioned by an administrator, not self-registered.
-
-### Create User (Admin Only)
-
-Requires an admin JWT obtained from `POST /api/auth/admin/login`.
-
-```
-POST /api/auth/admin/users
-Authorization: Bearer <admin_token>
-Content-Type: application/json
-
-{
-  "email": "alice@example.com",
-  "username": "alice",
-  "password": "secret123"
-}
-```
-
-Response: `201 Created`
-```json
-{
-  "id": "uuid",
-  "email": "alice@example.com",
-  "username": "alice",
-  "created_at": 1234567890.0,
-  "is_active": true
-}
-```
-
-Automatically seeds 4 quick recommenders for the new user.
-
-### Admin Login
-
-Exchanges the server-side `ADMIN_TOKEN` for a short-lived admin JWT (12 hours).
-
-```
-POST /api/auth/admin/login
-Content-Type: application/json
-
-{ "token": "<ADMIN_TOKEN value>" }
-```
-
-Response:
-```json
-{ "access_token": "eyJ...", "token_type": "bearer" }
-```
-
-### Login
-
-```
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "alice@example.com",
-  "password": "secret123"
-}
-```
-
-Response:
-```json
-{
-  "access_token": "eyJ...",
-  "token_type": "bearer",
-  "user": {
-    "id": "uuid",
-    "email": "alice@example.com",
-    "username": "alice",
-    "created_at": 1234567890.0,
-    "is_active": true
-  }
-}
-```
-
-Tokens expire after **30 days**.
-
-### Verify Token / Get Current User
-
-```
-GET /api/auth/me
-Authorization: Bearer <token>
-```
-
-Response:
-```json
-{
-  "id": "uuid",
-  "email": "alice@example.com",
-  "username": "alice",
-  "created_at": 1234567890.0,
-  "is_active": true
-}
-```
-
-Returns `401` if the token is invalid or expired.
-
----
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/api/auth/login` | User login |
+| `POST` | `/api/auth/admin/login` | Exchange `ADMIN_TOKEN` for admin JWT |
+| `POST` | `/api/auth/admin/users` | Admin-only user creation |
+| `GET` | `/api/auth/me` | Current user profile |
 
 ## Movies
 
-### List Movies
-
-```
-GET /api/movies
-Authorization: Bearer <token>
-```
-
-Response: array of movie objects with status, recommendations, and watch history.
-
-### Get Movie
-
-```
-GET /api/movies/{imdb_id}
-Authorization: Bearer <token>
-```
-
-### Add Movie
-
-```
-POST /api/movies
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "imdb_id": "tt1234567",
-  "tmdb_id": 12345,
-  "recommender": "Alice"
-}
-```
-
-Fetches TMDB and OMDb data and stores the movie. Creates a recommendation record.
-
-### Update Movie Status
-
-```
-PUT /api/movies/{imdb_id}/status
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "status": "watched"
-}
-```
-
-Valid statuses: `toWatch`, `watched`, `deleted`, `custom`
-
-### Mark Watched
-
-```
-PUT /api/movies/{imdb_id}/watch
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "date_watched": 1234567890.0,
-  "my_rating": 8.5
-}
-```
-
-### Refresh Movie Metadata
-
-```
-GET /api/movies/{imdb_id}/refresh
-Authorization: Bearer <token>
-```
-
-Re-fetches TMDB and OMDb data and updates the stored record. Used after import to enrich stub movies.
-
----
-
-## Recommendations
-
-### Add Recommendation
-
-```
-POST /api/movies/{imdb_id}/recommendations
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "person_name": "Alice",
-  "date_recommended": 1234567890.0,
-  "vote_type": true
-}
-```
-
-### Remove Recommendation
-
-```
-DELETE /api/movies/{imdb_id}/recommendations/{person_name}
-Authorization: Bearer <token>
-```
-
----
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/movies` | List movies |
+| `GET` | `/api/movies/{imdb_id}` | Get one movie |
+| `POST` | `/api/movies/{imdb_id}/recommendations` | Add/update one recommendation |
+| `POST` | `/api/movies/{imdb_id}/recommendations/bulk` | Add multiple recommendations |
+| `DELETE` | `/api/movies/{imdb_id}/recommendations/{person_name}` | Remove recommendation |
+| `PUT` | `/api/movies/{imdb_id}/watch` | Mark watched + rating |
+| `PUT` | `/api/movies/{imdb_id}/status` | Update status |
+| `POST` | `/api/movies/{imdb_id}/refresh` | Re-fetch TMDB/OMDb metadata |
 
 ## People
 
-### List People
-
-```
-GET /api/people
-Authorization: Bearer <token>
-```
-
-Response:
-```json
-[
-  {
-    "id": 1,
-    "name": "Alice",
-    "is_trusted": true,
-    "color": "#ff0000",
-    "emoji": "🎬",
-    "quick_key": null,
-    "movie_count": 5
-  },
-  {
-    "id": 2,
-    "name": "Random YouTube Video",
-    "is_trusted": false,
-    "color": "#bf5af2",
-    "emoji": "📺",
-    "quick_key": "youtube",
-    "movie_count": 12
-  }
-]
-```
-
-### Add Person
-
-```
-POST /api/people
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "Bob",
-  "color": "#00ff00",
-  "emoji": "🎥"
-}
-```
-
-### Update Person
-
-```
-PUT /api/people/{name}
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "Robert",
-  "is_trusted": true,
-  "color": "#0000ff",
-  "emoji": "🍿"
-}
-```
-
-`quick_key` is not writable via this endpoint.
-
-### Delete Person
-
-```
-DELETE /api/people/{name}
-Authorization: Bearer <token>
-```
-
-Returns `400` if the person has a `quick_key` (quick recommenders cannot be deleted).
-
-### Get Person Stats
-
-```
-GET /api/people/{name}/stats
-Authorization: Bearer <token>
-```
-
-Returns recommendation counts, movie list, and trust status.
-
----
-
-## Sync
-
-### Get Changes Since Timestamp
-
-```
-GET /api/sync?since={unix_timestamp}
-Authorization: Bearer <token>
-```
-
-Returns all movies and people records modified after the given timestamp. Used by offline clients to pull updates.
-
-### Process Queued Action
-
-```
-POST /api/sync
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "action": "updateMovieStatus",
-  "data": {
-    "imdb_id": "tt1234567",
-    "status": "watched"
-  },
-  "timestamp": 1234567890.0
-}
-```
-
-**Action types:**
-
-| Action | Required `data` fields |
-|---|---|
-| `addMovie` | `imdb_id`, `tmdb_id`, `recommender` |
-| `updateMovieStatus` | `imdb_id`, `status` |
-| `watchMovie` | `imdb_id`, `date_watched`, `my_rating` |
-| `addPerson` | `name`, `color`, `emoji`, `is_trusted` |
-| `updatePerson` | `name`, and any of `color`, `emoji`, `is_trusted` |
-| `deletePerson` | `name` |
-
----
-
-## Backup
-
-### Export
-
-```
-GET /api/backup/export
-Authorization: Bearer <token>
-```
-
-Returns the user's library as a v2 condensed JSON payload. See [Backup & Export](../features/backup-export.md) for the format spec.
-
-### Import
-
-```
-POST /api/backup/import
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{ ...v2 payload... }
-```
-
-Response:
-```json
-{
-  "movies_imported": 142,
-  "people_imported": 8,
-  "lists_imported": 3,
-  "imdb_ids_needing_enrichment": ["tt1234567"]
-}
-```
-
-### Get Backup Settings
-
-```
-GET /api/backup/settings
-Authorization: Bearer <token>
-```
-
-Response:
-```json
-{ "backup_enabled": false }
-```
-
-### Update Backup Settings
-
-```
-PUT /api/backup/settings
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{ "backup_enabled": true }
-```
-
-### List Server Backups
-
-```
-GET /api/backup/list
-Authorization: Bearer <token>
-```
-
-Response:
-```json
-{
-  "backups": [
-    {
-      "filename": "2026-02-12.json",
-      "created_at": 1234567890.0,
-      "size_bytes": 4096
-    }
-  ]
-}
-```
-
-### Restore from Server Backup
-
-```
-POST /api/backup/restore/{filename}
-Authorization: Bearer <token>
-```
-
-Same response format as import.
-
----
-
-## Health
-
-```
-GET /api/health
-```
-
-Response:
-```json
-{ "status": "ok" }
-```
-
-No authentication required.
-
----
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/people` | List people/recommenders |
+| `POST` | `/api/people` | Create person |
+| `PUT` | `/api/people/{name}` | Update person fields |
+| `DELETE` | `/api/people/{name}` | Delete person (blocked for quick recommenders) |
+| `GET` | `/api/people/{name}/stats` | Person summary + movie list |
 
 ## Custom Lists
 
-### List Custom Lists
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/lists` | List custom lists |
+| `POST` | `/api/lists` | Create list |
+| `GET` | `/api/lists/{list_id}` | Get list |
+| `PUT` | `/api/lists/{list_id}` | Update list |
+| `DELETE` | `/api/lists/{list_id}` | Delete list |
+| `GET` | `/api/lists/{list_id}/movies` | List movies in a list |
 
-```
-GET /api/lists
-Authorization: Bearer <token>
-```
+## Sync
 
-### Create Custom List
+### Change feed
 
-```
-POST /api/lists
-Authorization: Bearer <token>
-Content-Type: application/json
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/sync?since=...` | Legacy change feed |
+| `GET` | `/api/sync/changes?since=...&limit=...&offset=...` | Paginated change feed |
 
+### Action processing
+
+| Method | Path | Notes |
+|---|---|---|
+| `POST` | `/api/sync` | Process one action |
+| `POST` | `/api/sync/batch` | Process multiple actions |
+
+Single-action request shape:
+
+```json
 {
-  "name": "Favorites",
-  "color": "#ff0000",
-  "icon": "star"
+  "action": "updateStatus",
+  "data": { "imdb_id": "tt1234567", "status": "watched" },
+  "timestamp": 1739550000.0
 }
 ```
 
-### Update Custom List
+Response shape:
 
-```
-PUT /api/lists/{list_id}
-Authorization: Bearer <token>
-Content-Type: application/json
-
+```json
 {
-  "name": "Top Picks",
-  "color": "#00ff00",
-  "position": 1
+  "success": true,
+  "last_modified": 1739550000.0,
+  "error": null,
+  "conflict": false,
+  "server_state": null
 }
 ```
 
-### Delete Custom List
+Supported action names include:
+- `addRecommendation`
+- `removeRecommendation`
+- `updateRecommendationVote`
+- `markWatched`
+- `updateRating`
+- `updateStatus`
+- `addPerson`
+- `updatePerson`
+- `updatePersonTrust`
+- `deletePerson`
+- `addList`
+- `updateList`
+- `deleteList`
 
-```
-DELETE /api/lists/{list_id}
-Authorization: Bearer <token>
+### WebSocket
+
+| Protocol | Path | Notes |
+|---|---|---|
+| `ws`/`wss` | `/ws/sync?token=<jwt>` | Realtime change events |
+
+## Backup
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/backup/export` | Download user export JSON |
+| `POST` | `/api/backup/import` | Import export payload |
+| `GET` | `/api/backup/settings` | Read backup setting |
+| `PUT` | `/api/backup/settings` | Update backup setting |
+| `GET` | `/api/backup/list` | List server backup files |
+| `POST` | `/api/backup/restore/{filename}` | Restore specific server backup |
+
+Import/restore response shape:
+
+```json
+{
+  "success": true,
+  "imported_counts": {
+    "movies": 142,
+    "people": 8,
+    "lists": 3
+  },
+  "imdb_ids_needing_enrichment": ["tt1234567"],
+  "errors": []
+}
 ```
 
----
+## External API Proxy
+
+| Method | Path | Notes |
+|---|---|---|
+| `GET` | `/api/external/tmdb/search?q=...` | TMDB search |
+| `GET` | `/api/external/tmdb/discover/genre` | TMDB discover by genre |
+| `GET` | `/api/external/tmdb/discover/person` | TMDB discover by person |
+| `GET` | `/api/external/tmdb/discover/list` | TMDB list-based discover |
+| `GET` | `/api/external/tmdb/movie/{tmdb_id}` | TMDB movie details |
+| `GET` | `/api/external/tmdb/tv/{tmdb_id}` | TMDB TV details |
+| `GET` | `/api/external/omdb/movie/{imdb_id}` | OMDb details |
+| `GET` | `/api/external/cache/info` | Cache stats |
+
+## Health
+
+| Method | Path | Auth |
+|---|---|---|
+| `GET` | `/api/health` | No |
+
+Response:
+
+```json
+{
+  "status": "healthy",
+  "timestamp": 1739550000.0
+}
+```
 
 ## Related Docs
 
-- [Backend Architecture](../architecture/backend.md)
 - [Database Schema](database-schema.md)
+- [Environment Variables](environment-variables.md)
 - [Backup & Export](../features/backup-export.md)

@@ -1,124 +1,83 @@
 # Deployment
 
-In production, a single FastAPI server process serves both the API and the compiled React frontend. There is no separate static hosting needed.
+In production, one FastAPI process serves both API routes and the built React app.
 
----
+## Static Serving Model
 
-## How It Works
+Backend (`backend/app/main.py`) serves:
 
-The FastAPI backend serves:
-
-| Path | Serves |
+| Path | Purpose |
 |---|---|
-| `/api/*` | API handlers |
-| `/assets/*` | Frontend static assets (JS, CSS, images) |
-| `/*` (catch-all) | `frontend/dist/index.html` (SPA entry) |
+| `/api/*` | API endpoints |
+| `/assets/*` | Frontend build assets |
+| `/*` | `frontend/dist/index.html` (SPA entry) |
 
-This means you can deploy the entire app with one process and one server.
+The backend expects the frontend build at `frontend/dist` (repo-root relative).
 
----
+## Build Steps
 
-## Production Build (Local)
-
-Build the frontend:
+### 1. Build frontend
 
 ```bash
 cd frontend
 npm install
 npm run build
-# Output: frontend/dist/
 ```
 
-Copy `dist/` so the backend can find it (or configure `STATIC_FILES_DIR` to point to it):
+### 2. Install backend deps + run migrations
 
 ```bash
-cp -r frontend/dist backend/dist
-```
-
-Start the backend:
-
-```bash
-cd backend
+cd ../backend
 uv sync
-uv run uvicorn main:app --host 0.0.0.0 --port 8000
+uv run alembic upgrade head
 ```
 
-Access at `http://localhost:8000`.
-
----
-
-## Deploying to Railway, Render, or Fly.io
-
-These platforms run a single build and start command with a persistent volume for the SQLite database.
-
-### Build Command
+### 3. Start backend
 
 ```bash
-cd frontend && npm install && npm run build && cd ../backend && uv sync
+uv run uvicorn main:app --host 0.0.0.0 --port $PORT
 ```
 
-### Start Command
+## Environment Variables
 
-```bash
-cd backend && uv run uvicorn main:app --host 0.0.0.0 --port $PORT
-```
+Set at deploy time:
 
-### Persistent Volume
+- `TMDB_API_KEY`
+- `OMDB_API_KEY`
+- `ADMIN_TOKEN`
+- `SECRET_KEY` (required in production)
+- `DATABASE_URL` (point to persistent storage)
+- `CORS_ORIGINS`
 
-Attach a persistent disk and mount it at a path the backend uses for the SQLite file. Set `DATABASE_URL` to point to that path:
+Example DB URL with mounted volume:
 
 ```env
 DATABASE_URL=sqlite:////data/app.db
 ```
 
-### Environment Variables
+## Hosting Notes
 
-Set these in the platform's environment configuration:
+For Railway/Render/Fly-style platforms, use:
 
-| Variable | Value |
-|---|---|
-| `TMDB_API_KEY` | Your TMDB API key |
-| `OMDB_API_KEY` | Your OMDb API key |
-| `SECRET_KEY` | Long random string for JWT signing |
-| `CORS_ORIGINS` | Comma-separated list of allowed origins (or `*`) |
-| `DATABASE_URL` | `sqlite:////data/app.db` (or your volume path) |
-
----
-
-## Running Migrations in Production
-
-Run Alembic before starting the server:
+Build command:
 
 ```bash
-cd backend && uv run alembic upgrade head
+cd frontend && npm install && npm run build && cd ../backend && uv sync
 ```
 
-On platforms that support release commands (Railway, Render), set this as the release command so it runs before each deploy.
+Start command:
 
-The backend also runs `ensure_additive_schema()` on startup, which manually adds any new columns that Alembic may not have caught (SQLite compatibility fallback). This is a safety net, not a replacement for migrations.
+```bash
+cd backend && uv run uvicorn main:app --host 0.0.0.0 --port $PORT
+```
 
----
+## iOS Build Dependency
 
-## Updating the iOS App
-
-The iOS app's backend URL is baked into the IPA at build time. When you change your production backend URL:
-
-1. Update the `MOBILE_API_BASE_URL` repository secret
-2. Trigger a new build (push to `main` or use manual dispatch)
-3. Download and reinstall the new IPA
-
----
-
-## Security Checklist
-
-- [ ] `SECRET_KEY` is a long random string unique to production (do not use the dev default)
-- [ ] `CORS_ORIGINS` is set to your actual domain, not `*`
-- [ ] TMDB and OMDb keys are server-side only (never in frontend code)
-- [ ] Database volume is not publicly accessible
-- [ ] HTTPS is enforced at the load balancer or hosting platform level
-- [ ] Backend API accessible only over HTTPS (required for iOS ATS)
-
----
+The iOS workflow bakes backend URL into IPA via `MOBILE_API_BASE_URL`.
+When backend URL changes:
+1. Update `MOBILE_API_BASE_URL` secret.
+2. Trigger a new iOS build.
+3. Reinstall the new IPA.
 
 ## Related Docs
 

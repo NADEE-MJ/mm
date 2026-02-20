@@ -1,129 +1,69 @@
 # Movies
 
-Movies are the core entity in Movie Manager. Each movie has a status, zero or more recommenders, and optionally a watch record with a rating.
+Movies (and TV entries) are the core records in Movie Manager.
+Each item tracks:
+- status
+- recommendations (who suggested it)
+- optional watch history + rating
 
----
+## Add Flow
 
-## Adding a Movie
+### Web
 
-### Web / Frontend
+1. Open Add Movie modal.
+2. Search via TMDB-backed backend endpoint.
+3. Select one or more recommenders.
+4. Submit recommendation.
 
-1. Tap the **+** button in the bottom navigation bar
-2. Search for a movie by title — results come from TMDB via the backend
-3. Select a movie from the results
-4. Choose one or more recommenders (people who suggested it)
-   - Quick recommenders (YouTube, Oscar, Random Person, Google) appear first with a purple "Quick" badge
-   - Regular people from your people list follow
-5. Tap **Add Recommendation**
+### iOS
 
-The movie is immediately saved to local IndexedDB and queued for sync. It appears in the **To Watch** list right away.
+1. Open the Discover tab.
+2. Search title.
+3. Select recommenders.
+4. Save.
 
-### iOS App
-
-1. Tap the **Explore** tab (bottom nav)
-2. Search for a movie — TMDB results appear
-3. Tap a movie to open the add sheet
-4. Select recommender(s) from the picker
-   - Quick recommenders appear in a dedicated section at the top
-5. Confirm to add
-
----
-
-## Movie Status
-
-Every movie in your library has exactly one status:
+## Status Model
 
 | Status | Meaning |
 |---|---|
-| `toWatch` | In your watch queue |
-| `watched` | You've seen it; has a watch record and rating |
-| `custom` | Assigned to a custom list |
-| `deleted` | Removed from active lists (soft delete) |
+| `toWatch` | Default queue |
+| `watched` | Has been watched/rated |
+| `custom` | Assigned to custom list |
+| `deleted` | Soft-removed from active views |
 
-Status changes are instant and sync in the background. A movie is set to `custom` when it is placed into one of your custom lists; `custom_list_id` on the `movie_status` row identifies which list.
+## Watching and Rating
 
----
+- `PUT /api/movies/{imdb_id}/watch` stores `date_watched` and `my_rating`.
+- Ratings are `1.0` to `10.0`.
+- Rewatch updates the same watch-history record.
 
-## Watching & Rating
+## Recommendations
 
-When you mark a movie as watched:
-
-1. A **watch record** is created with the current date/time
-2. You rate the movie on a scale of **1–10** (the slider rounds to 0.5 increments)
-3. The status changes to `watched`
-
-### Low-Rating Prompt
-
-If you rate a movie **below 6**, the app prompts you to review other movies from the same recommender. This lets you quickly move their other recommendations to `deleted` or a custom list if you don't trust their taste.
-
----
-
-## Watch History
-
-Each movie can have one watch record. The record stores:
-- `date_watched` — Unix timestamp
-- `my_rating` — Float 1.0–10.0
-
-Re-watching a movie overwrites the existing watch record (no multi-watch history yet).
-
----
-
-## Movie Data
-
-Movie metadata comes from two external APIs, both proxied through the backend:
-
-### TMDB Data
-- Title, original title
-- Release year
-- Runtime
-- Genres
-- Overview / synopsis
-- Poster path (image URL)
-- Director, cast (top-billed)
-- TMDB ID
-
-### OMDb Data
-- IMDb ID (used as the primary key throughout the app)
-- IMDb rating
-- Rotten Tomatoes score
-- Metascore
-- Rated (MPAA rating: PG, R, etc.)
-
----
+- One recommendation row per `(movie, person)`.
+- Vote type supports upvote/downvote.
+- Recommenders can be regular people or quick recommenders (`quick_key`).
 
 ## Media Types
 
-Movies and TV shows are both supported. The media type is stored alongside the movie record and affects how metadata is displayed (e.g., episode count for TV, runtime for films).
+`media_type` supports both:
+- `movie`
+- `tv`
 
----
+## Metadata Sources
 
-## Movie Enrichment
+Backend enriches entries using:
+- TMDB (title, poster, credits, etc.)
+- OMDb (IMDb/RT/Metascore ratings)
 
-When movies are imported from a backup file, they arrive as stubs (IMDb ID + user data only, no TMDB/OMDb metadata). The import response includes `imdb_ids_needing_enrichment`. The client then calls:
+If an import creates metadata stubs, clients can enrich with:
 
+```text
+POST /api/movies/{imdb_id}/refresh
 ```
-GET /api/movies/{imdb_id}/refresh
-```
-
-for each stub in the background to fetch and store the full metadata. This keeps backup files compact while still allowing full restoration.
-
----
-
-## Custom Lists
-
-Movies can be assigned to custom lists in addition to their status. Custom lists have:
-- Name
-- Color (hex)
-- Icon (SF Symbol name on iOS; emoji/icon on web)
-- Sort position
-
-A movie in a custom list still has its primary status (`toWatch`, `watched`, etc.). Lists are a secondary organizational layer.
-
----
 
 ## Related Docs
 
 - [People & Recommenders](people.md)
-- [Backup & Export](backup-export.md)
+- [Backup and Export](backup-export.md)
 - [API Reference](../reference/api.md)
 - [Database Schema](../reference/database-schema.md)
