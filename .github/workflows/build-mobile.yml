@@ -348,12 +348,19 @@ jobs:
 
           echo "Version: $VERSION  Tag: $TAG"
 
-          NOTES=$(cat <<EOF_NOTES
-          Unsigned iOS build for v${VERSION}.
+          BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M UTC')
+          FULL_SHA="${{ github.sha }}"
+          SHORT_SHA="${FULL_SHA:0:7}"
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          **Commit:** ${{ github.sha }}
-          **Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EOF_NOTES
+          NOTES=$(cat <<EOF_NOTES
+Unsigned iOS build for v${VERSION}.
+
+**Built:** ${BUILD_TIME}
+**Commit:** [${SHORT_SHA}](${COMMIT_URL})
+**Workflow run:** [#${{ github.run_number }}](${RUN_URL})
+EOF_NOTES
           )
 
           # Create tag only if it doesn't exist yet
