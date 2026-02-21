@@ -85,12 +85,13 @@ struct AccountPageView: View {
                     LabeledContent("Cached Movies") { Text("\(dbManager.movieCount)") }
                     LabeledContent("Cached People") { Text("\(dbManager.peopleCount)") }
                     LabeledContent("Sync Status") {
-                        Label(
-                            isSyncConnected ? "Connected" : "Disconnected",
-                            systemImage: isSyncConnected ? "checkmark.circle.fill" : "xmark.circle.fill"
-                        )
+                        HStack(spacing: 4) {
+                            Image(systemName: isSyncConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            Text(isSyncConnected ? "Connected" : "Disconnected")
+                        }
                         .foregroundStyle(isSyncConnected ? .green : .red)
                     }
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                 }
             }
             .navigationTitle("Account")

@@ -562,10 +562,10 @@ struct AddMoviePageView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if isKeyboardShowing {
                     keyboardToolbarView
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .frame(maxWidth: .infinity)
-                        .background(.bar)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .onReceive(
@@ -774,10 +774,7 @@ struct AddMoviePageView: View {
                                 .foregroundStyle(.primary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(
-                                    Capsule(style: .continuous)
-                                        .fill(Color(.secondarySystemFill))
-                                )
+                                .glassEffect(in: Capsule(style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -809,6 +806,9 @@ struct AddMoviePageView: View {
                         .font(.caption.weight(.medium))
                 }
                 .foregroundStyle(AppTheme.blue)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .glassEffect(in: Capsule(style: .continuous))
             }
             .padding(.trailing, 2)
         }
@@ -829,7 +829,9 @@ struct AddMoviePageView: View {
                     merged[movie.id] = movie
                 }
             }
-            buckets.append(Array(merged.values))
+            if !merged.isEmpty {
+                buckets.append(Array(merged.values))
+            }
         }
 
         if !filters.actors.isEmpty {
@@ -840,7 +842,9 @@ struct AddMoviePageView: View {
                     merged[movie.id] = movie
                 }
             }
-            buckets.append(Array(merged.values))
+            if !merged.isEmpty {
+                buckets.append(Array(merged.values))
+            }
         }
 
         if !filters.directors.isEmpty {
@@ -851,7 +855,17 @@ struct AddMoviePageView: View {
                     merged[movie.id] = movie
                 }
             }
-            buckets.append(Array(merged.values))
+            if !merged.isEmpty {
+                buckets.append(Array(merged.values))
+            }
+        }
+
+        // year/rating-only filters have no bucket-generating query — use popular movies as the base
+        if buckets.isEmpty {
+            guard filters.minimumRating != nil || !filters.years.isEmpty else {
+                return []
+            }
+            buckets.append(await NetworkService.shared.discoverPopularMovies())
         }
 
         guard var results = buckets.first else {

@@ -480,13 +480,19 @@ private struct MovieRowView: View {
                     }
 
                     if let metacritic = movie.metacriticScore {
-                        Label("\(metacritic)", systemImage: "gauge.medium")
-                            .foregroundStyle(.orange)
+                        HStack(spacing: 2) {
+                            Image(systemName: "gauge.medium")
+                            Text("\(metacritic)")
+                        }
+                        .foregroundStyle(.orange)
                     }
 
                     if let myRating = movie.myRating {
-                        Label("\(myRating)", systemImage: "heart.fill")
-                            .foregroundStyle(AppTheme.blue)
+                        HStack(spacing: 2) {
+                            Image(systemName: "heart.fill")
+                            Text("\(myRating)")
+                        }
+                        .foregroundStyle(AppTheme.blue)
                     }
                 }
                 .font(.caption)
@@ -634,41 +640,56 @@ struct MovieDetailView: View {
             Section("Ratings") {
                 LabeledContent("IMDb") {
                     if let imdbRating = currentMovie.imdbRating {
-                        Label("\(String(format: "%.1f", imdbRating))/10", systemImage: "star.fill")
-                            .foregroundStyle(.yellow)
+                        HStack(spacing: 4) {
+                            Image(systemName: "star.fill")
+                            Text("\(String(format: "%.1f", imdbRating))/10")
+                        }
+                        .foregroundStyle(.yellow)
                     } else {
                         Text("N/A")
                             .foregroundStyle(.secondary)
                     }
                 }
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
 
                 LabeledContent("Rotten Tomatoes") {
                     if let rottenTomatoes = currentMovie.rottenTomatoesRating {
                         if rottenTomatoes >= 75 {
-                            Label("\(rottenTomatoes)%", systemImage: "burst.fill")
-                                .foregroundStyle(.green)
+                            HStack(spacing: 4) {
+                                Image(systemName: "burst.fill")
+                                Text("\(rottenTomatoes)%")
+                            }
+                            .foregroundStyle(.green)
                         } else if rottenTomatoes >= 60 {
                             Text("🍅 \(rottenTomatoes)%")
                                 .foregroundStyle(.green)
                         } else {
-                            Label("\(rottenTomatoes)%", systemImage: "burst.fill")
-                                .foregroundStyle(.red)
+                            HStack(spacing: 4) {
+                                Image(systemName: "burst.fill")
+                                Text("\(rottenTomatoes)%")
+                            }
+                            .foregroundStyle(.red)
                         }
                     } else {
                         Text("N/A")
                             .foregroundStyle(.secondary)
                     }
                 }
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
 
                 LabeledContent("Metacritic") {
                     if let metacritic = currentMovie.metacriticScore {
-                        Label("\(metacritic)/100", systemImage: "gauge.medium")
-                            .foregroundStyle(.orange)
+                        HStack(spacing: 4) {
+                            Image(systemName: "gauge.medium")
+                            Text("\(metacritic)/100")
+                        }
+                        .foregroundStyle(.orange)
                     } else {
                         Text("N/A")
                             .foregroundStyle(.secondary)
                     }
                 }
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
 
                 if currentMovie.status == "watched" {
                     Stepper("My Rating: \(max(1, ratingValue))/10", value: $ratingValue, in: 1...10)
