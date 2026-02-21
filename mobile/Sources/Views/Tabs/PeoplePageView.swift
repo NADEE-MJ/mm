@@ -34,7 +34,22 @@ struct PeoplePageView: View {
 
         let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedQuery.isEmpty {
-            result = result.filter { $0.name.localizedCaseInsensitiveContains(trimmedQuery) }
+            result = result.filter { person in
+                if person.name.localizedCaseInsensitiveContains(trimmedQuery) {
+                    return true
+                }
+                if let emoji = PersonAppearance.normalizedEmoji(person.emoji),
+                   emoji.localizedCaseInsensitiveContains(trimmedQuery) {
+                    return true
+                }
+                if person.isTrusted && "trusted".localizedCaseInsensitiveContains(trimmedQuery) {
+                    return true
+                }
+                if person.isQuick && "quick".localizedCaseInsensitiveContains(trimmedQuery) {
+                    return true
+                }
+                return false
+            }
         }
 
         switch filter {
@@ -291,9 +306,13 @@ private struct PersonRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: person.isTrusted ? "person.crop.circle.badge.checkmark" : "person.crop.circle")
-                .font(.title3)
-                .foregroundStyle(person.isTrusted ? .yellow : AppTheme.blue)
+            PersonAvatarView(
+                name: person.name,
+                emoji: person.emoji,
+                colorHex: person.color,
+                isQuick: person.isQuick,
+                isTrusted: person.isTrusted
+            )
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(person.name)
@@ -309,7 +328,7 @@ private struct PersonRow: View {
             HStack(spacing: 8) {
                 if person.isQuick {
                     Image(systemName: "bolt.fill")
-                        .foregroundColor(.purple)
+                        .foregroundColor(PersonAppearance.color(from: PersonAppearance.quickFallbackColorHex, isQuick: true))
                         .font(.caption)
                 }
                 if person.isTrusted {
@@ -329,6 +348,8 @@ private struct PersonDetailView: View {
     let person: Person
     let onUpdate: () async -> Void
     @State private var isTrusted: Bool
+    @State private var selectedColorHex: String
+    @State private var selectedEmoji: String?
     @State private var recommendedMovies: [Movie] = []
     @State private var showRenameAlert = false
     @State private var editedName = ""
@@ -339,11 +360,37 @@ private struct PersonDetailView: View {
         self.person = person
         self.onUpdate = onUpdate
         _isTrusted = State(initialValue: person.isTrusted)
+        _selectedColorHex = State(
+            initialValue: person.color ?? (
+                person.isQuick ? PersonAppearance.quickFallbackColorHex : PersonAppearance.regularFallbackColorHex
+            )
+        )
+        _selectedEmoji = State(initialValue: PersonAppearance.normalizedEmoji(person.emoji))
     }
 
     var body: some View {
         Form {
             Section("Profile") {
+                HStack(spacing: 12) {
+                    PersonAvatarView(
+                        name: person.name,
+                        emoji: selectedEmoji,
+                        colorHex: selectedColorHex,
+                        isQuick: person.isQuick,
+                        isTrusted: isTrusted,
+                        size: 46
+                    )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(person.name)
+                            .font(.headline)
+                        if let emoji = selectedEmoji {
+                            Text("Emoji \(emoji)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
                 LabeledContent("Name") {
                     Text(person.name)
                 }
@@ -368,6 +415,80 @@ private struct PersonDetailView: View {
                             await onUpdate()
                         }
                     }
+            }
+
+            Section("Appearance") {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(PersonAppearance.colorHexOptions, id: \.self) { option in
+                            Button {
+                                Task { await setColor(option) }
+                            } label: {
+                                Circle()
+                                    .fill(PersonAppearance.color(from: option, isQuick: person.isQuick))
+                                    .frame(
+                                        width: PersonAppearance.minimumControlSize,
+                                        height: PersonAppearance.minimumControlSize
+                                    )
+                                    .overlay(
+                                        Circle()
+                                            .stroke(
+                                                selectedColorHex == option ? Color.accentColor : Color.clear,
+                                                lineWidth: 2
+                                            )
+                                            .padding(-4)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .contentShape(Circle())
+                            .accessibilityLabel("Color \(PersonAppearance.colorName(for: option))")
+                            .accessibilityAddTraits(selectedColorHex == option ? .isSelected : [])
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(PersonAppearance.emojiOptions, id: \.self) { option in
+                            Button {
+                                Task { await setEmoji(option) }
+                            } label: {
+                                Text(option)
+                                    .font(.title3)
+                                    .frame(
+                                        width: PersonAppearance.minimumControlSize,
+                                        height: PersonAppearance.minimumControlSize
+                                    )
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                            .fill(selectedEmoji == option ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.12))
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Emoji \(option)")
+                            .accessibilityAddTraits(selectedEmoji == option ? .isSelected : [])
+                        }
+
+                        Button {
+                            Task { await clearEmoji() }
+                        } label: {
+                            Text("None")
+                                .font(.caption.weight(.semibold))
+                                .frame(minWidth: PersonAppearance.minimumControlSize)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 12)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(selectedEmoji == nil ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.12))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("No emoji")
+                        .accessibilityAddTraits(selectedEmoji == nil ? .isSelected : [])
+                    }
+                    .padding(.vertical, 4)
+                }
             }
 
             if !recommendedMovies.isEmpty {
@@ -463,6 +584,39 @@ private struct PersonDetailView: View {
         case .failure(let error):
             renameError = error.localizedDescription
             showRenameAlert = true
+        }
+    }
+
+    private func setColor(_ colorHex: String) async {
+        let previous = selectedColorHex
+        selectedColorHex = colorHex
+        await NetworkService.shared.updatePersonAppearance(name: person.name, color: colorHex)
+        if NetworkService.shared.lastError == nil {
+            await onUpdate()
+        } else {
+            selectedColorHex = previous
+        }
+    }
+
+    private func setEmoji(_ emoji: String) async {
+        let previous = selectedEmoji
+        selectedEmoji = emoji
+        await NetworkService.shared.updatePersonAppearance(name: person.name, emoji: emoji)
+        if NetworkService.shared.lastError == nil {
+            await onUpdate()
+        } else {
+            selectedEmoji = previous
+        }
+    }
+
+    private func clearEmoji() async {
+        let previous = selectedEmoji
+        selectedEmoji = nil
+        await NetworkService.shared.updatePersonAppearance(name: person.name, clearEmoji: true)
+        if NetworkService.shared.lastError == nil {
+            await onUpdate()
+        } else {
+            selectedEmoji = previous
         }
     }
 

@@ -1375,10 +1375,23 @@ private struct AddMovieSheet: View {
 
     private var quickPeople: [Person] { people.filter { $0.isQuick } }
     private var regularPeople: [Person] { people.filter { !$0.isQuick } }
-    private var customPeople: [String] {
+    private var selectedKnownPeople: [Person] {
+        people
+            .filter { containsSelectedRecommender(named: $0.name) }
+            .sorted { lhs, rhs in
+                if lhs.isQuick != rhs.isQuick {
+                    return lhs.isQuick && !rhs.isQuick
+                }
+                return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+            }
+    }
+    private var selectedCustomPeople: [String] {
         Array(selectedRecommenders.filter { name in
-            !people.contains { $0.name == name }
-        }).sorted()
+            existingPerson(for: name) == nil
+        })
+        .sorted { lhs, rhs in
+            lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
+        }
     }
 
     private var filteredQuickPeople: [Person] {
@@ -1430,44 +1443,70 @@ private struct AddMovieSheet: View {
                         }
                     }
 
-                    // Add Movie button — above the list
-                    Section {
-                        Button {
-                            errorMessage = nil
-                            isAdding = true
-                            Task {
-                                let error = await onAdd()
-                                isAdding = false
-                                if let error {
-                                    errorMessage = error
-                                } else {
-                                    dismiss()
-                                }
-                            }
-                        } label: {
-                            HStack {
-                                Spacer()
-                                if isAdding {
-                                    ProgressView()
-                                        .tint(.white)
-                                } else {
-                                    Text(selectedRecommenders.isEmpty
-                                         ? "Select a Recommender"
-                                         : "Add Movie with \(selectedRecommenders.count) Recommender\(selectedRecommenders.count == 1 ? "" : "s")")
-                                        .bold()
-                                }
-                                Spacer()
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(selectedRecommenders.isEmpty || isAdding)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                        .listRowBackground(Color.clear)
-
-                        if let errorMessage {
+                    if let errorMessage {
+                        Section {
                             Text(errorMessage)
                                 .foregroundStyle(.red)
                                 .font(.footnote)
+                        }
+                    }
+
+                    Section("Selected Recommenders (\(selectedRecommenders.count))") {
+                        if selectedRecommenders.isEmpty {
+                            Text("No recommenders selected yet")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(selectedKnownPeople) { person in
+                                Button {
+                                    removeSelectedRecommender(named: person.name)
+                                } label: {
+                                    HStack {
+                                        PersonAvatarView(
+                                            name: person.name,
+                                            emoji: person.emoji,
+                                            colorHex: person.color,
+                                            isQuick: person.isQuick,
+                                            isTrusted: person.isTrusted,
+                                            size: 28
+                                        )
+                                        Text(person.name)
+                                            .foregroundStyle(.primary)
+                                        if person.isQuick {
+                                            Image(systemName: "bolt.fill")
+                                                .foregroundStyle(PersonAppearance.color(from: PersonAppearance.quickFallbackColorHex, isQuick: true))
+                                                .font(.caption)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+
+                            ForEach(selectedCustomPeople, id: \.self) { personName in
+                                Button {
+                                    removeSelectedRecommender(named: personName)
+                                } label: {
+                                    HStack {
+                                        Text(personName)
+                                            .foregroundStyle(.primary)
+                                        Text("NEW")
+                                            .font(.caption2.weight(.semibold))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(
+                                                Capsule(style: .continuous)
+                                                    .fill(.orange.opacity(0.2))
+                                            )
+                                            .foregroundStyle(.orange)
+                                        Spacer()
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
 
@@ -1478,7 +1517,7 @@ private struct AddMovieSheet: View {
                             Button {
                                 let trimmed = newPersonName.trimmingCharacters(in: .whitespacesAndNewlines)
                                 guard !trimmed.isEmpty else { return }
-                                selectedRecommenders.insert(trimmed)
+                                insertSelectedRecommender(named: trimmed)
                                 newPersonName = ""
                             } label: {
                                 Image(systemName: "plus.circle.fill")
@@ -1489,7 +1528,7 @@ private struct AddMovieSheet: View {
                     } header: {
                         Text("Add New Person")
                     } footer: {
-                        Text("Type a name and tap + to add")
+                        Text("Type a name and tap + to add. New names are marked NEW.")
                     }
 
                     // Filter field
@@ -1511,48 +1550,28 @@ private struct AddMovieSheet: View {
                         }
                     }
 
-                    Section("Recommended By") {
-                        if !customPeople.isEmpty {
-                            ForEach(customPeople, id: \.self) { personName in
-                                Button {
-                                    selectedRecommenders.remove(personName)
-                                } label: {
-                                    HStack {
-                                        Text(personName)
-                                            .foregroundStyle(.primary)
-                                        Spacer()
-                                        Image(systemName: "checkmark")
-                                            .foregroundStyle(.blue)
-                                        Image(systemName: "person.badge.plus")
-                                            .foregroundStyle(.green)
-                                            .font(.caption)
-                                    }
-                                }
-                            }
-                        } else if quickPeople.isEmpty && regularPeople.isEmpty {
-                            Text("No people selected yet")
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-
                     if !filteredQuickPeople.isEmpty {
                         Section("Quick") {
                             ForEach(filteredQuickPeople) { person in
                                 Button {
-                                    if selectedRecommenders.contains(person.name) {
-                                        selectedRecommenders.remove(person.name)
-                                    } else {
-                                        selectedRecommenders.insert(person.name)
-                                    }
+                                    toggleSelectedRecommender(named: person.name)
                                 } label: {
                                     HStack {
+                                        PersonAvatarView(
+                                            name: person.name,
+                                            emoji: person.emoji,
+                                            colorHex: person.color,
+                                            isQuick: person.isQuick,
+                                            isTrusted: person.isTrusted,
+                                            size: 28
+                                        )
                                         Text(person.name)
                                             .foregroundStyle(.primary)
                                         Image(systemName: "bolt.fill")
-                                            .foregroundStyle(.purple)
+                                            .foregroundStyle(PersonAppearance.color(from: PersonAppearance.quickFallbackColorHex, isQuick: true))
                                             .font(.caption)
                                         Spacer()
-                                        if selectedRecommenders.contains(person.name) {
+                                        if containsSelectedRecommender(named: person.name) {
                                             Image(systemName: "checkmark")
                                                 .foregroundStyle(.blue)
                                         }
@@ -1566,17 +1585,21 @@ private struct AddMovieSheet: View {
                         Section("People") {
                             ForEach(filteredRegularPeople) { person in
                                 Button {
-                                    if selectedRecommenders.contains(person.name) {
-                                        selectedRecommenders.remove(person.name)
-                                    } else {
-                                        selectedRecommenders.insert(person.name)
-                                    }
+                                    toggleSelectedRecommender(named: person.name)
                                 } label: {
                                     HStack {
+                                        PersonAvatarView(
+                                            name: person.name,
+                                            emoji: person.emoji,
+                                            colorHex: person.color,
+                                            isQuick: person.isQuick,
+                                            isTrusted: person.isTrusted,
+                                            size: 28
+                                        )
                                         Text(person.name)
                                             .foregroundStyle(.primary)
                                         Spacer()
-                                        if selectedRecommenders.contains(person.name) {
+                                        if containsSelectedRecommender(named: person.name) {
                                             Image(systemName: "checkmark")
                                                 .foregroundStyle(.blue)
                                         }
@@ -1619,8 +1642,70 @@ private struct AddMovieSheet: View {
                     .accessibilityLabel("Close")
                     .disabled(isAdding)
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        addMovie()
+                    } label: {
+                        if isAdding {
+                            ProgressView()
+                        } else {
+                            Text("Add")
+                                .bold()
+                        }
+                    }
+                    .accessibilityLabel("Add Movie")
+                    .disabled(selectedRecommenders.isEmpty || isAdding)
+                }
             }
             .interactiveDismissDisabled(isAdding)
+        }
+    }
+
+    private func existingPerson(for name: String) -> Person? {
+        people.first { person in
+            person.name.localizedCaseInsensitiveCompare(name) == .orderedSame
+        }
+    }
+
+    private func containsSelectedRecommender(named name: String) -> Bool {
+        selectedRecommenders.contains { selectedName in
+            selectedName.localizedCaseInsensitiveCompare(name) == .orderedSame
+        }
+    }
+
+    private func insertSelectedRecommender(named name: String) {
+        if let existing = existingPerson(for: name) {
+            selectedRecommenders.insert(existing.name)
+        } else {
+            selectedRecommenders.insert(name)
+        }
+    }
+
+    private func removeSelectedRecommender(named name: String) {
+        selectedRecommenders = Set(selectedRecommenders.filter { selectedName in
+            selectedName.localizedCaseInsensitiveCompare(name) != .orderedSame
+        })
+    }
+
+    private func toggleSelectedRecommender(named name: String) {
+        if containsSelectedRecommender(named: name) {
+            removeSelectedRecommender(named: name)
+        } else {
+            insertSelectedRecommender(named: name)
+        }
+    }
+
+    private func addMovie() {
+        errorMessage = nil
+        isAdding = true
+        Task {
+            let error = await onAdd()
+            isAdding = false
+            if let error {
+                errorMessage = error
+            } else {
+                dismiss()
+            }
         }
     }
 }
@@ -1744,7 +1829,20 @@ private struct OfflineAddMovieSheet: View {
                                 }
                             } label: {
                                 HStack {
+                                    PersonAvatarView(
+                                        name: person.name,
+                                        emoji: person.emoji,
+                                        colorHex: person.color,
+                                        isQuick: person.isQuick,
+                                        isTrusted: person.isTrusted,
+                                        size: 28
+                                    )
                                     Text(person.name)
+                                    if person.isQuick {
+                                        Image(systemName: "bolt.fill")
+                                            .foregroundStyle(PersonAppearance.color(from: PersonAppearance.quickFallbackColorHex, isQuick: true))
+                                            .font(.caption)
+                                    }
                                     Spacer()
                                     if selectedRecommenders.contains(person.name) {
                                         Image(systemName: "checkmark")

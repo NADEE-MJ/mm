@@ -679,10 +679,54 @@ private struct MarkWatchedRequest: Encodable {
 }
 
 private struct UpdatePersonRequest: Encodable {
-    let isTrusted: Bool
+    let isTrusted: Bool?
+    let color: String?
+    let emoji: String?
+    let includeColor: Bool
+    let includeEmoji: Bool
 
     enum CodingKeys: String, CodingKey {
         case isTrusted = "is_trusted"
+        case color
+        case emoji
+    }
+
+    init(
+        isTrusted: Bool? = nil,
+        color: String? = nil,
+        emoji: String? = nil,
+        includeColor: Bool = false,
+        includeEmoji: Bool = false
+    ) {
+        self.isTrusted = isTrusted
+        self.color = color
+        self.emoji = emoji
+        self.includeColor = includeColor
+        self.includeEmoji = includeEmoji
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        if let isTrusted {
+            try container.encode(isTrusted, forKey: .isTrusted)
+        }
+
+        if includeColor {
+            if let color {
+                try container.encode(color, forKey: .color)
+            } else {
+                try container.encodeNil(forKey: .color)
+            }
+        }
+
+        if includeEmoji {
+            if let emoji {
+                try container.encode(emoji, forKey: .emoji)
+            } else {
+                try container.encodeNil(forKey: .emoji)
+            }
+        }
     }
 }
 
@@ -693,10 +737,14 @@ private struct RenamePersonRequest: Encodable {
 private struct AddPersonRequest: Encodable {
     let name: String
     let isTrusted: Bool
+    let color: String
+    let emoji: String?
 
     enum CodingKeys: String, CodingKey {
         case name
         case isTrusted = "is_trusted"
+        case color
+        case emoji
     }
 }
 
@@ -1133,7 +1181,12 @@ final class NetworkService {
         }
     }
 
-    func addPerson(name: String, isTrusted: Bool) async -> Bool {
+    func addPerson(
+        name: String,
+        isTrusted: Bool,
+        color: String = PersonAppearance.defaultColorHex,
+        emoji: String? = nil
+    ) async -> Bool {
         lastError = nil
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
@@ -1141,7 +1194,12 @@ final class NetworkService {
             return false
         }
 
-        let body = AddPersonRequest(name: trimmed, isTrusted: isTrusted)
+        let body = AddPersonRequest(
+            name: trimmed,
+            isTrusted: isTrusted,
+            color: color,
+            emoji: PersonAppearance.normalizedEmoji(emoji)
+        )
         return await post(
             "\(baseURL)/people",
             body: body,
@@ -1153,6 +1211,25 @@ final class NetworkService {
         lastError = nil
         guard let encoded = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else { return }
         let body = UpdatePersonRequest(isTrusted: isTrusted)
+        _ = await put("\(baseURL)/people/\(encoded)", body: body, validStatusCodes: [200])
+    }
+
+    func updatePersonAppearance(
+        name: String,
+        color: String? = nil,
+        emoji: String? = nil,
+        clearEmoji: Bool = false
+    ) async {
+        lastError = nil
+        guard let encoded = name.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else { return }
+
+        let normalizedEmoji = PersonAppearance.normalizedEmoji(emoji)
+        let body = UpdatePersonRequest(
+            color: color,
+            emoji: normalizedEmoji,
+            includeColor: color != nil,
+            includeEmoji: clearEmoji || emoji != nil
+        )
         _ = await put("\(baseURL)/people/\(encoded)", body: body, validStatusCodes: [200])
     }
 

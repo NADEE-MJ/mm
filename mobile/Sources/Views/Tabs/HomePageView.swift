@@ -186,32 +186,23 @@ struct HomePageView: View {
                             } label: {
                                 MovieRowView(movie: movie)
                             }
-                            .contextMenu {
-                                movieContextMenu(movie)
-                            }
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
-                                    Task {
-                                        _ = await repository.updateMovie(
-                                            movie: movie,
-                                            rating: nil,
-                                            status: "deleted"
-                                        )
-                                        await loadAllMovies()
-                                    }
+                                    let imdbId = movie.imdbId
+                                    allMovies.removeAll { $0.imdbId == imdbId }
+                                    Task { _ = await repository.updateMovie(movie: movie, rating: nil, status: "deleted") }
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
+                                .tint(.red)
                             }
                             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                 if movie.status == "to_watch" {
                                     Button {
+                                        let imdbId = movie.imdbId
+                                        allMovies.removeAll { $0.imdbId == imdbId }
                                         Task {
-                                            _ = await repository.updateMovie(
-                                                movie: movie,
-                                                rating: nil,
-                                                status: "watched"
-                                            )
+                                            _ = await repository.updateMovie(movie: movie, rating: nil, status: "watched")
                                             await loadAllMovies()
                                         }
                                     } label: {
@@ -220,12 +211,10 @@ struct HomePageView: View {
                                     .tint(.green)
                                 } else if movie.status == "watched" {
                                     Button {
+                                        let imdbId = movie.imdbId
+                                        allMovies.removeAll { $0.imdbId == imdbId }
                                         Task {
-                                            _ = await repository.updateMovie(
-                                                movie: movie,
-                                                rating: nil,
-                                                status: "to_watch"
-                                            )
+                                            _ = await repository.updateMovie(movie: movie, rating: nil, status: "to_watch")
                                             await loadAllMovies()
                                         }
                                     } label: {
@@ -296,52 +285,6 @@ struct HomePageView: View {
                 )
                 .presentationDetents([.large])
             }
-        }
-    }
-
-    @ViewBuilder
-    private func movieContextMenu(_ movie: Movie) -> some View {
-        if movie.status == "to_watch" {
-            Button {
-                Task {
-                    _ = await repository.updateMovie(
-                        movie: movie,
-                        rating: nil,
-                        status: "watched"
-                    )
-                    await loadAllMovies()
-                }
-            } label: {
-                Label("Mark Watched", systemImage: "checkmark.circle")
-            }
-        }
-
-        if movie.status == "watched" {
-            Button {
-                Task {
-                    _ = await repository.updateMovie(
-                        movie: movie,
-                        rating: nil,
-                        status: "to_watch"
-                    )
-                    await loadAllMovies()
-                }
-            } label: {
-                Label("Move to Watch List", systemImage: "arrow.uturn.backward")
-            }
-        }
-
-        Button(role: .destructive) {
-            Task {
-                _ = await repository.updateMovie(
-                    movie: movie,
-                    rating: nil,
-                    status: "deleted"
-                )
-                await loadAllMovies()
-            }
-        } label: {
-            Label("Delete", systemImage: "trash")
         }
     }
 
@@ -727,12 +670,24 @@ struct MovieDetailView: View {
             if !likedRecommendations.isEmpty {
                 Section("Upvoted By") {
                     ForEach(Array(likedRecommendations.enumerated()), id: \.offset) { _, rec in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(rec.recommender)
-                                .font(.headline)
-                            Text("Upvoted \(formattedDate(rec.dateRecommended))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        let person = personRecord(for: rec.recommender)
+                        HStack(spacing: 12) {
+                            PersonAvatarView(
+                                name: rec.recommender,
+                                emoji: person?.emoji,
+                                colorHex: person?.color,
+                                isQuick: person?.isQuick ?? false,
+                                isTrusted: person?.isTrusted ?? false,
+                                size: 34
+                            )
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(rec.recommender)
+                                    .font(.headline)
+                                Text("Upvoted \(formattedDate(rec.dateRecommended))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             if currentMovie.status == "to_watch" {
@@ -752,12 +707,24 @@ struct MovieDetailView: View {
             if !dislikedRecommendations.isEmpty {
                 Section("Downvoted By") {
                     ForEach(Array(dislikedRecommendations.enumerated()), id: \.offset) { _, rec in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(rec.recommender)
-                                .font(.headline)
-                            Text("Downvoted \(formattedDate(rec.dateRecommended))")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        let person = personRecord(for: rec.recommender)
+                        HStack(spacing: 12) {
+                            PersonAvatarView(
+                                name: rec.recommender,
+                                emoji: person?.emoji,
+                                colorHex: person?.color,
+                                isQuick: person?.isQuick ?? false,
+                                isTrusted: person?.isTrusted ?? false,
+                                size: 34
+                            )
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(rec.recommender)
+                                    .font(.headline)
+                                Text("Downvoted \(formattedDate(rec.dateRecommended))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                             if currentMovie.status == "to_watch" {
@@ -831,6 +798,7 @@ struct MovieDetailView: View {
         .task {
             ratingValue = currentMovie.myRating ?? 7
             await refreshCurrentMovie()
+            await loadPeople()
         }
         .sheet(isPresented: $showRatingSheet, onDismiss: {
             Task { await refreshCurrentMovie() }
@@ -899,6 +867,12 @@ struct MovieDetailView: View {
             .split(separator: ",")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+    }
+
+    private func personRecord(for recommender: String) -> Person? {
+        people.first { person in
+            person.name.localizedCaseInsensitiveCompare(recommender) == .orderedSame
+        }
     }
 
     private func loadPeople(forceSync: Bool = false) async {
@@ -1045,6 +1019,10 @@ struct RatingSheet: View {
                     }
                     .accessibilityLabel("Close")
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .bold()
+                }
             }
         }
     }
@@ -1159,38 +1137,20 @@ private struct FilterSortSheet: View {
         ]
     }
 
-    private var recommenderSelection: Binding<String> {
+    private var rottenTomatoesSliderValue: Binding<Double> {
         Binding(
-            get: { filterRecommender ?? "__all__" },
+            get: { Double(minimumRottenTomatoes) },
             set: { newValue in
-                filterRecommender = newValue == "__all__" ? nil : newValue
+                minimumRottenTomatoes = Int(newValue.rounded())
             }
         )
     }
 
-    private var genreSelection: Binding<String> {
+    private var metacriticSliderValue: Binding<Double> {
         Binding(
-            get: { filterGenre ?? "__all__" },
+            get: { Double(minimumMetacritic) },
             set: { newValue in
-                filterGenre = newValue == "__all__" ? nil : newValue
-            }
-        )
-    }
-
-    private var directorSelection: Binding<String> {
-        Binding(
-            get: { filterDirector ?? "__all__" },
-            set: { newValue in
-                filterDirector = newValue == "__all__" ? nil : newValue
-            }
-        )
-    }
-
-    private var actorSelection: Binding<String> {
-        Binding(
-            get: { filterActor ?? "__all__" },
-            set: { newValue in
-                filterActor = newValue == "__all__" ? nil : newValue
+                minimumMetacritic = Int(newValue.rounded())
             }
         )
     }
@@ -1199,81 +1159,128 @@ private struct FilterSortSheet: View {
         NavigationStack {
             Form {
                 Section("Sort By") {
-                    Picker("Sort By", selection: $sortBy) {
+                    Picker("", selection: $sortBy) {
                         ForEach(sortOptions, id: \.key) { option in
                             Text(option.label).tag(option.key)
                         }
                     }
                     .pickerStyle(.inline)
+                    .labelsHidden()
+                    .accessibilityLabel("Sort By")
                 }
 
                 if !recommenders.isEmpty {
-                    Section("Person") {
-                        Picker("Person", selection: recommenderSelection) {
-                            Text("All People").tag("__all__")
-                            ForEach(recommenders, id: \.self) { name in
-                                Text(name).tag(name)
-                            }
+                    Section("Upvoter / Downvoter") {
+                        NavigationLink {
+                            FilterSelectionList(
+                                title: "Upvoter / Downvoter",
+                                allLabel: "All Upvoters / Downvoters",
+                                options: recommenders,
+                                selection: $filterRecommender
+                            )
+                        } label: {
+                            FilterSelectionRow(
+                                value: filterRecommender ?? "All Upvoters / Downvoters"
+                            )
                         }
                     }
                 }
 
                 if !genres.isEmpty {
                     Section("Genre") {
-                        Picker("Genre", selection: genreSelection) {
-                            Text("All Genres").tag("__all__")
-                            ForEach(genres, id: \.self) { name in
-                                Text(name).tag(name)
-                            }
+                        NavigationLink {
+                            FilterSelectionList(
+                                title: "Genre",
+                                allLabel: "All Genres",
+                                options: genres,
+                                selection: $filterGenre
+                            )
+                        } label: {
+                            FilterSelectionRow(
+                                value: filterGenre ?? "All Genres"
+                            )
                         }
                     }
                 }
 
                 if !directors.isEmpty {
                     Section("Director") {
-                        Picker("Director", selection: directorSelection) {
-                            Text("All Directors").tag("__all__")
-                            ForEach(directors, id: \.self) { name in
-                                Text(name).tag(name)
-                            }
+                        NavigationLink {
+                            FilterSelectionList(
+                                title: "Director",
+                                allLabel: "All Directors",
+                                options: directors,
+                                selection: $filterDirector
+                            )
+                        } label: {
+                            FilterSelectionRow(
+                                value: filterDirector ?? "All Directors"
+                            )
                         }
                     }
                 }
 
                 if !actors.isEmpty {
                     Section("Actor") {
-                        Picker("Actor", selection: actorSelection) {
-                            Text("All Actors").tag("__all__")
-                            ForEach(actors, id: \.self) { name in
-                                Text(name).tag(name)
-                            }
+                        NavigationLink {
+                            FilterSelectionList(
+                                title: "Actor",
+                                allLabel: "All Actors",
+                                options: actors,
+                                selection: $filterActor
+                            )
+                        } label: {
+                            FilterSelectionRow(
+                                value: filterActor ?? "All Actors"
+                            )
                         }
                     }
                 }
 
                 Section("Minimum Scores") {
-                    Stepper(value: $minimumImdbRating, in: 0...10, step: 0.5) {
-                        if minimumImdbRating == 0 {
-                            Text("IMDb: Any")
-                        } else {
-                            Text("IMDb: \(String(format: "%.1f", minimumImdbRating))+")
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("IMDb")
+                            Spacer()
+                            if minimumImdbRating == 0 {
+                                Text("Any")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("\(String(format: "%.1f", minimumImdbRating))+")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        Slider(value: $minimumImdbRating, in: 0...10, step: 0.5)
                     }
 
-                    Stepper(value: $minimumRottenTomatoes, in: 0...100, step: 5) {
-                        if minimumRottenTomatoes == 0 {
-                            Text("Rotten Tomatoes: Any")
-                        } else {
-                            Text("Rotten Tomatoes: \(minimumRottenTomatoes)%+")
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Rotten Tomatoes")
+                            Spacer()
+                            if minimumRottenTomatoes == 0 {
+                                Text("Any")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("\(minimumRottenTomatoes)%+")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        Slider(value: rottenTomatoesSliderValue, in: 0...100, step: 5)
                     }
 
-                    Stepper(value: $minimumMetacritic, in: 0...100, step: 5) {
-                        if minimumMetacritic == 0 {
-                            Text("Metacritic: Any")
-                        } else {
-                            Text("Metacritic: \(minimumMetacritic)+")
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Metacritic")
+                            Spacer()
+                            if minimumMetacritic == 0 {
+                                Text("Any")
+                                    .foregroundStyle(.secondary)
+                            } else {
+                                Text("\(minimumMetacritic)+")
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                        Slider(value: metacriticSliderValue, in: 0...100, step: 5)
                     }
                 }
 
@@ -1299,12 +1306,88 @@ private struct FilterSortSheet: View {
                     }
                     .accessibilityLabel("Close")
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .bold()
-                }
             }
         }
+    }
+}
+
+private struct FilterSelectionRow: View {
+    let value: String
+
+    var body: some View {
+        HStack {
+            Text(value)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct FilterSelectionList: View {
+    let title: String
+    let allLabel: String
+    let options: [String]
+    @Binding var selection: String?
+    @State private var query = ""
+    @Environment(\.dismiss) private var dismiss
+
+    private var filteredOptions: [String] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return options }
+        return options.filter { option in
+            option.localizedCaseInsensitiveContains(trimmed)
+        }
+    }
+
+    private func isSelected(_ option: String) -> Bool {
+        guard let selection else { return false }
+        return selection.caseInsensitiveCompare(option) == .orderedSame
+    }
+
+    var body: some View {
+        List {
+            Button {
+                selection = nil
+                dismiss()
+            } label: {
+                HStack {
+                    Text(allLabel)
+                    Spacer()
+                    if selection == nil {
+                        Image(systemName: "checkmark")
+                            .foregroundStyle(.tint)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            ForEach(filteredOptions, id: \.self) { option in
+                Button {
+                    selection = option
+                    dismiss()
+                } label: {
+                    HStack {
+                        Text(option)
+                        Spacer()
+                        if isSelected(option) {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.tint)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
+            if filteredOptions.isEmpty {
+                Text("No matches")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .searchable(text: $query, prompt: "Search \(title.lowercased())")
     }
 }
 

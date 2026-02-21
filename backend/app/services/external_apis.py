@@ -502,7 +502,7 @@ async def get_tmdb_tv_details(
         "cast": [
             c["name"] for c in show.get("aggregate_credits", {}).get("cast", [])[:10]
         ],
-        "runtime": show.get("episode_run_time", [None])[0],
+        "runtime": (show.get("episode_run_time") or [None])[0],
         "voteAverage": show.get("vote_average"),
         "voteCount": show.get("vote_count"),
         "numberOfSeasons": show.get("number_of_seasons"),
