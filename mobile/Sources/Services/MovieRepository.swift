@@ -20,17 +20,21 @@ final class MovieRepository: DataRepository {
     private var lastPeopleSyncAt: Date?
     private var isSyncingMovies = false
     private var isSyncingPeople = false
+    private var hasLoadedCache = false
+    private var isBackgroundMoviesSyncScheduled = false
+    private var isBackgroundPeopleSyncScheduled = false
 
     private init() {
         loadFromCache()
+        hasLoadedCache = true
     }
 
     func getMovies(status: String? = nil) async -> Result<[Movie], RepositoryError> {
-        loadFromCache()
+        ensureCacheLoaded()
 
         if !movies.isEmpty {
             let filtered = filterMovies(movies, status: status)
-            Task { await syncMovies(force: false) }
+            scheduleBackgroundMoviesSyncIfNeeded()
             return .success(filtered)
         }
 
@@ -43,10 +47,10 @@ final class MovieRepository: DataRepository {
     }
 
     func getPeople() async -> Result<[Person], RepositoryError> {
-        loadFromCache()
+        ensureCacheLoaded()
 
         if !people.isEmpty {
-            Task { await syncPeople(force: false) }
+            scheduleBackgroundPeopleSyncIfNeeded()
             return .success(people)
         }
 
@@ -59,7 +63,7 @@ final class MovieRepository: DataRepository {
     }
 
     func getPersonMovies(personName: String) async -> Result<[Movie], RepositoryError> {
-        loadFromCache()
+        ensureCacheLoaded()
 
         if movies.isEmpty {
             _ = await getMovies(status: nil)
@@ -72,7 +76,7 @@ final class MovieRepository: DataRepository {
         }
 
         if !localMatches.isEmpty {
-            Task { await syncMovies(force: false) }
+            scheduleBackgroundMoviesSyncIfNeeded()
             return .success(localMatches)
         }
 
@@ -437,6 +441,10 @@ final class MovieRepository: DataRepository {
         UserDefaults.standard.removeObject(forKey: activeUserKey)
     }
 
+    func clearLocalCache() {
+        clearLocalState(clearPersistent: true)
+    }
+
     @discardableResult
     func syncMovies(force: Bool = true) async -> Bool {
         guard AuthManager.shared.isAuthenticated else { return false }
@@ -452,6 +460,7 @@ final class MovieRepository: DataRepository {
 
         movies = networkService.movies
         databaseManager.cacheMovies(movies)
+        hasLoadedCache = true
         lastSyncTime = .now
         lastMoviesSyncAt = .now
         return true
@@ -472,6 +481,7 @@ final class MovieRepository: DataRepository {
 
         people = networkService.people
         databaseManager.cachePeople(people)
+        hasLoadedCache = true
         lastSyncTime = .now
         lastPeopleSyncAt = .now
         return true
@@ -483,12 +493,19 @@ final class MovieRepository: DataRepository {
         people = databaseManager.cachedPeople.map { $0.toPerson() }
     }
 
+    private func ensureCacheLoaded() {
+        guard !hasLoadedCache else { return }
+        loadFromCache()
+        hasLoadedCache = true
+    }
+
     private func clearLocalState(clearPersistent: Bool) {
         if clearPersistent {
             databaseManager.clearAll()
         }
         movies = []
         people = []
+        hasLoadedCache = true
         lastSyncTime = nil
         lastMoviesSyncAt = nil
         lastPeopleSyncAt = nil
@@ -585,6 +602,24 @@ final class MovieRepository: DataRepository {
     private func shouldSync(lastSync: Date?) -> Bool {
         guard let lastSync else { return true }
         return Date().timeIntervalSince(lastSync) >= backgroundSyncInterval
+    }
+
+    private func scheduleBackgroundMoviesSyncIfNeeded() {
+        guard !isBackgroundMoviesSyncScheduled else { return }
+        isBackgroundMoviesSyncScheduled = true
+        Task {
+            _ = await syncMovies(force: false)
+            isBackgroundMoviesSyncScheduled = false
+        }
+    }
+
+    private func scheduleBackgroundPeopleSyncIfNeeded() {
+        guard !isBackgroundPeopleSyncScheduled else { return }
+        isBackgroundPeopleSyncScheduled = true
+        Task {
+            _ = await syncPeople(force: false)
+            isBackgroundPeopleSyncScheduled = false
+        }
     }
 }
 

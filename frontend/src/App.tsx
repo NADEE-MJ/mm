@@ -31,7 +31,7 @@ function LoadingScreen({ label = "Loading..." }) {
 }
 
 function AddMovieModal({ onClose, onMovieAdded }) {
-  const { addRecommendation } = useMoviesContext();
+  const { addRecommendation, movies } = useMoviesContext();
   const { people, getPeopleNames } = usePeople();
 
   const handleClose = (imdbId) => {
@@ -48,6 +48,7 @@ function AddMovieModal({ onClose, onMovieAdded }) {
         onClose={handleClose}
         people={people}
         peopleNames={getPeopleNames()}
+        movies={movies}
       />
     </Modal>
   );

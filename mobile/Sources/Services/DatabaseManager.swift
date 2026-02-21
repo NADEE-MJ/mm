@@ -441,7 +441,11 @@ final class DatabaseManager {
             try dbQueue.write { db in
                 try cached.save(db)
             }
-            loadCache()
+            if let existingIndex = cachedMovies.firstIndex(where: { $0.imdbId == cached.imdbId }) {
+                cachedMovies[existingIndex] = cached
+            } else {
+                cachedMovies.insert(cached, at: 0)
+            }
         } catch {
             logDebug("[GRDB] Insert movie error: \(error)")
         }
@@ -456,7 +460,7 @@ final class DatabaseManager {
                     try movie.save(db)
                 }
             }
-            loadCache()
+            cachedMovies = mapped
         } catch {
             logDebug("[GRDB] Batch cache movies error: \(error)")
         }
@@ -471,7 +475,9 @@ final class DatabaseManager {
                     try person.save(db)
                 }
             }
-            loadCache()
+            cachedPeople = mapped.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
         } catch {
             logDebug("[GRDB] Batch cache people error: \(error)")
         }
@@ -485,7 +491,8 @@ final class DatabaseManager {
                 _ = try PendingOperation.deleteAll(db)
                 _ = try PendingMovie.deleteAll(db)
             }
-            loadCache()
+            cachedMovies = []
+            cachedPeople = []
         } catch {
             logDebug("[GRDB] Clear error: \(error)")
         }

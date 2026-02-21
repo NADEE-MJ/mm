@@ -20,6 +20,8 @@ struct PeoplePageView: View {
     }
 
     @State private var people: [Person] = []
+    @State private var isLoading = false
+    @State private var hasLoadedInitialData = false
     @State private var searchText = ""
     @State private var isSearchPresented = false
     @State private var filter: TrustedFilter = .all
@@ -56,10 +58,12 @@ struct PeoplePageView: View {
     }
 
     var body: some View {
+        let visiblePeople = filteredPeople
+
         NavigationStack {
             List {
                 Section {
-                    if filteredPeople.isEmpty {
+                    if visiblePeople.isEmpty {
                         ContentUnavailableView(
                             searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No People" : "No Results",
                             systemImage: "person.2.slash",
@@ -70,7 +74,7 @@ struct PeoplePageView: View {
                             )
                         )
                     } else {
-                        ForEach(filteredPeople) { person in
+                        ForEach(visiblePeople) { person in
                             NavigationLink {
                                 PersonDetailView(person: person) {
                                     await loadPeople()
@@ -114,7 +118,7 @@ struct PeoplePageView: View {
                         }
                     }
                 } header: {
-                    Text("\(filteredPeople.count) people")
+                    Text("\(visiblePeople.count) people")
                 } footer: {
                     Text("Swipe right or use the context menu to toggle trust.")
                 }
@@ -132,10 +136,9 @@ struct PeoplePageView: View {
                 await loadPeople(forceSync: true)
             }
             .task {
-                await loadPeople()
-            }
-            .onAppear {
-                Task {
+                guard !hasLoadedInitialData else { return }
+                hasLoadedInitialData = true
+                if people.isEmpty {
                     await loadPeople()
                 }
             }
@@ -184,6 +187,9 @@ struct PeoplePageView: View {
     }
 
     private func loadPeople(forceSync: Bool = false) async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
         if forceSync {
             _ = await repository.syncPeople(force: true)
         }
@@ -471,222 +477,6 @@ private struct PersonDetailView: View {
     }
 }
 
-// MARK: - Movie Detail View (for navigation from person detail)
-
-private struct MovieDetailView: View {
-    @State private var currentMovie: Movie
-    @State private var isRefreshingMetadata = false
-    @State private var feedbackMessage = ""
-    @State private var showFeedbackAlert = false
-
-    init(movie: Movie) {
-        _currentMovie = State(initialValue: movie)
-    }
-
-    private var likedRecommendations: [Recommendation] {
-        currentMovie.recommendations.filter { !isDownvote($0) }
-    }
-
-    private var dislikedRecommendations: [Recommendation] {
-        currentMovie.recommendations.filter { isDownvote($0) }
-    }
-
-    private var relatedMovies: [Movie] {
-        let cached = MovieRepository.shared.movies
-        return cached.isEmpty ? [currentMovie] : cached
-    }
-
-    private var uniqueGenres: [String] {
-        normalizedUnique(currentMovie.genres)
-    }
-
-    private var uniqueActors: [String] {
-        normalizedUnique(currentMovie.actors)
-    }
-
-    private var uniqueDirectors: [String] {
-        normalizedUnique(splitPeopleList(currentMovie.director))
-    }
-
-    var body: some View {
-        Form {
-            Section {
-                CachedAsyncImage(url: currentMovie.posterURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                } placeholder: {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(.secondary.opacity(0.15))
-                        Image(systemName: "film")
-                            .font(.largeTitle)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: 200)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-
-            Section("Details") {
-                LabeledContent("Title") {
-                    Text(currentMovie.title)
-                }
-                if let year = currentMovie.releaseDate?.prefix(4) {
-                    LabeledContent("Year") {
-                        Text(String(year))
-                    }
-                }
-                if !uniqueGenres.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Genres")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(uniqueGenres, id: \.self) { genre in
-                            NavigationLink {
-                                MovieGenreExplorerView(
-                                    genre: genre,
-                                    movies: relatedMovies,
-                                    sourceImdbId: currentMovie.imdbId
-                                )
-                            } label: {
-                                Text(genre)
-                            }
-                        }
-                    }
-                }
-
-                if !uniqueDirectors.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Director")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(uniqueDirectors, id: \.self) { director in
-                            NavigationLink {
-                                MovieCreditExplorerView(
-                                    personName: director,
-                                    movies: relatedMovies,
-                                    sourceImdbId: currentMovie.imdbId,
-                                    preferredSearchType: .director
-                                )
-                            } label: {
-                                Text(director)
-                            }
-                        }
-                    }
-                }
-
-                if !uniqueActors.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Actors")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(uniqueActors, id: \.self) { actor in
-                            NavigationLink {
-                                MovieCreditExplorerView(
-                                    personName: actor,
-                                    movies: relatedMovies,
-                                    sourceImdbId: currentMovie.imdbId,
-                                    preferredSearchType: .actor
-                                )
-                            } label: {
-                                Text(actor)
-                            }
-                        }
-                    }
-                }
-            }
-
-            if let overview = currentMovie.overview, !overview.isEmpty {
-                Section("Overview") {
-                    Text(overview)
-                }
-            }
-
-            if !likedRecommendations.isEmpty {
-                Section("Upvoted By") {
-                    ForEach(Array(likedRecommendations.enumerated()), id: \.offset) { _, rec in
-                        Text(rec.recommender)
-                    }
-                }
-            }
-
-            if !dislikedRecommendations.isEmpty {
-                Section("Downvoted By") {
-                    ForEach(Array(dislikedRecommendations.enumerated()), id: \.offset) { _, rec in
-                        Text(rec.recommender)
-                    }
-                }
-            }
-        }
-        .navigationTitle("Movie")
-        .toolbarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Task {
-                        await refreshMetadataFromBackend()
-                    }
-                } label: {
-                    if isRefreshingMetadata {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                }
-                .disabled(isRefreshingMetadata)
-                .accessibilityLabel("Refresh movie data")
-            }
-        }
-        .alert("Movie Details", isPresented: $showFeedbackAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(feedbackMessage)
-        }
-        .task {
-            _ = await MovieRepository.shared.getMovies(status: nil)
-            if let refreshed = MovieRepository.shared.movies.first(where: { $0.imdbId == currentMovie.imdbId }) {
-                currentMovie = refreshed
-            }
-        }
-    }
-
-    private func refreshMetadataFromBackend() async {
-        guard !isRefreshingMetadata else { return }
-        isRefreshingMetadata = true
-        defer { isRefreshingMetadata = false }
-
-        let result = await MovieRepository.shared.refreshMovieMetadata(imdbId: currentMovie.imdbId)
-        switch result {
-        case .success(let movie):
-            currentMovie = movie
-        case .failure(let error):
-            feedbackMessage = error.localizedDescription
-            showFeedbackAlert = true
-        }
-    }
-
-    private func isDownvote(_ recommendation: Recommendation) -> Bool {
-        recommendation.voteType.lowercased() == "downvote"
-    }
-
-    private func normalizedUnique(_ values: [String]) -> [String] {
-        let cleaned = values
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        return Array(Set(cleaned)).sorted { lhs, rhs in
-            lhs.localizedCaseInsensitiveCompare(rhs) == .orderedAscending
-        }
-    }
-
-    private func splitPeopleList(_ value: String?) -> [String] {
-        guard let value else { return [] }
-        return value
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-    }
-}
 
 #Preview {
     PeoplePageView()

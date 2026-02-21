@@ -1,4 +1,4 @@
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, CheckCircle } from "lucide-react";
 import { getPoster } from "../../../utils/helpers";
 
 export default function SearchStep({
@@ -10,6 +10,7 @@ export default function SearchStep({
   searchResults,
   handleSelectMovie,
   searchInputRef,
+  existingTmdbIds = new Set(),
 }) {
   return (
     <div className="space-y-4">
@@ -58,55 +59,65 @@ export default function SearchStep({
             {searchResults.length} results
           </p>
           <div className="ios-list">
-            {searchResults.map((movie) => (
-              <button
-                key={movie.id}
-                onClick={() => handleSelectMovie(movie)}
-                disabled={loading}
-                className={`ios-list-item py-3 w-full text-left disabled:opacity-50 ${
-                  movie.mediaType === "person" ? "opacity-70 cursor-default" : ""
-                }`}
-              >
-                <div className="flex gap-3 flex-1">
-                  <img
-                    src={getPoster(movie.posterSmall)}
-                    alt={movie.title}
-                    className="w-12 h-18 object-cover rounded-lg flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-ios-body font-semibold text-ios-label line-clamp-1">
-                        {movie.title}
-                      </h3>
-                      {movie.mediaType === "tv" && (
-                        <span className="rounded-full bg-ios-blue/20 px-2 py-0.5 text-[0.65rem] font-semibold text-ios-blue">
-                          TV
-                        </span>
+            {searchResults.map((movie) => {
+              const isInLibrary = movie.mediaType !== "person" && existingTmdbIds.has(movie.id);
+              return (
+                <button
+                  key={movie.id}
+                  onClick={() => handleSelectMovie(movie)}
+                  disabled={loading}
+                  className={`ios-list-item py-3 w-full text-left disabled:opacity-50 ${
+                    movie.mediaType === "person" ? "opacity-70 cursor-default" : ""
+                  }`}
+                >
+                  <div className="flex gap-3 flex-1">
+                    <img
+                      src={getPoster(movie.posterSmall)}
+                      alt={movie.title}
+                      className="w-12 h-18 object-cover rounded-lg flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-ios-body font-semibold text-ios-label line-clamp-1">
+                          {movie.title}
+                        </h3>
+                        {movie.mediaType === "tv" && !isInLibrary && (
+                          <span className="rounded-full bg-ios-blue/20 px-2 py-0.5 text-[0.65rem] font-semibold text-ios-blue">
+                            TV
+                          </span>
+                        )}
+                        {movie.mediaType === "person" && (
+                          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[0.65rem] font-semibold text-ios-secondary-label">
+                            Person
+                          </span>
+                        )}
+                        {isInLibrary && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-0.5 text-[0.65rem] font-semibold text-green-400">
+                            <CheckCircle className="w-3 h-3" />
+                            In Library
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-ios-caption1 text-ios-secondary-label">
+                        {movie.year}
+                        {movie.rating && ` • ${movie.rating}`}
+                        {isInLibrary && " • Tap to view"}
+                      </p>
+                      {movie.mediaType === "person" && movie.knownFor?.length > 0 && (
+                        <p className="text-ios-caption2 text-ios-tertiary-label mt-1">
+                          Known for: {movie.knownFor.slice(0, 3).join(", ")}
+                        </p>
                       )}
-                      {movie.mediaType === "person" && (
-                        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[0.65rem] font-semibold text-ios-secondary-label">
-                          Person
-                        </span>
+                      {movie.overview && !isInLibrary && (
+                        <p className="text-ios-caption2 text-ios-tertiary-label line-clamp-2 mt-1">
+                          {movie.overview}
+                        </p>
                       )}
                     </div>
-                    <p className="text-ios-caption1 text-ios-secondary-label">
-                      {movie.year}
-                      {movie.rating && ` • ${movie.rating}`}
-                    </p>
-                    {movie.mediaType === "person" && movie.knownFor?.length > 0 && (
-                      <p className="text-ios-caption2 text-ios-tertiary-label mt-1">
-                        Known for: {movie.knownFor.slice(0, 3).join(", ")}
-                      </p>
-                    )}
-                    {movie.overview && (
-                      <p className="text-ios-caption2 text-ios-tertiary-label line-clamp-2 mt-1">
-                        {movie.overview}
-                      </p>
-                    )}
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

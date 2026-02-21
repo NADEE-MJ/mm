@@ -33,6 +33,31 @@ read_dotenv_value() {
   printf '%s' "$value"
 }
 
+normalize_boolean_for_xcconfig() {
+  local raw="$1"
+  local value
+
+  value="$(trim "$raw")"
+  value="$(echo "$value" | tr '[:upper:]' '[:lower:]')"
+
+  case "$value" in
+    yes)
+      printf '%s' "YES"
+      ;;
+    no)
+      printf '%s' "NO"
+      ;;
+    "")
+      printf '%s' "NO"
+      ;;
+    *)
+      echo "❌ ERROR: FILE_LOGGING_ENABLED must be YES or NO." >&2
+      echo "Received: $raw" >&2
+      exit 1
+      ;;
+  esac
+}
+
 API_BASE_URL_VALUE="${API_BASE_URL:-}"
 API_BASE_URL_VALUE="$(trim "$API_BASE_URL_VALUE")"
 
@@ -82,12 +107,27 @@ fi
 
 API_BASE_URL_XCCONFIG_VALUE="$(printf '%s' "$API_BASE_URL_VALUE" | sed 's,/,$(FORWARD_SLASH),g')"
 
+FILE_LOGGING_ENABLED_VALUE="${FILE_LOGGING_ENABLED:-}"
+FILE_LOGGING_ENABLED_VALUE="$(trim "$FILE_LOGGING_ENABLED_VALUE")"
+
+if [ -z "$FILE_LOGGING_ENABLED_VALUE" ]; then
+  FILE_LOGGING_ENABLED_VALUE="$(read_dotenv_value FILE_LOGGING_ENABLED || true)"
+fi
+
+if [ -z "$FILE_LOGGING_ENABLED_VALUE" ]; then
+  FILE_LOGGING_ENABLED_VALUE="$(read_dotenv_value MOBILE_FILE_LOGGING_ENABLED || true)"
+fi
+
+FILE_LOGGING_ENABLED_VALUE="$(normalize_boolean_for_xcconfig "$FILE_LOGGING_ENABLED_VALUE")"
+
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
 cat > "$OUTPUT_PATH" <<EOF_XCCONFIG
 // Generated file. Do not commit secrets.
 API_BASE_URL = $API_BASE_URL_XCCONFIG_VALUE
+FILE_LOGGING_ENABLED = $FILE_LOGGING_ENABLED_VALUE
 EOF_XCCONFIG
 
 echo "✅ Generated xcconfig: $OUTPUT_PATH"
 echo "✅ API_BASE_URL: $API_BASE_URL_VALUE"
+echo "✅ FILE_LOGGING_ENABLED: $FILE_LOGGING_ENABLED_VALUE"

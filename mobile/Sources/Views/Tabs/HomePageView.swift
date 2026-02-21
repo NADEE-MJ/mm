@@ -6,6 +6,7 @@ struct HomePageView: View {
     @State private var repository = MovieRepository.shared
     @State private var allMovies: [Movie] = []
     @State private var isLoading = false
+    @State private var hasLoadedInitialData = false
     @State private var searchText = ""
     @State private var isSearchPresented = false
     @State private var selectedStatus = "to_watch"
@@ -119,27 +120,31 @@ struct HomePageView: View {
         uniqueSorted(allMovies.flatMap(\.actors))
     }
 
-    private var moviesSectionTitle: String {
+    private func moviesSectionTitle(count: Int) -> String {
         if selectedStatus == "to_watch" {
-            return "\(filteredMovies.count) movie\(filteredMovies.count == 1 ? "" : "s") to watch"
+            return "\(count) movie\(count == 1 ? "" : "s") to watch"
         }
-        return "\(filteredMovies.count) watched movie\(filteredMovies.count == 1 ? "" : "s")"
+        return "\(count) watched movie\(count == 1 ? "" : "s")"
     }
 
-    private var toWatchFooterMessage: String? {
+    private func toWatchFooterMessage(filteredCount: Int) -> String? {
         let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard selectedStatus == "to_watch", trimmedQuery.isEmpty else { return nil }
 
-        if filteredMovies.count <= 3 {
+        if filteredCount <= 3 {
             return "Hey, ask your friends for more recommendations."
         }
-        if filteredMovies.count >= 12 {
+        if filteredCount >= 12 {
             return "Hey buddy, you got a lot of movies to watch."
         }
         return "Solid queue. Keep chipping away."
     }
 
     var body: some View {
+        let visibleMovies = filteredMovies
+        let visibleMoviesCount = visibleMovies.count
+        let footerMessage = toWatchFooterMessage(filteredCount: visibleMoviesCount)
+
         NavigationStack {
             List {
                 Section {
@@ -159,7 +164,7 @@ struct HomePageView: View {
                             Spacer()
                         }
                     }
-                } else if filteredMovies.isEmpty {
+                } else if visibleMovies.isEmpty {
                     Section {
                         ContentUnavailableView(
                             searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Movies" : "No Results",
@@ -175,7 +180,7 @@ struct HomePageView: View {
                     }
                 } else {
                     Section {
-                        ForEach(filteredMovies) { movie in
+                        ForEach(visibleMovies) { movie in
                             NavigationLink {
                                 MovieDetailView(movie: movie)
                             } label: {
@@ -231,10 +236,10 @@ struct HomePageView: View {
                             }
                         }
                     } header: {
-                        Text(moviesSectionTitle)
+                        Text(moviesSectionTitle(count: visibleMoviesCount))
                     } footer: {
-                        if let toWatchFooterMessage {
-                            Text(toWatchFooterMessage)
+                        if let footerMessage {
+                            Text(footerMessage)
                         }
                     }
                 }
@@ -252,10 +257,9 @@ struct HomePageView: View {
                 await loadAllMovies(forceSync: true)
             }
             .task {
-                await loadAllMovies()
-            }
-            .onAppear {
-                Task {
+                guard !hasLoadedInitialData else { return }
+                hasLoadedInitialData = true
+                if allMovies.isEmpty {
                     await loadAllMovies()
                 }
             }
@@ -342,7 +346,9 @@ struct HomePageView: View {
     }
 
     private func loadAllMovies(forceSync: Bool = false) async {
+        guard !isLoading else { return }
         isLoading = true
+        defer { isLoading = false }
         if forceSync {
             _ = await repository.syncMovies(force: true)
         }
@@ -353,7 +359,6 @@ struct HomePageView: View {
         case .failure:
             allMovies = repository.movies
         }
-        isLoading = false
     }
 
     private func sortedMovies(_ input: [Movie]) -> [Movie] {
@@ -475,13 +480,19 @@ private struct MovieRowView: View {
                     }
 
                     if let metacritic = movie.metacriticScore {
-                        Label("\(metacritic)", systemImage: "gauge.medium")
-                            .foregroundStyle(.orange)
+                        HStack(spacing: 2) {
+                            Image(systemName: "gauge.medium")
+                            Text("\(metacritic)")
+                        }
+                        .foregroundStyle(.orange)
                     }
 
                     if let myRating = movie.myRating {
-                        Label("\(myRating)", systemImage: "heart.fill")
-                            .foregroundStyle(AppTheme.blue)
+                        HStack(spacing: 2) {
+                            Image(systemName: "heart.fill")
+                            Text("\(myRating)")
+                        }
+                        .foregroundStyle(AppTheme.blue)
                     }
                 }
                 .font(.caption)
@@ -503,7 +514,7 @@ private struct MovieRowView: View {
 
 // MARK: - Movie Detail View
 
-private struct MovieDetailView: View {
+struct MovieDetailView: View {
     @State private var currentMovie: Movie
     @State private var ratingValue = 0
     @State private var showRatingSheet = false
@@ -574,110 +585,111 @@ private struct MovieDetailView: View {
                     }
                 }
 
-                if !uniqueGenres.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Genres")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(uniqueGenres, id: \.self) { genre in
-                            NavigationLink {
-                                MovieGenreExplorerView(
-                                    genre: genre,
-                                    movies: relatedMovies,
-                                    sourceImdbId: currentMovie.imdbId
-                                )
-                            } label: {
-                                Text(genre)
-                            }
+            }
+
+            if !uniqueGenres.isEmpty {
+                Section("Genres") {
+                    ForEach(uniqueGenres, id: \.self) { genre in
+                        NavigationLink {
+                            MovieGenreExplorerView(
+                                genre: genre,
+                                movies: relatedMovies,
+                                sourceImdbId: currentMovie.imdbId
+                            )
+                        } label: {
+                            Text(genre)
                         }
                     }
                 }
+            }
 
-                if !uniqueDirectors.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Director")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(uniqueDirectors, id: \.self) { director in
-                            NavigationLink {
-                                MovieCreditExplorerView(
-                                    personName: director,
-                                    movies: relatedMovies,
-                                    sourceImdbId: currentMovie.imdbId,
-                                    preferredSearchType: .director
-                                )
-                            } label: {
-                                Text(director)
-                            }
+            if !uniqueDirectors.isEmpty {
+                Section("Director") {
+                    ForEach(uniqueDirectors, id: \.self) { director in
+                        NavigationLink {
+                            MovieCreditExplorerView(
+                                personName: director,
+                                movies: relatedMovies,
+                                sourceImdbId: currentMovie.imdbId,
+                                preferredSearchType: .director
+                            )
+                        } label: {
+                            Text(director)
                         }
                     }
                 }
+            }
 
-                if !uniqueActors.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Actors")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        ForEach(uniqueActors, id: \.self) { actor in
-                            NavigationLink {
-                                MovieCreditExplorerView(
-                                    personName: actor,
-                                    movies: relatedMovies,
-                                    sourceImdbId: currentMovie.imdbId,
-                                    preferredSearchType: .actor
-                                )
-                            } label: {
-                                Text(actor)
-                            }
+            if !uniqueActors.isEmpty {
+                Section("Actors") {
+                    ForEach(uniqueActors, id: \.self) { actor in
+                        NavigationLink {
+                            MovieCreditExplorerView(
+                                personName: actor,
+                                movies: relatedMovies,
+                                sourceImdbId: currentMovie.imdbId,
+                                preferredSearchType: .actor
+                            )
+                        } label: {
+                            Text(actor)
                         }
                     }
                 }
             }
 
             Section("Ratings") {
-                HStack(spacing: 12) {
-                    Text("IMDb")
-                    Spacer(minLength: 12)
+                LabeledContent("IMDb") {
                     if let imdbRating = currentMovie.imdbRating {
-                        Label("\(String(format: "%.1f", imdbRating))/10", systemImage: "star.fill")
-                            .foregroundStyle(.yellow)
+                        HStack(spacing: 4) {
+                            Image(systemName: "star.fill")
+                            Text("\(String(format: "%.1f", imdbRating))/10")
+                        }
+                        .foregroundStyle(.yellow)
                     } else {
                         Text("N/A")
                             .foregroundStyle(.secondary)
                     }
                 }
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
 
-                HStack(spacing: 12) {
-                    Text("Rotten Tomatoes")
-                    Spacer(minLength: 12)
+                LabeledContent("Rotten Tomatoes") {
                     if let rottenTomatoes = currentMovie.rottenTomatoesRating {
                         if rottenTomatoes >= 75 {
-                            Label("\(rottenTomatoes)%", systemImage: "burst.fill")
-                                .foregroundStyle(.green)
+                            HStack(spacing: 4) {
+                                Image(systemName: "burst.fill")
+                                Text("\(rottenTomatoes)%")
+                            }
+                            .foregroundStyle(.green)
                         } else if rottenTomatoes >= 60 {
                             Text("🍅 \(rottenTomatoes)%")
                                 .foregroundStyle(.green)
                         } else {
-                            Label("\(rottenTomatoes)%", systemImage: "burst.fill")
-                                .foregroundStyle(.red)
+                            HStack(spacing: 4) {
+                                Image(systemName: "burst.fill")
+                                Text("\(rottenTomatoes)%")
+                            }
+                            .foregroundStyle(.red)
                         }
                     } else {
                         Text("N/A")
                             .foregroundStyle(.secondary)
                     }
                 }
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
 
-                HStack(spacing: 12) {
-                    Text("Metacritic")
-                    Spacer(minLength: 12)
+                LabeledContent("Metacritic") {
                     if let metacritic = currentMovie.metacriticScore {
-                        Label("\(metacritic)/100", systemImage: "gauge.medium")
-                            .foregroundStyle(.orange)
+                        HStack(spacing: 4) {
+                            Image(systemName: "gauge.medium")
+                            Text("\(metacritic)/100")
+                        }
+                        .foregroundStyle(.orange)
                     } else {
                         Text("N/A")
                             .foregroundStyle(.secondary)
                     }
                 }
+                .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
 
                 if currentMovie.status == "watched" {
                     Stepper("My Rating: \(max(1, ratingValue))/10", value: $ratingValue, in: 1...10)
@@ -818,7 +830,6 @@ private struct MovieDetailView: View {
         }
         .task {
             ratingValue = currentMovie.myRating ?? 7
-            await loadPeople()
             await refreshCurrentMovie()
         }
         .sheet(isPresented: $showRatingSheet, onDismiss: {
@@ -981,7 +992,7 @@ private struct MovieDetailView: View {
 
 // MARK: - Rating Sheet
 
-private struct RatingSheet: View {
+struct RatingSheet: View {
     let movie: Movie
     @State private var selectedRating = 7
     @Environment(\.dismiss) private var dismiss
@@ -1041,7 +1052,7 @@ private struct RatingSheet: View {
 
 // MARK: - Add Recommender Sheet
 
-private struct AddRecommenderSheet: View {
+struct AddRecommenderSheet: View {
     let people: [Person]
     let existingRecommenders: [String]
     let fallbackPeopleNames: [String]

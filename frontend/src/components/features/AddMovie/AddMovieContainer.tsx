@@ -16,7 +16,7 @@ function normalizeErrorMessage(err, fallback = "An unexpected error occurred") {
   return err?.message || fallback;
 }
 
-export default function AddMovieContainer({ onAdd, onClose, people = [], peopleNames = [] }) {
+export default function AddMovieContainer({ onAdd, onClose, people = [], peopleNames = [], movies = [] }) {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -37,6 +37,18 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
         : peopleNames.map((name) => ({ name, color: DEFAULT_PERSON_COLOR, emoji: null, quick_key: null })),
     [people, peopleNames],
   );
+
+  // Build a map of TMDB ID → IMDB ID for already-added movies.
+  const existingTmdbIdToImdbId = useMemo(() => {
+    const map = new Map();
+    for (const movie of movies) {
+      const tmdbId = movie.tmdbData?.tmdbId;
+      if (tmdbId) map.set(tmdbId, movie.imdbId);
+    }
+    return map;
+  }, [movies]);
+
+  const existingTmdbIds = useMemo(() => new Set(existingTmdbIdToImdbId.keys()), [existingTmdbIdToImdbId]);
 
   // De-duplicate recommenders by name while preserving server data.
   const allRecommenders = useMemo(() => {
@@ -98,6 +110,13 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
   const handleSelectMovie = async (movie) => {
     if (movie.mediaType === "person") {
       setError("Select a movie or TV show to add.");
+      return;
+    }
+
+    // If already in library, navigate to its detail panel directly.
+    const existingImdbId = existingTmdbIdToImdbId.get(movie.id);
+    if (existingImdbId) {
+      onClose(existingImdbId);
       return;
     }
 
@@ -211,6 +230,7 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
             searchResults={searchResults}
             handleSelectMovie={handleSelectMovie}
             searchInputRef={searchInputRef}
+            existingTmdbIds={existingTmdbIds}
           />
         ) : (
           <RecommenderStep

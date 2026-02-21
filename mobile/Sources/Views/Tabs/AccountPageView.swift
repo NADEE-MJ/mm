@@ -85,12 +85,13 @@ struct AccountPageView: View {
                     LabeledContent("Cached Movies") { Text("\(dbManager.movieCount)") }
                     LabeledContent("Cached People") { Text("\(dbManager.peopleCount)") }
                     LabeledContent("Sync Status") {
-                        Label(
-                            isSyncConnected ? "Connected" : "Disconnected",
-                            systemImage: isSyncConnected ? "checkmark.circle.fill" : "xmark.circle.fill"
-                        )
+                        HStack(spacing: 4) {
+                            Image(systemName: isSyncConnected ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            Text(isSyncConnected ? "Connected" : "Disconnected")
+                        }
                         .foregroundStyle(isSyncConnected ? .green : .red)
                     }
+                    .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
                 }
             }
             .navigationTitle("Account")
@@ -113,7 +114,7 @@ struct AccountPageView: View {
             .alert("Clear Cache?", isPresented: $showClearCacheAlert) {
                 Button("Cancel", role: .cancel) {}
                 Button("Clear", role: .destructive) {
-                    dbManager.clearAll()
+                    repository.clearLocalCache()
                 }
             } message: {
                 Text("This removes all locally cached movies and people.")
@@ -410,11 +411,13 @@ private struct ActivityViewController: UIViewControllerRepresentable {
 
 struct DevToolsView: View {
     @State private var dbManager = DatabaseManager.shared
+    @State private var repository = MovieRepository.shared
     @State private var ws = WebSocketManager.shared
     @State private var selectedSection = 0
     @State private var wsInput = ""
     @State private var loggingEnabled = DebugSettings.loggingEnabled
     @State private var logURL = FileLogStore.shared.exportURL()
+    private let fileLoggingEnabled = FileLogStore.shared.isEnabled
 
     var body: some View {
         List {
@@ -467,7 +470,7 @@ struct DevToolsView: View {
         if dbManager.movieCount > 0 || dbManager.peopleCount > 0 {
             Section {
                 Button("Clear All Data", role: .destructive) {
-                    withAnimation { dbManager.clearAll() }
+                    withAnimation { repository.clearLocalCache() }
                 }
             }
         }
@@ -561,6 +564,9 @@ struct DevToolsView: View {
             Text("idevicesyslog | grep -i \"\(Bundle.main.bundleIdentifier ?? "com.moviemanager.app")\"")
                 .font(.system(.footnote, design: .monospaced))
                 .textSelection(.enabled)
+            Text(fileLoggingEnabled ? "File export keeps only today's logs." : "File export is disabled for this build.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
         }
 
         Section("Logging") {
@@ -598,12 +604,14 @@ struct DevToolsView: View {
             ShareLink(item: logURL) {
                 Label("Export Logs", systemImage: "square.and.arrow.up")
             }
+            .disabled(!fileLoggingEnabled)
 
             Button("Clear Log File", role: .destructive) {
                 FileLogStore.shared.clear()
                 AppLog.warning("[Debug] Log file cleared", category: .debug)
                 logURL = FileLogStore.shared.exportURL()
             }
+            .disabled(!fileLoggingEnabled)
         }
     }
 }
