@@ -85,18 +85,14 @@ private enum DiscoverFilterKind: String {
     }
 }
 
-private struct DiscoverFilterChip: Identifiable, Hashable {
+private struct DiscoverToken: Identifiable, Hashable {
     let kind: DiscoverFilterKind
     let value: String
 
-    var id: String {
-        "\(kind.rawValue)|\(value.lowercased())"
-    }
-
-    var displayText: String {
-        "\(kind.label): \(value)"
-    }
+    var id: String { "\(kind.rawValue):\(value.lowercased())" }
+    var displayText: String { "\(kind.label): \(value)" }
 }
+
 
 private struct DiscoverParsedFilters: Equatable {
     var freeText: String = ""
@@ -134,59 +130,6 @@ private struct DiscoverParsedFilters: Equatable {
         return freeText.isEmpty ? nil : freeText
     }
 
-    var chips: [DiscoverFilterChip] {
-        var values: [DiscoverFilterChip] = []
-        if !freeText.isEmpty {
-            values.append(DiscoverFilterChip(kind: .text, value: freeText))
-        }
-        for title in titleValues {
-            values.append(DiscoverFilterChip(kind: .title, value: title))
-        }
-        for genre in genres {
-            values.append(DiscoverFilterChip(kind: .genre, value: genre))
-        }
-        for actor in actors {
-            values.append(DiscoverFilterChip(kind: .actor, value: actor))
-        }
-        for director in directors {
-            values.append(DiscoverFilterChip(kind: .director, value: director))
-        }
-        for year in years {
-            values.append(DiscoverFilterChip(kind: .year, value: String(year)))
-        }
-        if let minimumRating {
-            values.append(DiscoverFilterChip(kind: .rating, value: String(format: "%.1f", minimumRating)))
-        }
-        values.append(DiscoverFilterChip(kind: .scope, value: scope.label))
-        return values
-    }
-
-    mutating func removeChip(_ chip: DiscoverFilterChip) {
-        switch chip.kind {
-        case .text:
-            freeText = ""
-        case .title:
-            titleValues.removeAll { $0.caseInsensitiveCompare(chip.value) == .orderedSame }
-        case .genre:
-            genres.removeAll { $0.caseInsensitiveCompare(chip.value) == .orderedSame }
-        case .actor:
-            actors.removeAll { $0.caseInsensitiveCompare(chip.value) == .orderedSame }
-        case .director:
-            directors.removeAll { $0.caseInsensitiveCompare(chip.value) == .orderedSame }
-        case .year:
-            if let year = Int(chip.value) {
-                years.removeAll { $0 == year }
-            }
-        case .rating:
-            minimumRating = nil
-        case .scope:
-            scope = .discover
-        }
-    }
-
-    mutating func setScope(_ newScope: DiscoverSearchScope) {
-        scope = newScope
-    }
 
     mutating func addValue(_ value: String, for kind: DiscoverFilterKind) {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -219,23 +162,18 @@ private struct DiscoverParsedFilters: Equatable {
         }
     }
 
-    func toQueryString() -> String {
-        var parts: [String] = []
-        if !freeText.isEmpty {
-            parts.append(Self.quotedTokenValue(freeText))
-        }
-        parts.append(contentsOf: titleValues.map { "title:\(Self.quotedTokenValue($0))" })
-        parts.append(contentsOf: genres.map { "genre:\(Self.quotedTokenValue($0))" })
-        parts.append(contentsOf: actors.map { "actor:\(Self.quotedTokenValue($0))" })
-        parts.append(contentsOf: directors.map { "director:\(Self.quotedTokenValue($0))" })
-        parts.append(contentsOf: years.map { "year:\($0)" })
+
+    func toTokens() -> [DiscoverToken] {
+        var result: [DiscoverToken] = []
+        result.append(contentsOf: titleValues.map { DiscoverToken(kind: .title, value: $0) })
+        result.append(contentsOf: genres.map { DiscoverToken(kind: .genre, value: $0) })
+        result.append(contentsOf: actors.map { DiscoverToken(kind: .actor, value: $0) })
+        result.append(contentsOf: directors.map { DiscoverToken(kind: .director, value: $0) })
+        result.append(contentsOf: years.map { DiscoverToken(kind: .year, value: String($0)) })
         if let minimumRating {
-            parts.append("rating:\(String(format: "%.1f", minimumRating))")
+            result.append(DiscoverToken(kind: .rating, value: String(format: "%.1f", minimumRating)))
         }
-        if scope != .discover {
-            parts.append("in:\(scope.rawValue)")
-        }
-        return parts.joined(separator: " ")
+        return result
     }
 
     static func parse(_ raw: String) -> DiscoverParsedFilters {
@@ -402,11 +340,10 @@ struct AddMoviePageView: View {
     @State private var selectedMovie: TMDBMovie?
     @State private var selectedRecommenders: Set<String> = []
     @State private var people: [Person] = []
-    @State private var searchText = ""
+    @State private var freeText = ""
+    @State private var searchTokens: [DiscoverToken] = []
+    @State private var scope: DiscoverSearchScope = .discover
     @State private var isSearchPresented = true
-    @State private var showSearchFiltersSheet = false
-    @State private var pendingFilterKind: DiscoverFilterKind?
-    @State private var pendingFilterValue: String = ""
     @State private var existingMovieTmdbIds: Set<Int> = []
     @State private var selectedExistingMovie: Movie? = nil
     @State private var showOfflineAddSheet = false
@@ -426,21 +363,26 @@ struct AddMoviePageView: View {
     ) {
         self.onClose = onClose
         let trimmed = initialQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            _searchText = State(initialValue: "")
-        } else if trimmed.contains(":") {
-            _searchText = State(initialValue: trimmed)
-        } else {
-            _searchText = State(initialValue: initialSearchType.prefilledTokenQuery(trimmed))
+        if !trimmed.isEmpty {
+            let queryString = trimmed.contains(":") ? trimmed : initialSearchType.prefilledTokenQuery(trimmed)
+            let parsed = DiscoverParsedFilters.parse(queryString)
+            _freeText = State(initialValue: parsed.freeText)
+            _searchTokens = State(initialValue: parsed.toTokens())
+            _scope = State(initialValue: parsed.scope)
         }
     }
 
     private var trimmedSearchTitle: String {
-        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        freeText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var parsedFilters: DiscoverParsedFilters {
-        DiscoverParsedFilters.parse(searchText)
+        var result = DiscoverParsedFilters.parse(freeText)
+        result.scope = scope
+        for token in searchTokens {
+            result.addValue(token.value, for: token.kind)
+        }
+        return result
     }
 
     private var isSheetPresentation: Bool {
@@ -455,15 +397,6 @@ struct AddMoviePageView: View {
         DiscoverRailCategory.allCases.contains { !(curatedMoviesByCategory[$0] ?? []).isEmpty }
     }
 
-    private var visibleFilterChips: [DiscoverFilterChip] {
-        parsedFilters.chips.filter { chip in
-            !(chip.kind == .scope && parsedFilters.scope == .discover)
-        }
-    }
-
-    private var activeFilterCount: Int {
-        visibleFilterChips.count
-    }
 
     private var existingTmdbIdToMovie: [Int: Movie] {
         Dictionary(
@@ -607,10 +540,14 @@ struct AddMoviePageView: View {
             .navigationTitle("Discover")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(
-                text: $searchText,
+                text: $freeText,
+                tokens: $searchTokens,
                 isPresented: $isSearchPresented,
-                prompt: "Search titles or use filters"
-            )
+                prompt: "Search or add filters"
+            ) { token in
+                Text(token.displayText)
+                    .onTapGesture { editToken(token) }
+            }
             .toolbar {
                 if isSheetPresentation {
                     ToolbarItem(placement: .topBarLeading) {
@@ -621,32 +558,13 @@ struct AddMoviePageView: View {
                         .accessibilityLabel("Close")
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showSearchFiltersSheet = true
-                    } label: {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: "line.3.horizontal.decrease.circle")
-                            if activeFilterCount > 0 {
-                                Text("\(activeFilterCount)")
-                                    .font(.caption2.bold())
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 1)
-                                    .background(Capsule(style: .continuous).fill(AppTheme.blue))
-                                    .offset(x: 10, y: -10)
-                            }
-                        }
-                    }
-                    .accessibilityLabel("Search filters")
-                }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if isKeyboardShowing {
                     keyboardToolbarView
-                        .frame(maxWidth: .infinity)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
                         .background(.bar)
                 }
             }
@@ -667,7 +585,10 @@ struct AddMoviePageView: View {
             .onChange(of: discoverNavigation.requestId) { _, _ in
                 applyDiscoverNavigationRequest()
             }
-            .task(id: searchText) {
+            .onChange(of: freeText) { _, newText in
+                crystallizeIfNeeded(from: newText)
+            }
+            .task(id: parsedFilters) {
                 let filters = parsedFilters
                 guard filters.hasSearchCriteria else {
                     searchResults = []
@@ -783,98 +704,6 @@ struct AddMoviePageView: View {
                 }
                 .presentationDetents([.medium, .large])
             }
-            .sheet(isPresented: $showSearchFiltersSheet) {
-                NavigationStack {
-                    Form {
-                        Section("Source") {
-                            Picker(
-                                "Source",
-                                selection: Binding(
-                                    get: { parsedFilters.scope },
-                                    set: { updateScope($0) }
-                                )
-                            ) {
-                                ForEach(DiscoverSearchScope.allCases, id: \.rawValue) { scope in
-                                    Text(scope.label).tag(scope)
-                                }
-                            }
-                            .pickerStyle(.segmented)
-                        }
-
-                        Section("Quick Add") {
-                            DiscoverFilterTemplatesRow(
-                                onInsertToken: { kind in
-                                    insertTemplateToken(kind)
-                                }
-                            )
-                        }
-
-                        if !visibleFilterChips.isEmpty {
-                            Section("Active Filters") {
-                                DiscoverActiveFiltersRow(
-                                    chips: visibleFilterChips,
-                                    onRemove: { chip in
-                                        removeFilterChip(chip)
-                                    },
-                                    onClear: {
-                                        searchText = ""
-                                    }
-                                )
-                            }
-                        }
-
-                        Section("Tips") {
-                            Text("Use tokens like genre:\"crime\" actor:\"Tom Hanks\" director:\"Greta Gerwig\" year:2023 rating:7.5 in:discover")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .navigationTitle("Search Filters")
-                    .toolbarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .topBarLeading) {
-                            Button {
-                                showSearchFiltersSheet = false
-                            } label: {
-                                Image(systemName: "xmark")
-                            }
-                            .accessibilityLabel("Close")
-                        }
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") {
-                                showSearchFiltersSheet = false
-                            }
-                            .bold()
-                        }
-                    }
-                }
-                .presentationDetents([.large])
-            }
-            .alert(
-                "Add Filter",
-                isPresented: Binding(
-                    get: { pendingFilterKind != nil },
-                    set: { isPresented in
-                        if !isPresented {
-                            pendingFilterKind = nil
-                            pendingFilterValue = ""
-                        }
-                    }
-                )
-            ) {
-                TextField(filterValuePlaceholder, text: $pendingFilterValue)
-                Button("Cancel", role: .cancel) {
-                    pendingFilterKind = nil
-                    pendingFilterValue = ""
-                }
-                Button("Add") {
-                    applyPendingFilterInput()
-                }
-            } message: {
-                if let pendingFilterKind {
-                    Text("Enter a value for \(pendingFilterKind.label).")
-                }
-            }
             .navigationDestination(item: $selectedExistingMovie) { movie in
                 MovieDetailView(movie: movie)
             }
@@ -885,51 +714,47 @@ struct AddMoviePageView: View {
         guard discoverNavigation.requestId > handledDiscoverRequestId else { return }
         handledDiscoverRequestId = discoverNavigation.requestId
         let incoming = discoverNavigation.query
-        if incoming.contains(":") {
-            searchText = incoming
-        } else {
-            searchText = discoverNavigation.searchType.prefilledTokenQuery(incoming)
-        }
+        guard !incoming.isEmpty else { return }
+        let queryString = incoming.contains(":") ? incoming : discoverNavigation.searchType.prefilledTokenQuery(incoming)
+        let parsed = DiscoverParsedFilters.parse(queryString)
+        freeText = parsed.freeText
+        searchTokens = parsed.toTokens()
+        scope = parsed.scope
         isSearchPresented = true
     }
 
-    private func updateScope(_ scope: DiscoverSearchScope) {
-        var filters = parsedFilters
-        filters.setScope(scope)
-        searchText = filters.toQueryString()
+    private func updateScope(_ newScope: DiscoverSearchScope) {
+        scope = newScope
     }
 
-    private var filterValuePlaceholder: String {
-        guard let pendingFilterKind else { return "Value" }
-        switch pendingFilterKind {
-        case .year:
-            return "e.g. 2024"
-        case .rating:
-            return "e.g. 7.5"
-        default:
-            return "Enter \(pendingFilterKind.label)"
+    private func insertFilterTokenPrefix(_ kind: DiscoverFilterKind) {
+        // Crystallize any complete token already in the text field first
+        crystallizeIfNeeded(from: freeText + " ")
+        if !freeText.isEmpty && !freeText.hasSuffix(" ") {
+            freeText += " "
         }
+        freeText += "\(kind.label):"
     }
 
-    private func insertTemplateToken(_ kind: DiscoverFilterKind) {
-        pendingFilterKind = kind
-        pendingFilterValue = ""
+    private func editToken(_ token: DiscoverToken) {
+        searchTokens.removeAll { $0.id == token.id }
+        if !freeText.isEmpty && !freeText.hasSuffix(" ") {
+            freeText += " "
+        }
+        freeText += "\(token.kind.label):\(token.value)"
     }
 
-    private func applyPendingFilterInput() {
-        guard let selectedFilterKind = pendingFilterKind else { return }
-        var filters = parsedFilters
-        filters.addValue(pendingFilterValue, for: selectedFilterKind)
-        searchText = filters.toQueryString()
-        pendingFilterKind = nil
-        pendingFilterValue = ""
-        isSearchPresented = true
-    }
-
-    private func removeFilterChip(_ chip: DiscoverFilterChip) {
-        var filters = parsedFilters
-        filters.removeChip(chip)
-        searchText = filters.toQueryString()
+    private func crystallizeIfNeeded(from text: String) {
+        guard text.hasSuffix(" ") else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        let parsed = DiscoverParsedFilters.parse(trimmed)
+        let newTokens = parsed.toTokens()
+        guard !newTokens.isEmpty else { return }
+        for token in newTokens where !searchTokens.contains(token) {
+            searchTokens.append(token)
+        }
+        freeText = parsed.freeText
     }
 
     @ViewBuilder
@@ -942,7 +767,7 @@ struct AddMoviePageView: View {
                         id: \.rawValue
                     ) { kind in
                         Button {
-                            insertTemplateToken(kind)
+                            insertFilterTokenPrefix(kind)
                         } label: {
                             Text("+\(kind.label)")
                                 .font(.caption.weight(.medium))
@@ -959,6 +784,7 @@ struct AddMoviePageView: View {
                 }
                 .padding(.leading, 2)
             }
+            .fixedSize(horizontal: false, vertical: true)
 
             Divider()
                 .padding(.vertical, 6)
@@ -1291,73 +1117,6 @@ private struct LibrarySearchResultRow: View {
     }
 }
 
-private struct DiscoverFilterTemplatesRow: View {
-    let onInsertToken: (DiscoverFilterKind) -> Void
-
-    private let templates: [DiscoverFilterKind] = [.title, .genre, .actor, .director, .year, .rating]
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(templates, id: \.rawValue) { template in
-                    Button {
-                        onInsertToken(template)
-                    } label: {
-                        Text("+\(template.label)")
-                            .font(.caption)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(Color(.secondarySystemFill))
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-}
-
-private struct DiscoverActiveFiltersRow: View {
-    let chips: [DiscoverFilterChip]
-    let onRemove: (DiscoverFilterChip) -> Void
-    let onClear: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(chips) { chip in
-                        Button {
-                            onRemove(chip)
-                        } label: {
-                            HStack(spacing: 6) {
-                                Text(chip.displayText)
-                                    .font(.caption)
-                                Image(systemName: "xmark.circle.fill")
-                                    .font(.caption)
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule(style: .continuous)
-                                    .fill(Color(.tertiarySystemFill))
-                            )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-
-            Button("Clear All Filters", role: .destructive) {
-                onClear()
-            }
-            .font(.caption)
-        }
-    }
-}
 
 private struct CuratedCategoryCard: View {
     let title: String
