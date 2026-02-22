@@ -3,8 +3,8 @@
  * Displays movie card in list view
  */
 
-import { Star, Users, ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
-import { getPoster, formatRating, formatDate } from "../utils/helpers";
+import { Users, ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
+import { getPoster, formatDate } from "../utils/helpers";
 import { VOTE_TYPE } from "../utils/constants";
 
 export default function MovieCard({ movie, onClick }) {
@@ -17,7 +17,6 @@ export default function MovieCard({ movie, onClick }) {
   const genres = omdb.genres || tmdb.genres || [];
   const imdbRating = omdb.imdbRating;
   const rtRating = omdb.rtRating;
-  const myRating = movie.watchHistory?.myRating;
   const allVotes = movie.recommendations || [];
   const upvotes = allVotes.filter(v => v.vote_type !== VOTE_TYPE.DOWNVOTE);
   const downvotes = allVotes.filter(v => v.vote_type === VOTE_TYPE.DOWNVOTE);
@@ -40,12 +39,6 @@ export default function MovieCard({ movie, onClick }) {
             className="w-16 h-24 sm:w-20 sm:h-30 object-cover rounded-xl bg-ios-fill"
             loading="lazy"
           />
-          {myRating && (
-            <div className="absolute -top-1.5 -right-1.5 bg-ios-yellow text-black text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-lg">
-              <Star className="w-3 h-3 fill-current" />
-              {formatRating(myRating)}
-            </div>
-          )}
         </div>
 
         {/* Details */}

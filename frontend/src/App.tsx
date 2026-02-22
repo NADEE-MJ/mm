@@ -4,6 +4,7 @@ import { RefreshCw } from "lucide-react";
 
 import { useAuth } from "./contexts/AuthContext";
 import { MoviesProvider, useMoviesContext } from "./contexts/MoviesContext";
+import { RankingProvider } from "./contexts/RankingContext";
 import { useSync } from "./hooks/useSync";
 
 import AuthScreen from "./components/AuthScreen";
@@ -142,7 +143,9 @@ export default function App() {
           path="/*"
           element={
             <MoviesProvider>
-              <UserAppContent />
+              <RankingProvider>
+                <UserAppContent />
+              </RankingProvider>
             </MoviesProvider>
           }
         />

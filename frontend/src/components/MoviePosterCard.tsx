@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Film, Star, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Film, Star, ThumbsUp, ThumbsDown, Trophy } from "lucide-react";
 import { getPoster, formatRating } from "../utils/helpers";
 import { POSTER_PLACEHOLDER, VOTE_TYPE } from "../utils/constants";
 
-export default function MoviePosterCard({ movie, onClick }) {
+export default function MoviePosterCard({ movie, onClick, rankingEntry = null }) {
   const tmdb = movie.tmdbData || {};
   const omdb = movie.omdbData || {};
 
@@ -39,6 +39,11 @@ export default function MoviePosterCard({ movie, onClick }) {
         {movie.mediaType === "tv" && (
           <span className="absolute left-2 top-2 z-[1] rounded-md bg-[rgba(10,132,255,0.92)] px-1.5 py-0.5 text-[0.62rem] font-bold uppercase tracking-[0.05em] text-white">
             TV
+          </span>
+        )}
+        {rankingEntry && (
+          <span className="absolute left-2 top-2 z-[1] rounded-full bg-[rgba(10,132,255,0.92)] px-2 py-0.5 text-[0.62rem] font-bold text-white" style={{ top: movie.mediaType === "tv" ? "1.8rem" : "0.5rem" }}>
+            #{rankingEntry.position}
           </span>
         )}
         {posterSrc ? (
@@ -81,6 +86,12 @@ export default function MoviePosterCard({ movie, onClick }) {
             <ThumbsDown className="w-3.5 h-3.5" />
             {downvotes}
           </span>
+          {rankingEntry && (
+            <span className="inline-flex items-center gap-1 text-[#1a6fd4]">
+              <Trophy className="w-3.5 h-3.5" />
+              {rankingEntry.score?.toFixed(1)}/10
+            </span>
+          )}
         </div>
       </div>
     </button>

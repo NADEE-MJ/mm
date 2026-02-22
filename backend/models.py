@@ -206,6 +206,31 @@ class CustomList(Base):
     )
 
 
+class MovieRanking(Base):
+    """Movie ranking table for comparative ranked list."""
+
+    __tablename__ = "movie_rankings"
+
+    imdb_id = Column(String, primary_key=True)
+    user_id = Column(
+        String, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    liked = Column(Boolean, nullable=False, default=True)  # True = liked, False = disliked
+    position = Column(Integer, nullable=False)  # 1-indexed within liked/disliked group
+    score = Column(Float, nullable=False)  # liked: (5, 10], disliked: [1, 5]
+    ranked_at = Column(Float, default=lambda: time.time())
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["imdb_id", "user_id"],
+            ["movies.imdb_id", "movies.user_id"],
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint("user_id", "liked", "position", name="uq_ranking_liked_position_per_user"),
+        Index("ix_movie_rankings_user_liked_position", "user_id", "liked", "position"),
+    )
+
+
 class MovieStatus(Base):
     """Movie status table for tracking movie state."""
 

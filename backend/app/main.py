@@ -5,6 +5,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from alembic.config import Config as AlembicConfig
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from app.api.router import register_routers
 from app.config import config
 from app.services.backup import backup_manager
@@ -288,8 +291,39 @@ def ensure_additive_schema() -> None:
                 )
 
 
+def check_migrations() -> None:
+    """Fail fast if the database is not fully migrated to the current head.
+
+    Compares the revision(s) recorded in alembic_version against the heads
+    declared in the migration scripts. Raises RuntimeError with a clear
+    message (including the command to fix it) if they diverge.
+    """
+    alembic_cfg = AlembicConfig(str(BACKEND_DIR / "alembic.ini"))
+    script = ScriptDirectory.from_config(alembic_cfg)
+    expected_heads: set[str] = set(script.get_heads())
+
+    with engine.connect() as conn:
+        context = MigrationContext.configure(conn)
+        current_heads: set[str] = set(context.get_current_heads())
+
+    if current_heads == expected_heads:
+        logger.info("Migration check passed (head: %s)", ", ".join(expected_heads))
+        return
+
+    current_str = ", ".join(sorted(current_heads)) if current_heads else "(none applied)"
+    expected_str = ", ".join(sorted(expected_heads))
+    raise RuntimeError(
+        f"Database migrations are out of date and the server cannot start.\n"
+        f"  Current revision : {current_str}\n"
+        f"  Expected head    : {expected_str}\n"
+        f"Run the following command from the backend directory to fix this:\n"
+        f"  uv run alembic upgrade head"
+    )
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    check_migrations()
     Base.metadata.create_all(bind=engine)
     ensure_additive_schema()
 

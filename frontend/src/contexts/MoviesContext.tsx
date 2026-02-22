@@ -121,8 +121,8 @@ export function MoviesProvider({ children }) {
   );
 
   const markWatched = useCallback(
-    async (imdbId, rating) => {
-      await api.markWatched(imdbId, Date.now(), rating);
+    async (imdbId) => {
+      await api.markWatched(imdbId, Date.now(), null);
       await refreshMovies();
     },
     [refreshMovies],

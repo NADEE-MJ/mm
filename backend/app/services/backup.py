@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from app.services.movies import serialize_movie
-from models import CustomList, Movie, MovieStatus, Person, Recommendation, User, WatchHistory
+from models import CustomList, Movie, MovieRanking, MovieStatus, Person, Recommendation, User, WatchHistory
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -125,6 +125,18 @@ class BackupManager:
                 }
                 for custom_list in lists
             ],
+            "rankings": [
+                {
+                    "imdb_id": r.imdb_id,
+                    "liked": r.liked,
+                    "position": r.position,
+                    "ranked_at": r.ranked_at,
+                }
+                for r in db.query(MovieRanking)
+                .filter(MovieRanking.user_id == user_id)
+                .order_by(MovieRanking.liked.desc(), MovieRanking.position)
+                .all()
+            ],
         }
 
     async def backup_user_data(self, db: Session, user_id: str) -> Path:
@@ -205,7 +217,7 @@ class BackupManager:
                 raise ValueError("Either backup_file or payload must be provided")
             payload = json.loads(backup_file.read_text(encoding="utf-8"))
 
-        imported_counts = {"movies": 0, "people": 0, "lists": 0}
+        imported_counts = {"movies": 0, "people": 0, "lists": 0, "rankings": 0}
         imdb_ids_needing_enrichment: set[str] = set()
         errors: list[str] = []
         try:
@@ -369,6 +381,45 @@ class BackupManager:
                 if not existing_movie.tmdb_data:
                     imdb_ids_needing_enrichment.add(imdb_id)
                 imported_counts["movies"] += 1
+
+            # Restore rankings — delete existing then re-insert in position order
+            for liked_group in (True, False):
+                group_entries = [
+                    r for r in payload.get("rankings", [])
+                    if bool(r.get("liked", True)) == liked_group
+                ]
+                if not group_entries:
+                    continue
+                # Sort by position so we insert in order
+                group_entries.sort(key=lambda r: int(r.get("position") or 1))
+                db.query(MovieRanking).filter(
+                    MovieRanking.user_id == user_id,
+                    MovieRanking.liked == liked_group,
+                ).delete()
+                db.flush()
+                for rank_data in group_entries:
+                    rank_imdb_id = rank_data.get("imdb_id")
+                    if not rank_imdb_id:
+                        continue
+                    # Only restore if the movie exists for this user
+                    movie_exists = (
+                        db.query(Movie.imdb_id)
+                        .filter(Movie.imdb_id == rank_imdb_id, Movie.user_id == user_id)
+                        .first()
+                    )
+                    if not movie_exists:
+                        continue
+                    db.add(
+                        MovieRanking(
+                            imdb_id=rank_imdb_id,
+                            user_id=user_id,
+                            liked=liked_group,
+                            position=int(rank_data.get("position") or 1),
+                            score=float(rank_data.get("score") or 5.0),
+                            ranked_at=float(rank_data.get("ranked_at") or time.time()),
+                        )
+                    )
+                    imported_counts["rankings"] += 1
 
             db.commit()
 

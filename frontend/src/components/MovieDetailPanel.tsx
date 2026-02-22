@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMoviesContext } from "../contexts/MoviesContext";
 import { usePeople } from "../hooks/usePeople";
-import { MOVIE_STATUS, RATING_THRESHOLD, VOTE_TYPE } from "../utils/constants";
 import MovieDetail from "./MovieDetail";
-import RatingPrompt from "./RatingPrompt";
 import UpvoteModal from "./features/MovieDetail/UpvoteModal";
 import DownvoteModal from "./features/MovieDetail/DownvoteModal";
 
@@ -12,7 +10,6 @@ export default function MovieDetailPanel({ imdbId, onClose }) {
     useMoviesContext();
   const { getPeopleNames } = usePeople();
 
-  const [ratingPrompt, setRatingPrompt] = useState(null);
   const [showAddUpvote, setShowAddUpvote] = useState(false);
   const [showAddDownvote, setShowAddDownvote] = useState(false);
 
@@ -29,41 +26,8 @@ export default function MovieDetailPanel({ imdbId, onClose }) {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [onClose]);
 
-  const handleMarkWatched = async (movieImdbId, rating) => {
-    await markWatched(movieImdbId, rating);
-
-    if (rating < RATING_THRESHOLD) {
-      const currentMovie = movies.find((entry) => entry.imdbId === movieImdbId);
-      if (currentMovie && currentMovie.recommendations && currentMovie.recommendations.length > 0) {
-        setRatingPrompt({
-          movie: currentMovie,
-          recommenders: currentMovie.recommendations,
-        });
-      }
-    }
-  };
-
-  const handleRatingPromptAction = async (action) => {
-    if (!ratingPrompt) {
-      return;
-    }
-
-    const { movie: promptMovie, recommenders } = ratingPrompt;
-    const recommenderNames = recommenders.map((recommendation) => recommendation.person);
-    const affectedMovies = movies.filter(
-      (entry) =>
-        entry.recommendations?.some((recommendation) => recommenderNames.includes(recommendation.person)) &&
-        entry.status === MOVIE_STATUS.TO_WATCH &&
-        entry.imdbId !== promptMovie.imdbId,
-    );
-
-    if (action === "delete") {
-      for (const affectedMovie of affectedMovies) {
-        await updateStatus(affectedMovie.imdbId, MOVIE_STATUS.DELETED);
-      }
-    }
-
-    setRatingPrompt(null);
+  const handleMarkWatched = async (movieImdbId) => {
+    await markWatched(movieImdbId);
   };
 
   const handleAddVote = async (person, voteType, closeModal) => {
@@ -112,15 +76,6 @@ export default function MovieDetailPanel({ imdbId, onClose }) {
           )}
         </section>
       </div>
-
-      {ratingPrompt && (
-        <RatingPrompt
-          movie={ratingPrompt.movie}
-          recommenders={ratingPrompt.recommenders}
-          onAction={handleRatingPromptAction}
-          onClose={() => setRatingPrompt(null)}
-        />
-      )}
 
       <UpvoteModal
         isOpen={showAddUpvote}

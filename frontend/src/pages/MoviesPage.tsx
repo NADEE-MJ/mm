@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Film, Filter, Plus, RefreshCw, Search, X } from "lucide-react";
+import { Film, Filter, List, Plus, RefreshCw, Search, Trophy, X } from "lucide-react";
 import { MOVIE_STATUS } from "../utils/constants";
 import {
   filterMovies,
@@ -11,6 +11,9 @@ import {
 import { MOVIE_SORT_LABELS, MOVIE_TAB_CONFIG, getSortOptionsForStatus } from "../utils/movies";
 import MoviePosterCard from "../components/MoviePosterCard";
 import FilterSheet from "../components/ui/FilterSheet";
+import { useRankingContext } from "../contexts/RankingContext";
+import UnrankedQueuePanel from "../components/features/Ranking/UnrankedQueuePanel";
+import RankedListView from "../components/features/Ranking/RankedListView";
 
 const POSTER_SIZE_LABELS = {
   small: "Small Posters",
@@ -29,6 +32,15 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showRankQueue, setShowRankQueue] = useState(false);
+  const [showRankedList, setShowRankedList] = useState(false);
+
+  const { ranked, unranked } = useRankingContext();
+
+  const rankingByImdbId = useMemo(
+    () => Object.fromEntries((ranked || []).map((r) => [r.imdb_id, r])),
+    [ranked],
+  );
 
   const { status } = MOVIE_TAB_CONFIG[currentTab] || MOVIE_TAB_CONFIG.toWatch;
 
@@ -65,7 +77,19 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
     [statusMovies, mediaTypeFilter, filterRecommender, filterGenre, filterDecade, searchQuery],
   );
 
-  const sortedMovies = useMemo(() => sortMovies(filteredMovies, sortBy), [filteredMovies, sortBy]);
+  const sortedMovies = useMemo(() => {
+    if (sortBy === "rank") {
+      return [...filteredMovies].sort((a, b) => {
+        const ra = rankingByImdbId[a.imdbId];
+        const rb = rankingByImdbId[b.imdbId];
+        if (ra && rb) return ra.position - rb.position;
+        if (ra) return -1;
+        if (rb) return 1;
+        return 0;
+      });
+    }
+    return sortMovies(filteredMovies, sortBy);
+  }, [filteredMovies, sortBy, rankingByImdbId]);
 
   const recommenders = useMemo(() => getAllRecommenders(movies), [movies]);
   const genres = useMemo(() => getGenres(statusMovies), [statusMovies]);
@@ -75,7 +99,13 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
   const activeFiltersCount = [mediaTypeFilter !== "all", filterRecommender, filterGenre, filterDecade]
     .filter(Boolean).length;
 
-  const sortOptions = getSortOptionsForStatus(status);
+  const baseSortOptions = getSortOptionsForStatus(status);
+  const sortOptions = status === MOVIE_STATUS.WATCHED
+    ? ["rank", ...baseSortOptions]
+    : baseSortOptions;
+
+  const RANKING_SORT_LABEL = { rank: "My Ranking" };
+  const allSortLabels = { ...MOVIE_SORT_LABELS, ...RANKING_SORT_LABEL };
 
   const handleTabChange = (nextTab) => {
     setCurrentTab(nextTab);
@@ -156,6 +186,37 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
             </button>
           )}
 
+          {currentTab === "watched" && (
+            <>
+              <button
+                type="button"
+                className="relative inline-flex items-center gap-1.5 rounded-xl bg-orange-500/20 px-3.5 py-2.5 text-[0.88rem] font-bold text-orange-400 outline outline-1 outline-orange-500/40"
+                onClick={() => setShowRankQueue(true)}
+              >
+                <Trophy className="w-4 h-4" />
+                <span>Rank</span>
+                {unranked.length > 0 && (
+                  <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-orange-500 px-1.5 text-[0.68rem] font-bold text-white">
+                    {unranked.length}
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2.5 font-semibold ${
+                  showRankedList
+                    ? "bg-blue-500/20 text-blue-400 outline outline-1 outline-blue-500/40"
+                    : "bg-white/10 text-[var(--color-ios-label)]"
+                }`}
+                onClick={() => setShowRankedList((v) => !v)}
+              >
+                <List className="w-4 h-4" />
+                <span>Ranked</span>
+              </button>
+            </>
+          )}
+
           <select
             value={posterSize}
             onChange={(event) => setPosterSize(event.target.value)}
@@ -195,7 +256,7 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
           >
             {sortOptions.map((option) => (
               <option key={option} value={option}>
-                {MOVIE_SORT_LABELS[option]}
+                {allSortLabels[option] || option}
               </option>
             ))}
           </select>
@@ -211,7 +272,9 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
         </div>
       </div>
 
-      {sortedMovies.length === 0 ? (
+      {showRankedList && currentTab === "watched" ? (
+        <RankedListView />
+      ) : sortedMovies.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--color-ios-separator)] px-4 py-12 text-center text-[var(--color-ios-label-secondary)]">
           <Film className="w-14 h-14" />
           <h3 className="mt-3 text-[1.1rem] text-[var(--color-ios-label)]">No titles here</h3>
@@ -229,7 +292,12 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
           style={{ "--movie-poster-min": posterMin, gap: posterGap }}
         >
           {sortedMovies.map((movie) => (
-            <MoviePosterCard key={movie.imdbId} movie={movie} onClick={() => onMovieClick(movie)} />
+            <MoviePosterCard
+              key={movie.imdbId}
+              movie={movie}
+              onClick={() => onMovieClick(movie)}
+              rankingEntry={rankingByImdbId[movie.imdbId]}
+            />
           ))}
         </div>
       )}
@@ -252,6 +320,8 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
         decades={decades}
         status={status}
       />
+
+      <UnrankedQueuePanel isOpen={showRankQueue} onClose={() => setShowRankQueue(false)} />
     </div>
   );
 }

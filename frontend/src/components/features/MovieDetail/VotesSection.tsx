@@ -1,5 +1,5 @@
-import { ThumbsUp, ThumbsDown, Plus, Calendar, Star, X } from "lucide-react";
-import { formatDate, formatRating } from "../../../utils/helpers";
+import { ThumbsUp, ThumbsDown, Plus, Calendar, X } from "lucide-react";
+import { formatDate } from "../../../utils/helpers";
 import { VOTE_TYPE } from "../../../utils/constants";
 
 export default function VotesSection({ allVotes, watchHistory, onShowAddUpvote, onShowAddDownvote, onRemoveVote }) {
@@ -133,14 +133,10 @@ export default function VotesSection({ allVotes, watchHistory, onShowAddUpvote, 
         <div>
           <h2 className="text-ios-headline font-semibold text-ios-label mb-3">Watch History</h2>
           <div className="ios-card px-4 py-3">
-            <div className="flex items-center justify-between text-ios-body text-ios-label">
+            <div className="flex items-center text-ios-body text-ios-label">
               <span className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
                 {formatDate(watchHistory.dateWatched)}
-              </span>
-              <span className="flex items-center gap-1 text-ios-yellow font-medium">
-                <Star className="w-4 h-4 fill-current" />
-                Rated {formatRating(watchHistory.myRating)}/10
               </span>
             </div>
           </div>

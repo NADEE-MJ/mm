@@ -2,7 +2,7 @@
 
 from fastapi import FastAPI
 
-from app.api.routers import auth, backup, external, health, lists, movies, people, sync
+from app.api.routers import auth, backup, external, health, lists, movies, people, ranking, sync
 
 
 def register_routers(app: FastAPI) -> None:
@@ -15,6 +15,7 @@ def register_routers(app: FastAPI) -> None:
         lists.router,
         movies.router,
         people.router,
+        ranking.router,
         sync.router,
     )
     for router in http_routers:

@@ -260,6 +260,28 @@ class APIClient {
   async listBackups() {
     return this.request("/api/backup/list");
   }
+
+  // Ranking endpoints
+  async getRanking() {
+    return this.request("/api/ranking");
+  }
+
+  async getUnranked() {
+    return this.request("/api/ranking/unranked");
+  }
+
+  async insertRanking(imdbId: string, position: number, liked: boolean) {
+    return this.request("/api/ranking/insert", {
+      method: "POST",
+      body: JSON.stringify({ imdb_id: imdbId, position, liked }),
+    });
+  }
+
+  async removeRanking(imdbId) {
+    return this.request(`/api/ranking/${encodeURIComponent(imdbId)}`, {
+      method: "DELETE",
+    });
+  }
 }
 
 export const api = new APIClient();

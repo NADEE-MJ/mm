@@ -802,6 +802,72 @@ private struct BackupListResponse: Decodable {
 
 private struct EmptyRequest: Encodable {}
 
+// MARK: - Ranking Models
+
+struct RankingEntry: Identifiable, Decodable {
+    let imdbId: String
+    let position: Int
+    let score: Double
+    let liked: Bool
+    let rankedAt: Double
+    let title: String
+    let posterPath: String?
+    let year: String?
+
+    var id: String { imdbId }
+
+    var posterURL: URL? {
+        guard let posterPath else { return nil }
+        if posterPath.hasPrefix("http") { return URL(string: posterPath) }
+        return URL(string: "https://image.tmdb.org/t/p/w342\(posterPath)")
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case imdbId = "imdb_id"
+        case position
+        case score
+        case liked
+        case rankedAt = "ranked_at"
+        case title
+        case posterPath = "poster_path"
+        case year
+    }
+}
+
+struct UnrankedEntry: Identifiable, Decodable {
+    let imdbId: String
+    let title: String
+    let posterPath: String?
+    let year: String?
+
+    var id: String { imdbId }
+
+    var posterURL: URL? {
+        guard let posterPath else { return nil }
+        if posterPath.hasPrefix("http") { return URL(string: posterPath) }
+        return URL(string: "https://image.tmdb.org/t/p/w342\(posterPath)")
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case imdbId = "imdb_id"
+        case title
+        case posterPath = "poster_path"
+        case year
+    }
+}
+
+private struct RankingInsertRequest: Encodable {
+    let imdbId: String
+    let position: Int
+    let liked: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case imdbId = "imdb_id"
+        case position
+        case liked
+    }
+}
+
 // MARK: - Network Service
 
 @MainActor
@@ -1345,6 +1411,53 @@ final class NetworkService {
                 userInfo: [NSLocalizedDescriptionKey: "Failed to decode backup list"]
             )
         }
+    }
+
+    // MARK: - Ranking
+
+    func fetchRanking() async -> [RankingEntry] {
+        lastError = nil
+        guard let data = await get("\(baseURL)/ranking") else { return [] }
+        guard let decoded = try? JSONDecoder().decode([RankingEntry].self, from: data) else {
+            lastError = "Failed to decode ranking response"
+            AppLog.warning("🌐 [NetworkService] Could not decode /ranking response", category: .network)
+            return []
+        }
+        return decoded
+    }
+
+    func fetchUnranked() async -> [UnrankedEntry] {
+        lastError = nil
+        guard let data = await get("\(baseURL)/ranking/unranked") else { return [] }
+        guard let decoded = try? JSONDecoder().decode([UnrankedEntry].self, from: data) else {
+            lastError = "Failed to decode unranked response"
+            AppLog.warning("🌐 [NetworkService] Could not decode /ranking/unranked response", category: .network)
+            return []
+        }
+        return decoded
+    }
+
+    func insertRanking(imdbId: String, position: Int, liked: Bool) async -> RankingEntry? {
+        lastError = nil
+        let body = RankingInsertRequest(imdbId: imdbId, position: position, liked: liked)
+        guard let data = await postData(
+            "\(baseURL)/ranking/insert",
+            bodyData: (try? JSONEncoder().encode(body)) ?? Data(),
+            validStatusCodes: [200, 201]
+        ) else { return nil }
+        return try? JSONDecoder().decode(RankingEntry.self, from: data)
+    }
+
+    func removeRanking(imdbId: String) async -> Bool {
+        lastError = nil
+        guard let encoded = imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            lastError = "Invalid imdb id: \(imdbId)"
+            return false
+        }
+        return await delete(
+            "\(baseURL)/ranking/\(encoded)",
+            validStatusCodes: [200, 204]
+        )
     }
 
     // MARK: - HTTP Helpers

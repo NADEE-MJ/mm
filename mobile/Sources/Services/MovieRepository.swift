@@ -10,6 +10,8 @@ final class MovieRepository: DataRepository {
 
     private(set) var movies: [Movie] = []
     private(set) var people: [Person] = []
+    private(set) var rankedMovies: [RankingEntry] = []
+    private(set) var unrankedPool: [UnrankedEntry] = []
     private(set) var isSyncing = false
     private(set) var lastSyncTime: Date?
 
@@ -409,6 +411,50 @@ final class MovieRepository: DataRepository {
         return .failure(.networkError(message))
     }
 
+    // MARK: - Ranking
+
+    func fetchRankingData() async {
+        guard AuthManager.shared.isAuthenticated else { return }
+        async let ranked = networkService.fetchRanking()
+        async let unranked = networkService.fetchUnranked()
+        rankedMovies = await ranked
+        unrankedPool = await unranked
+    }
+
+    func insertAtPosition(imdbId: String, position: Int, liked: Bool) async -> Result<RankingEntry, RepositoryError> {
+        guard let entry = await networkService.insertRanking(imdbId: imdbId, position: position, liked: liked) else {
+            let message = networkService.lastError ?? "Unknown network error"
+            return .failure(.networkError(message))
+        }
+        await fetchRankingData()
+        return .success(entry)
+    }
+
+    func removeFromRanking(imdbId: String) async -> Result<Void, RepositoryError> {
+        let success = await networkService.removeRanking(imdbId: imdbId)
+        if success {
+            await fetchRankingData()
+            return .success(())
+        }
+        let message = networkService.lastError ?? "Unknown network error"
+        return .failure(.networkError(message))
+    }
+
+    /// Remove the current ranking then insert at the new position (used for re-ranking).
+    func rerankAtPosition(imdbId: String, position: Int, liked: Bool) async -> Result<RankingEntry, RepositoryError> {
+        let removed = await networkService.removeRanking(imdbId: imdbId)
+        if !removed {
+            let message = networkService.lastError ?? "Unknown network error"
+            return .failure(.networkError(message))
+        }
+        guard let entry = await networkService.insertRanking(imdbId: imdbId, position: position, liked: liked) else {
+            let message = networkService.lastError ?? "Unknown network error"
+            return .failure(.networkError(message))
+        }
+        await fetchRankingData()
+        return .success(entry)
+    }
+
     func syncNow() async {
         guard !isSyncing else { return }
         guard AuthManager.shared.isAuthenticated else { return }
@@ -420,6 +466,7 @@ final class MovieRepository: DataRepository {
         await SyncManager.shared.enrichPendingMovies()
         _ = await syncPeople(force: true)
         _ = await syncMovies(force: true)
+        await fetchRankingData()
     }
 
     func performInitialSyncIfNeeded() async {

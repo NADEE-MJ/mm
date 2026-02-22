@@ -19,6 +19,13 @@ struct HomePageView: View {
     @State private var minimumImdbRating = 0.0
     @State private var minimumRottenTomatoes = 0
     @State private var minimumMetacritic = 0
+    @State private var showRankingQueue = false
+    @State private var showRankedList = false
+
+    private var unrankedCount: Int { repository.unrankedPool.count }
+    private var rankingByImdbId: [String: RankingEntry] {
+        Dictionary(uniqueKeysWithValues: repository.rankedMovies.map { ($0.imdbId, $0) })
+    }
 
     private let statusFilters: [(key: String, label: String)] = [
         ("to_watch", "To Watch"),
@@ -156,82 +163,11 @@ struct HomePageView: View {
                     .pickerStyle(.segmented)
                 }
 
-                if isLoading && allMovies.isEmpty {
-                    Section {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
-                        }
-                    }
-                } else if visibleMovies.isEmpty {
-                    Section {
-                        ContentUnavailableView(
-                            searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Movies" : "No Results",
-                            systemImage: "film",
-                            description: Text(
-                                searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                    ? (selectedStatus == "to_watch"
-                                    ? "Add your first movie to get started."
-                                    : "Movies will appear here once watched.")
-                                    : "Try a different search term or clear filters."
-                            )
-                        )
-                    }
-                } else {
-                    Section {
-                        ForEach(visibleMovies) { movie in
-                            NavigationLink {
-                                MovieDetailView(movie: movie)
-                            } label: {
-                                MovieRowView(movie: movie)
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    let imdbId = movie.imdbId
-                                    allMovies.removeAll { $0.imdbId == imdbId }
-                                    Task { _ = await repository.updateMovie(movie: movie, rating: nil, status: "deleted") }
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                                .tint(.red)
-                            }
-                            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                                if movie.status == "to_watch" {
-                                    Button {
-                                        let imdbId = movie.imdbId
-                                        allMovies.removeAll { $0.imdbId == imdbId }
-                                        Task {
-                                            _ = await repository.updateMovie(movie: movie, rating: nil, status: "watched")
-                                            await loadAllMovies()
-                                        }
-                                    } label: {
-                                        Label("Watched", systemImage: "checkmark.circle")
-                                    }
-                                    .tint(.green)
-                                } else if movie.status == "watched" {
-                                    Button {
-                                        let imdbId = movie.imdbId
-                                        allMovies.removeAll { $0.imdbId == imdbId }
-                                        Task {
-                                            _ = await repository.updateMovie(movie: movie, rating: nil, status: "to_watch")
-                                            await loadAllMovies()
-                                        }
-                                    } label: {
-                                        Label("To Watch", systemImage: "arrow.uturn.backward")
-                                    }
-                                    .tint(.orange)
-                                }
-                            }
-                        }
-                    } header: {
-                        Text(moviesSectionTitle(count: visibleMoviesCount))
-                    } footer: {
-                        if let footerMessage {
-                            Text(footerMessage)
-                        }
-                    }
-                }
+                movieListContent(
+                    visibleMovies: visibleMovies,
+                    visibleMoviesCount: visibleMoviesCount,
+                    footerMessage: footerMessage
+                )
             }
             .listStyle(.insetGrouped)
             .navigationTitle("Movies")
@@ -258,7 +194,33 @@ struct HomePageView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    if selectedStatus == "watched" {
+                        Button {
+                            showRankedList = true
+                        } label: {
+                            Image(systemName: "list.number")
+                        }
+                        .accessibilityLabel("Ranked list")
+
+                        Button {
+                            showRankingQueue = true
+                        } label: {
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "arrow.up.arrow.down.circle")
+                                if unrankedCount > 0 {
+                                    Text("\(unrankedCount)")
+                                        .font(.system(size: 9, weight: .bold))
+                                        .foregroundStyle(.white)
+                                        .padding(3)
+                                        .background(Color.orange, in: Circle())
+                                        .offset(x: 8, y: -8)
+                                }
+                            }
+                        }
+                        .accessibilityLabel("Rank movies (\(unrankedCount) unranked)")
+                    }
+
                     Button {
                         showFilters = true
                     } label: {
@@ -266,6 +228,14 @@ struct HomePageView: View {
                     }
                     .accessibilityLabel("Sort and filter")
                 }
+            }
+            .navigationDestination(isPresented: $showRankedList) {
+                RankedListView()
+            }
+            .sheet(isPresented: $showRankingQueue, onDismiss: {
+                Task { await repository.fetchRankingData() }
+            }) {
+                RankingQueueView()
             }
             .sheet(isPresented: $showFilters) {
                 FilterSortSheet(
@@ -288,6 +258,86 @@ struct HomePageView: View {
         }
     }
 
+    @ViewBuilder
+    private func movieListContent(visibleMovies: [Movie], visibleMoviesCount: Int, footerMessage: String?) -> some View {
+        if isLoading && allMovies.isEmpty {
+            Section {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+            }
+        } else if visibleMovies.isEmpty {
+            Section {
+                ContentUnavailableView(
+                    searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Movies" : "No Results",
+                    systemImage: "film",
+                    description: Text(
+                        searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? (selectedStatus == "to_watch"
+                            ? "Add your first movie to get started."
+                            : "Movies will appear here once watched.")
+                            : "Try a different search term or clear filters."
+                    )
+                )
+            }
+        } else {
+            Section {
+                ForEach(visibleMovies) { movie in
+                    NavigationLink {
+                        MovieDetailView(movie: movie)
+                    } label: {
+                        MovieRowView(movie: movie, rankingEntry: rankingByImdbId[movie.imdbId])
+                    }
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            let imdbId = movie.imdbId
+                            allMovies.removeAll { $0.imdbId == imdbId }
+                            Task { _ = await repository.updateMovie(movie: movie, rating: nil, status: "deleted") }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .tint(.red)
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        if movie.status == "to_watch" {
+                            Button {
+                                let imdbId = movie.imdbId
+                                allMovies.removeAll { $0.imdbId == imdbId }
+                                Task {
+                                    _ = await repository.updateMovie(movie: movie, rating: nil, status: "watched")
+                                    await loadAllMovies()
+                                }
+                            } label: {
+                                Label("Watched", systemImage: "checkmark.circle")
+                            }
+                            .tint(.green)
+                        } else if movie.status == "watched" {
+                            Button {
+                                let imdbId = movie.imdbId
+                                allMovies.removeAll { $0.imdbId == imdbId }
+                                Task {
+                                    _ = await repository.updateMovie(movie: movie, rating: nil, status: "to_watch")
+                                    await loadAllMovies()
+                                }
+                            } label: {
+                                Label("To Watch", systemImage: "arrow.uturn.backward")
+                            }
+                            .tint(.orange)
+                        }
+                    }
+                }
+            } header: {
+                Text(moviesSectionTitle(count: visibleMoviesCount))
+            } footer: {
+                if let footerMessage {
+                    Text(footerMessage)
+                }
+            }
+        }
+    }
+
     private func loadAllMovies(forceSync: Bool = false) async {
         guard !isLoading else { return }
         isLoading = true
@@ -295,7 +345,10 @@ struct HomePageView: View {
         if forceSync {
             _ = await repository.syncMovies(force: true)
         }
-        let result = await repository.getMovies(status: nil)
+        async let moviesResult = repository.getMovies(status: nil)
+        async let rankingFetch: Void = repository.fetchRankingData()
+        let result = await moviesResult
+        _ = await rankingFetch
         switch result {
         case .success(let movies):
             allMovies = movies
@@ -378,6 +431,7 @@ struct HomePageView: View {
 
 private struct MovieRowView: View {
     let movie: Movie
+    var rankingEntry: RankingEntry? = nil
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -437,6 +491,14 @@ private struct MovieRowView: View {
                         }
                         .foregroundStyle(AppTheme.blue)
                     }
+
+                    if let entry = rankingEntry {
+                        HStack(spacing: 2) {
+                            Image(systemName: "trophy.fill")
+                            Text("#\(entry.position) · \(String(format: "%.1f", entry.score))/10")
+                        }
+                        .foregroundStyle(.blue)
+                    }
                 }
                 .font(.caption)
 
@@ -459,8 +521,6 @@ private struct MovieRowView: View {
 
 struct MovieDetailView: View {
     @State private var currentMovie: Movie
-    @State private var ratingValue = 0
-    @State private var showRatingSheet = false
     @State private var showAddRecommenderSheet = false
     @State private var showAddDislikeSheet = false
     @State private var people: [Person] = []
@@ -634,24 +694,6 @@ struct MovieDetailView: View {
                 }
                 .alignmentGuide(.listRowSeparatorLeading) { _ in 0 }
 
-                if currentMovie.status == "watched" {
-                    Stepper("My Rating: \(max(1, ratingValue))/10", value: $ratingValue, in: 1...10)
-                        .onChange(of: ratingValue) { _, newValue in
-                            Task {
-                                _ = await MovieRepository.shared.updateMovie(
-                                    movie: currentMovie,
-                                    rating: newValue,
-                                    status: nil
-                                )
-                                await refreshCurrentMovie()
-                            }
-                        }
-                } else if let myRating = currentMovie.myRating {
-                    LabeledContent("My Rating") {
-                        Text("\(myRating)/10")
-                    }
-                }
-
                 LabeledContent("Upvotes") {
                     Text("\(likedRecommendations.count)")
                 }
@@ -768,7 +810,14 @@ struct MovieDetailView: View {
 
                 Section {
                     Button {
-                        showRatingSheet = true
+                        Task {
+                            _ = await MovieRepository.shared.updateMovie(
+                                movie: currentMovie,
+                                rating: nil,
+                                status: "watched"
+                            )
+                            await refreshCurrentMovie()
+                        }
                     } label: {
                         Label("Mark as Watched", systemImage: "checkmark.circle.fill")
                             .frame(maxWidth: .infinity, alignment: .center)
@@ -796,15 +845,8 @@ struct MovieDetailView: View {
             }
         }
         .task {
-            ratingValue = currentMovie.myRating ?? 7
             await refreshCurrentMovie()
             await loadPeople()
-        }
-        .sheet(isPresented: $showRatingSheet, onDismiss: {
-            Task { await refreshCurrentMovie() }
-        }) {
-            RatingSheet(movie: currentMovie)
-                .presentationDetents([.height(360)])
         }
         .sheet(isPresented: $showAddRecommenderSheet) {
             AddRecommenderSheet(
@@ -891,18 +933,12 @@ struct MovieDetailView: View {
     private func refreshCurrentMovie() async {
         if let cached = MovieRepository.shared.movies.first(where: { $0.imdbId == currentMovie.imdbId }) {
             currentMovie = cached
-            if let myRating = cached.myRating {
-                ratingValue = myRating
-            }
             return
         }
 
         _ = await MovieRepository.shared.getMovies(status: nil)
         if let refreshed = MovieRepository.shared.movies.first(where: { $0.imdbId == currentMovie.imdbId }) {
             currentMovie = refreshed
-            if let myRating = refreshed.myRating {
-                ratingValue = myRating
-            }
         }
     }
 
@@ -915,9 +951,6 @@ struct MovieDetailView: View {
         switch result {
         case .success(let movie):
             currentMovie = movie
-            if let myRating = movie.myRating {
-                ratingValue = myRating
-            }
         case .failure(let error):
             feedbackMessage = error.localizedDescription
             showFeedbackAlert = true
@@ -960,70 +993,6 @@ struct MovieDetailView: View {
             feedbackMessage = error.localizedDescription
             showFeedbackAlert = true
             await refreshCurrentMovie()
-        }
-    }
-}
-
-// MARK: - Rating Sheet
-
-struct RatingSheet: View {
-    let movie: Movie
-    @State private var selectedRating = 7
-    @Environment(\.dismiss) private var dismiss
-
-    init(movie: Movie) {
-        self.movie = movie
-        _selectedRating = State(initialValue: movie.myRating ?? 7)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Text("Rate \(movie.title)")
-                        .font(.headline)
-                }
-
-                Section("Rating") {
-                    Picker("Score", selection: $selectedRating) {
-                        ForEach(1...10, id: \.self) { value in
-                            Text("\(value)").tag(value)
-                        }
-                    }
-                    .pickerStyle(.wheel)
-                }
-
-                Section {
-                    Button {
-                        Task {
-                            _ = await MovieRepository.shared.updateMovie(
-                                movie: movie,
-                                rating: selectedRating,
-                                status: "watched"
-                            )
-                            dismiss()
-                        }
-                    } label: {
-                        Label("Mark Watched", systemImage: "checkmark.circle.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-            }
-            .navigationTitle("Rate Movie")
-            .toolbarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                    }
-                    .accessibilityLabel("Close")
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .bold()
-                }
-            }
         }
     }
 }
