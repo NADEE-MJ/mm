@@ -1,0 +1,50 @@
+name: ServerPilot
+
+options:
+  minimumXcodeGenVersion: 2.39.0
+
+targets:
+  ServerPilot:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UILaunchScreen: {}
+        NSFaceIDUsageDescription: Authenticate to unlock ServerPilot
+        API_BASE_URL: $(API_BASE_URL)
+    sources:
+      - Sources
+    configFiles:
+      Debug: Config/App.xcconfig
+      Release: Config/App.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nadeem.serverpilot
+        PRODUCT_NAME: ServerPilot
+        SWIFT_VERSION: 6.0
+        TARGETED_DEVICE_FAMILY: "1"
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 1.0
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Sources/Info.plist
+        INFOPLIST_EXPAND_BUILD_SETTINGS: YES
+        CODE_SIGN_STYLE: Automatic
+
+schemes:
+  ServerPilot:
+    build:
+      targets:
+        ServerPilot: all
+    run:
+      config: Debug
+    archive:
+      config: Release

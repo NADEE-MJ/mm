@@ -1,0 +1,2 @@
+-- Initial schema is created by src/db/index.ts at startup.
+-- This placeholder keeps drizzle migration structure in place.

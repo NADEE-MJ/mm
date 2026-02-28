@@ -1,0 +1,12 @@
+# Backend
+backend/node_modules/
+backend/data/*.db
+backend/data/*.db-shm
+backend/data/*.db-wal
+backend/.env
+
+# Mobile generated files
+mobile/ServerPilot.xcodeproj/
+
+# macOS
+.DS_Store
