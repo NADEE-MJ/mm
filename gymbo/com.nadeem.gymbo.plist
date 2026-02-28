@@ -3,23 +3,21 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.nadeem.mm</string>
+    <string>com.nadeem.gymbo</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/bash</string>
-        <string>-lc</string>
-        <string>export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] &amp;&amp; . "$NVM_DIR/nvm.sh"; cd /opt/projects/mm &amp;&amp; npm run install:sync &amp;&amp; npm run backend:migrate &amp;&amp; exec npm run start -- --host 0.0.0.0 --port 8155</string>
+        <string>/Users/nadeem/Documents/MacMiniServer/gymbo/start-gymbo.sh</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/opt/projects/mm</string>
+    <string>/Users/nadeem/Documents/MacMiniServer/gymbo</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/nadeem/Library/Logs/mm.log</string>
+    <string>/Users/nadeem/Library/Logs/gymbo.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/nadeem/Library/Logs/mm.error.log</string>
+    <string>/Users/nadeem/Library/Logs/gymbo.error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

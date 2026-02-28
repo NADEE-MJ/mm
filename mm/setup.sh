@@ -8,13 +8,37 @@ if [ ! -d /opt/projects ]; then
 fi
 
 cd /opt/projects
-gh repo clone NADEE-MJ/mm
+if [ -d /opt/projects/mm ]; then
+    echo "/opt/projects/mm already exists; skipping clone"
+else
+    gh repo clone NADEE-MJ/mm
+fi
+
 cd mm
 
-cp frontend/.env.example frontend/.env
-cp backend/.env.example backend/.env
-ln -s /opt/projects/mm/frontend/.env /Users/nadeem/Documents/MacMiniServer/mm/.frontend-env
-ln -s /opt/projects/mm/backend/.env /Users/nadeem/Documents/MacMiniServer/mm/.backend-env
+if [ -e frontend/.env ]; then
+    echo "frontend/.env already exists; skipping"
+else
+    cp frontend/.env.example frontend/.env
+fi
+
+if [ -e backend/.env ]; then
+    echo "backend/.env already exists; skipping"
+else
+    cp backend/.env.example backend/.env
+fi
+
+if [ -e /Users/nadeem/Documents/MacMiniServer/mm/.frontend-env ] || [ -L /Users/nadeem/Documents/MacMiniServer/mm/.frontend-env ]; then
+    echo ".frontend-env already exists; skipping"
+else
+    ln -s /opt/projects/mm/frontend/.env /Users/nadeem/Documents/MacMiniServer/mm/.frontend-env
+fi
+
+if [ -e /Users/nadeem/Documents/MacMiniServer/mm/.backend-env ] || [ -L /Users/nadeem/Documents/MacMiniServer/mm/.backend-env ]; then
+    echo ".backend-env already exists; skipping"
+else
+    ln -s /opt/projects/mm/backend/.env /Users/nadeem/Documents/MacMiniServer/mm/.backend-env
+fi
 
 npm run install:all
 
@@ -22,11 +46,10 @@ npm run install:all
 PLIST_SRC="/Users/nadeem/Documents/MacMiniServer/mm/com.nadeem.mm.plist"
 PLIST_DEST="$HOME/Library/LaunchAgents/com.nadeem.mm.plist"
 
-if [ -L "$PLIST_DEST" ]; then
-    launchctl bootout gui/$(id -u) "$PLIST_DEST" 2>/dev/null || true
-    rm "$PLIST_DEST"
-fi
-
-ln -s "$PLIST_SRC" "$PLIST_DEST"
+echo "Recreating LaunchAgent plist at $PLIST_DEST"
+launchctl bootout gui/$(id -u) "$PLIST_DEST" 2>/dev/null || true
+rm -f "$PLIST_DEST"
+cp "$PLIST_SRC" "$PLIST_DEST"
 launchctl bootstrap gui/$(id -u) "$PLIST_DEST"
+
 launchctl list | grep com.nadeem.mm || true

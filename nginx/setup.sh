@@ -1,27 +1,56 @@
 #!/bin/bash
 set -e
 
-NGINX_CONF_SRC="/Users/nadeem/Documents/MacMiniServer/nginx/nginx.conf"
-NGINX_CONF_DEST="/opt/homebrew/etc/nginx/nginx.conf"
+REPO_DIR="/Users/nadeem/Documents/MacMiniServer/nginx"
+NGINX_ETC="/opt/homebrew/etc/nginx"
 
-# Back up original if not already a symlink
-if [ -f "$NGINX_CONF_DEST" ] && [ ! -L "$NGINX_CONF_DEST" ]; then
-    mv "$NGINX_CONF_DEST" "${NGINX_CONF_DEST}.bak"
-fi
-
-# Remove existing symlink if present
+# ── nginx.conf ────────────────────────────────────────────────────────────────
+# Copy (not symlink) so the root LaunchDaemon can read it without TCC blocking
+NGINX_CONF_DEST="$NGINX_ETC/nginx.conf"
 if [ -L "$NGINX_CONF_DEST" ]; then
-    rm "$NGINX_CONF_DEST"
+    sudo rm "$NGINX_CONF_DEST"
+elif [ -f "$NGINX_CONF_DEST" ]; then
+    sudo cp "$NGINX_CONF_DEST" "${NGINX_CONF_DEST}.bak"
+    sudo rm "$NGINX_CONF_DEST"
 fi
+sudo cp "$REPO_DIR/nginx.conf" "$NGINX_CONF_DEST"
+sudo chown root:wheel "$NGINX_CONF_DEST"
+sudo chmod 644 "$NGINX_CONF_DEST"
+echo "Copied nginx.conf -> $NGINX_CONF_DEST"
 
-ln -s "$NGINX_CONF_SRC" "$NGINX_CONF_DEST"
-echo "Linked $NGINX_CONF_SRC -> $NGINX_CONF_DEST"
+# ── SSL keys ──────────────────────────────────────────────────────────────────
+KEYS_DEST="$NGINX_ETC/keys"
+sudo mkdir -p "$KEYS_DEST"
+sudo cp "$REPO_DIR/keys/cloudflare.pem" "$KEYS_DEST/cloudflare.pem"
+sudo cp "$REPO_DIR/keys/cloudflare.key" "$KEYS_DEST/cloudflare.key"
+sudo chown root:wheel "$KEYS_DEST/cloudflare.pem" "$KEYS_DEST/cloudflare.key"
+sudo chmod 644 "$KEYS_DEST/cloudflare.pem"
+sudo chmod 600 "$KEYS_DEST/cloudflare.key"
+echo "Copied SSL keys -> $KEYS_DEST"
 
-# Test config
+# ── site configs ──────────────────────────────────────────────────────────────
+SITES_DEST="$NGINX_ETC/sites"
+sudo mkdir -p "$SITES_DEST"
+for conf in "$REPO_DIR/sites/"*.conf; do
+    fname="$(basename "$conf")"
+    sudo cp "$conf" "$SITES_DEST/$fname"
+    sudo chown root:wheel "$SITES_DEST/$fname"
+    sudo chmod 644 "$SITES_DEST/$fname"
+    echo "Copied site config: $fname -> $SITES_DEST/$fname"
+done
+
+# ── log file ownership ────────────────────────────────────────────────────────
+# LaunchDaemon runs as root; ensure root owns the log files
+sudo chown root:wheel /opt/homebrew/var/log/nginx/access.log \
+                      /opt/homebrew/var/log/nginx/error.log 2>/dev/null || true
+sudo chmod 644 /opt/homebrew/var/log/nginx/access.log \
+               /opt/homebrew/var/log/nginx/error.log 2>/dev/null || true
+
+# ── test config ───────────────────────────────────────────────────────────────
 sudo nginx -t
 
-# Install LaunchDaemon
-PLIST_SRC="/Users/nadeem/Documents/MacMiniServer/nginx/com.nadeem.nginx.plist"
+# ── LaunchDaemon ──────────────────────────────────────────────────────────────
+PLIST_SRC="$REPO_DIR/com.nadeem.nginx.plist"
 PLIST_DEST="/Library/LaunchDaemons/com.nadeem.nginx.plist"
 
 if [ -L "$PLIST_DEST" ] || [ -f "$PLIST_DEST" ]; then
@@ -30,5 +59,7 @@ if [ -L "$PLIST_DEST" ] || [ -f "$PLIST_DEST" ]; then
 fi
 
 sudo cp "$PLIST_SRC" "$PLIST_DEST"
+sudo chown root:wheel "$PLIST_DEST"
+sudo chmod 644 "$PLIST_DEST"
 sudo launchctl bootstrap system "$PLIST_DEST"
 echo "nginx LaunchDaemon loaded"

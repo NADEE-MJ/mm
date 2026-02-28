@@ -35,5 +35,10 @@
   <string>Authenticate to unlock ServerPilot</string>
   <key>API_BASE_URL</key>
   <string>$(API_BASE_URL)</string>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+  </dict>
 </dict>
 </plist>

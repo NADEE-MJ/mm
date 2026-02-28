@@ -7,6 +7,10 @@ backend/.env
 
 # Mobile generated files
 mobile/ServerPilot.xcodeproj/
+mobile/Config/Env.generated.xcconfig
+mobile/.env
+mobile/build/
+mobile/Payload/
 
 # macOS
 .DS_Store
