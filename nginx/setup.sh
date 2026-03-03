@@ -46,6 +46,14 @@ sudo chown root:wheel /opt/homebrew/var/log/nginx/access.log \
 sudo chmod 644 /opt/homebrew/var/log/nginx/access.log \
                /opt/homebrew/var/log/nginx/error.log 2>/dev/null || true
 
+# ── landing page ─────────────────────────────────────────────────────────────
+LANDING_DEST="$NGINX_ETC/landing"
+sudo mkdir -p "$LANDING_DEST"
+sudo cp "$REPO_DIR/landing/index.html" "$LANDING_DEST/index.html"
+sudo chown root:wheel "$LANDING_DEST/index.html"
+sudo chmod 644 "$LANDING_DEST/index.html"
+echo "Copied landing page -> $LANDING_DEST"
+
 # ── test config ───────────────────────────────────────────────────────────────
 sudo nginx -t
 

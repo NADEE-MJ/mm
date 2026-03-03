@@ -1,0 +1,8 @@
+{
+  "name": "mac-mini-server",
+  "private": true,
+  "scripts": {
+    "nginx:setup": "sudo bash nginx/setup.sh",
+    "nginx:reload": "sudo nginx -s reload"
+  }
+}
