@@ -1,0 +1,58 @@
+name: Mentat
+
+options:
+  minimumXcodeGenVersion: 2.39.0
+
+packages:
+  swift-nio-ssh:
+    url: https://github.com/apple/swift-nio-ssh
+    from: 0.8.0
+
+targets:
+  Mentat:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UILaunchScreen: {}
+        NSFaceIDUsageDescription: Authenticate to unlock Mentat
+    sources:
+      - Sources
+    dependencies:
+      - package: swift-nio-ssh
+        product: NIOSSH
+    configFiles:
+      Debug: Config/App.xcconfig
+      Release: Config/App.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nadeem.mentat
+        PRODUCT_NAME: Mentat
+        SWIFT_VERSION: 6.0
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CURRENT_PROJECT_VERSION: 2
+        MARKETING_VERSION: 1.2
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Sources/Info.plist
+        INFOPLIST_EXPAND_BUILD_SETTINGS: YES
+        CODE_SIGN_STYLE: Automatic
+
+schemes:
+  Mentat:
+    build:
+      targets:
+        Mentat: all
+    run:
+      config: Debug
+    archive:
+      config: Release

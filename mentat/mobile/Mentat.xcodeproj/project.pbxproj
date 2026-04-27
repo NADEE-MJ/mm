@@ -1,0 +1,518 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0A4D14F893E47E59C5E813BB /* SSHIdentityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66F506D1BE3CC2FD363FC5D /* SSHIdentityManager.swift */; };
+		0DD74AFC6133F0727C1D9E5B /* GitRepoState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8377B18B2C43A775CB13CA7 /* GitRepoState.swift */; };
+		0EC27FD02592EDF5DB6A009A /* NetworkService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37769644EB7547DEDF7C7257 /* NetworkService.swift */; };
+		10D18DC5F641753BDBEC2E0D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4E1C837B2CB35BBC6F5A78D1 /* Assets.xcassets */; };
+		19951436FB104411D818F5CD /* ServerListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2FEABE0A66FE217D5113242 /* ServerListView.swift */; };
+		1F8A9B64F300E82DBB9582C9 /* Server.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC85CC95EE052994D79E785F /* Server.swift */; };
+		255E310221ED4855E816A015 /* MetricGaugeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75CD874ED12861FD6185BDF7 /* MetricGaugeView.swift */; };
+		28FD662E5429A410EE37E34F /* SSHConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F793857AD8FB7F912E02BB1A /* SSHConfigManager.swift */; };
+		298F7774989F688E6C2710CC /* MentatApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0739CDCBC7C3BCCA348FB29E /* MentatApp.swift */; };
+		2B3888AB90256AE0E7AAE3C0 /* HostKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57F330A518FB70F1AD4200C5 /* HostKeyStore.swift */; };
+		30F55764FF1586D89E2057ED /* ServerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA7416AA9B024DD13B04FF5 /* ServerDetailView.swift */; };
+		3A61E617B2E40438D1851DA7 /* ServicesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF2838953AA31B29ECC460D0 /* ServicesView.swift */; };
+		3D90C6ADF02811CB70314E56 /* JobsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 356E4E3254F5699A4DA4A230 /* JobsView.swift */; };
+		5459D392E30373C9D7C8DEA1 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 667BC396C0D8EAFF1664A742 /* DashboardView.swift */; };
+		5E36F5C1FD3C251755E578C5 /* PackageState.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCE9E00F44B95D63F7CFDCD2 /* PackageState.swift */; };
+		693EFE785F8ECFB6281B9C0A /* PackagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA77F2C7C54A56E58CD86589 /* PackagesView.swift */; };
+		7CF05A8FA7B74B4A5B34599C /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = 1FD2DCE5CB65EBD667E8FA16 /* NIOSSH */; };
+		7FEAB5996DE2C14064D776E2 /* DockerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310B7CA14319D4E30BC7D578 /* DockerView.swift */; };
+		8EA538A5EAA80D2E1AA5D800 /* Container.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2065359BCD579A740E9696C /* Container.swift */; };
+		9AE36981185038FBCA3F252C /* StatusBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC98B02F12751FF6610A1DE7 /* StatusBadgeView.swift */; };
+		A4B1CD43E2D12EE9818B9E5B /* SystemMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85244F7A434373514D5DD6EE /* SystemMetrics.swift */; };
+		A5D56449E287A7BFFA2DA3A6 /* WebSocketManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6B95F2E576CA96D7F3D0C54 /* WebSocketManager.swift */; };
+		A8E0EC4B87F83AC2A2872315 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178451F627093CF930D5DDF9 /* SettingsView.swift */; };
+		A96EE64E2FC58973D563D58B /* AppsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F175C81E5A62BEF8F9ABE616 /* AppsView.swift */; };
+		B42BA59F00EBC54FC11BAD40 /* SSHConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16D7F935E9A8B032E27FC637 /* SSHConnectionManager.swift */; };
+		B5889480760558BB741DB017 /* BiometricAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36E1095F2B9BCF65AB538BED /* BiometricAuthManager.swift */; };
+		B83C5FF987A52A77621AE8AD /* PowerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF8FF608348C0DBF3F1D5C65 /* PowerView.swift */; };
+		C3BBF3B55CE43540437A7F3B /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58F0C06CE3E2764BA4CDBC0C /* SetupView.swift */; };
+		C719E09BF53D780A17928842 /* AppLogging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F783E42C7265B695FE264C9 /* AppLogging.swift */; };
+		CDF06CF2A0ECF0C81899A17E /* IpaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2D04158C88FE0824281BA0D /* IpaApp.swift */; };
+		DB020FA6C488B6C090CFBD04 /* Job.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BEECADA7F9C91923E7B0D9 /* Job.swift */; };
+		DB903CA1C96FD16A22699D9F /* GitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E81E24AA55230B8896FA5165 /* GitView.swift */; };
+		DF407B92361C973EAE523E70 /* ServiceStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0789DFF5AA604AD4B70D525E /* ServiceStatus.swift */; };
+		FAC2615CA05ADCCC3693BDDC /* ConfirmActionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1516F524D8A2F0DAACF9A3D7 /* ConfirmActionSheet.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0739CDCBC7C3BCCA348FB29E /* MentatApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentatApp.swift; sourceTree = "<group>"; };
+		0789DFF5AA604AD4B70D525E /* ServiceStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceStatus.swift; sourceTree = "<group>"; };
+		1516F524D8A2F0DAACF9A3D7 /* ConfirmActionSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmActionSheet.swift; sourceTree = "<group>"; };
+		16D7F935E9A8B032E27FC637 /* SSHConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConnectionManager.swift; sourceTree = "<group>"; };
+		178451F627093CF930D5DDF9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		1C09CD0055D4B24D6643FAD9 /* Mentat.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Mentat.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		310B7CA14319D4E30BC7D578 /* DockerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockerView.swift; sourceTree = "<group>"; };
+		356E4E3254F5699A4DA4A230 /* JobsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JobsView.swift; sourceTree = "<group>"; };
+		36BEECADA7F9C91923E7B0D9 /* Job.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Job.swift; sourceTree = "<group>"; };
+		36E1095F2B9BCF65AB538BED /* BiometricAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiometricAuthManager.swift; sourceTree = "<group>"; };
+		37769644EB7547DEDF7C7257 /* NetworkService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkService.swift; sourceTree = "<group>"; };
+		3CA7416AA9B024DD13B04FF5 /* ServerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerDetailView.swift; sourceTree = "<group>"; };
+		4E1C837B2CB35BBC6F5A78D1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		57F330A518FB70F1AD4200C5 /* HostKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostKeyStore.swift; sourceTree = "<group>"; };
+		58F0C06CE3E2764BA4CDBC0C /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
+		5F783E42C7265B695FE264C9 /* AppLogging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogging.swift; sourceTree = "<group>"; };
+		667BC396C0D8EAFF1664A742 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		75CD874ED12861FD6185BDF7 /* MetricGaugeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricGaugeView.swift; sourceTree = "<group>"; };
+		7DF5BD8802C9711586C955D2 /* App.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = App.xcconfig; sourceTree = "<group>"; };
+		85244F7A434373514D5DD6EE /* SystemMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMetrics.swift; sourceTree = "<group>"; };
+		A6B95F2E576CA96D7F3D0C54 /* WebSocketManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSocketManager.swift; sourceTree = "<group>"; };
+		A8377B18B2C43A775CB13CA7 /* GitRepoState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitRepoState.swift; sourceTree = "<group>"; };
+		ACA8B2C499159F4B00FBDE37 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		B2065359BCD579A740E9696C /* Container.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Container.swift; sourceTree = "<group>"; };
+		C2FEABE0A66FE217D5113242 /* ServerListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerListView.swift; sourceTree = "<group>"; };
+		CCE9E00F44B95D63F7CFDCD2 /* PackageState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackageState.swift; sourceTree = "<group>"; };
+		CF8FF608348C0DBF3F1D5C65 /* PowerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerView.swift; sourceTree = "<group>"; };
+		DC85CC95EE052994D79E785F /* Server.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Server.swift; sourceTree = "<group>"; };
+		DF2838953AA31B29ECC460D0 /* ServicesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServicesView.swift; sourceTree = "<group>"; };
+		E2D04158C88FE0824281BA0D /* IpaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IpaApp.swift; sourceTree = "<group>"; };
+		E81E24AA55230B8896FA5165 /* GitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitView.swift; sourceTree = "<group>"; };
+		EA77F2C7C54A56E58CD86589 /* PackagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PackagesView.swift; sourceTree = "<group>"; };
+		EC98B02F12751FF6610A1DE7 /* StatusBadgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadgeView.swift; sourceTree = "<group>"; };
+		F175C81E5A62BEF8F9ABE616 /* AppsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppsView.swift; sourceTree = "<group>"; };
+		F66F506D1BE3CC2FD363FC5D /* SSHIdentityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHIdentityManager.swift; sourceTree = "<group>"; };
+		F793857AD8FB7F912E02BB1A /* SSHConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConfigManager.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		916A73323C381FFB81021E4F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7CF05A8FA7B74B4A5B34599C /* NIOSSH in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1ED7BB40A20F0F2F33B00F3A /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				B2065359BCD579A740E9696C /* Container.swift */,
+				A8377B18B2C43A775CB13CA7 /* GitRepoState.swift */,
+				E2D04158C88FE0824281BA0D /* IpaApp.swift */,
+				36BEECADA7F9C91923E7B0D9 /* Job.swift */,
+				CCE9E00F44B95D63F7CFDCD2 /* PackageState.swift */,
+				DC85CC95EE052994D79E785F /* Server.swift */,
+				0789DFF5AA604AD4B70D525E /* ServiceStatus.swift */,
+				85244F7A434373514D5DD6EE /* SystemMetrics.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		22E7927CC68FBD0EFC468826 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				4E1C837B2CB35BBC6F5A78D1 /* Assets.xcassets */,
+				ACA8B2C499159F4B00FBDE37 /* Info.plist */,
+				0739CDCBC7C3BCCA348FB29E /* MentatApp.swift */,
+				1ED7BB40A20F0F2F33B00F3A /* Models */,
+				911005F473C9E144D7DE6CC7 /* Services */,
+				E2E080F236C7B7086F7D7010 /* Views */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		398E813A2E635FFDDDFA5233 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				7DF5BD8802C9711586C955D2 /* App.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		41506C282D1FD5B0A199B4BA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1C09CD0055D4B24D6643FAD9 /* Mentat.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		911005F473C9E144D7DE6CC7 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				5F783E42C7265B695FE264C9 /* AppLogging.swift */,
+				36E1095F2B9BCF65AB538BED /* BiometricAuthManager.swift */,
+				57F330A518FB70F1AD4200C5 /* HostKeyStore.swift */,
+				37769644EB7547DEDF7C7257 /* NetworkService.swift */,
+				F793857AD8FB7F912E02BB1A /* SSHConfigManager.swift */,
+				16D7F935E9A8B032E27FC637 /* SSHConnectionManager.swift */,
+				F66F506D1BE3CC2FD363FC5D /* SSHIdentityManager.swift */,
+				A6B95F2E576CA96D7F3D0C54 /* WebSocketManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		CBFCD8F20FE4F204EEB4CCB0 = {
+			isa = PBXGroup;
+			children = (
+				398E813A2E635FFDDDFA5233 /* Config */,
+				22E7927CC68FBD0EFC468826 /* Sources */,
+				41506C282D1FD5B0A199B4BA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E146D3E0220C57461C559CE5 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				1516F524D8A2F0DAACF9A3D7 /* ConfirmActionSheet.swift */,
+				75CD874ED12861FD6185BDF7 /* MetricGaugeView.swift */,
+				EC98B02F12751FF6610A1DE7 /* StatusBadgeView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		E2E080F236C7B7086F7D7010 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				F175C81E5A62BEF8F9ABE616 /* AppsView.swift */,
+				667BC396C0D8EAFF1664A742 /* DashboardView.swift */,
+				310B7CA14319D4E30BC7D578 /* DockerView.swift */,
+				E81E24AA55230B8896FA5165 /* GitView.swift */,
+				356E4E3254F5699A4DA4A230 /* JobsView.swift */,
+				EA77F2C7C54A56E58CD86589 /* PackagesView.swift */,
+				CF8FF608348C0DBF3F1D5C65 /* PowerView.swift */,
+				3CA7416AA9B024DD13B04FF5 /* ServerDetailView.swift */,
+				C2FEABE0A66FE217D5113242 /* ServerListView.swift */,
+				DF2838953AA31B29ECC460D0 /* ServicesView.swift */,
+				178451F627093CF930D5DDF9 /* SettingsView.swift */,
+				58F0C06CE3E2764BA4CDBC0C /* SetupView.swift */,
+				E146D3E0220C57461C559CE5 /* Components */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2D2FE2B56C26653D09F64005 /* Mentat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0FEE2B92864A510E723D7A5C /* Build configuration list for PBXNativeTarget "Mentat" */;
+			buildPhases = (
+				410BFCEB3B0DB19804877043 /* Sources */,
+				5247E646E2C1D1AE97F74368 /* Resources */,
+				916A73323C381FFB81021E4F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Mentat;
+			packageProductDependencies = (
+				1FD2DCE5CB65EBD667E8FA16 /* NIOSSH */,
+			);
+			productName = Mentat;
+			productReference = 1C09CD0055D4B24D6643FAD9 /* Mentat.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3316AC568CCF7830EE193CFA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					2D2FE2B56C26653D09F64005 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 4749B5308BBBFB97487CAD30 /* Build configuration list for PBXProject "Mentat" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = CBFCD8F20FE4F204EEB4CCB0;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A20BC7158765D065CD4AC3BA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 41506C282D1FD5B0A199B4BA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2D2FE2B56C26653D09F64005 /* Mentat */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5247E646E2C1D1AE97F74368 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				10D18DC5F641753BDBEC2E0D /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		410BFCEB3B0DB19804877043 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C719E09BF53D780A17928842 /* AppLogging.swift in Sources */,
+				A96EE64E2FC58973D563D58B /* AppsView.swift in Sources */,
+				B5889480760558BB741DB017 /* BiometricAuthManager.swift in Sources */,
+				FAC2615CA05ADCCC3693BDDC /* ConfirmActionSheet.swift in Sources */,
+				8EA538A5EAA80D2E1AA5D800 /* Container.swift in Sources */,
+				5459D392E30373C9D7C8DEA1 /* DashboardView.swift in Sources */,
+				7FEAB5996DE2C14064D776E2 /* DockerView.swift in Sources */,
+				0DD74AFC6133F0727C1D9E5B /* GitRepoState.swift in Sources */,
+				DB903CA1C96FD16A22699D9F /* GitView.swift in Sources */,
+				2B3888AB90256AE0E7AAE3C0 /* HostKeyStore.swift in Sources */,
+				CDF06CF2A0ECF0C81899A17E /* IpaApp.swift in Sources */,
+				DB020FA6C488B6C090CFBD04 /* Job.swift in Sources */,
+				3D90C6ADF02811CB70314E56 /* JobsView.swift in Sources */,
+				298F7774989F688E6C2710CC /* MentatApp.swift in Sources */,
+				255E310221ED4855E816A015 /* MetricGaugeView.swift in Sources */,
+				0EC27FD02592EDF5DB6A009A /* NetworkService.swift in Sources */,
+				5E36F5C1FD3C251755E578C5 /* PackageState.swift in Sources */,
+				693EFE785F8ECFB6281B9C0A /* PackagesView.swift in Sources */,
+				B83C5FF987A52A77621AE8AD /* PowerView.swift in Sources */,
+				28FD662E5429A410EE37E34F /* SSHConfigManager.swift in Sources */,
+				B42BA59F00EBC54FC11BAD40 /* SSHConnectionManager.swift in Sources */,
+				0A4D14F893E47E59C5E813BB /* SSHIdentityManager.swift in Sources */,
+				1F8A9B64F300E82DBB9582C9 /* Server.swift in Sources */,
+				30F55764FF1586D89E2057ED /* ServerDetailView.swift in Sources */,
+				19951436FB104411D818F5CD /* ServerListView.swift in Sources */,
+				DF407B92361C973EAE523E70 /* ServiceStatus.swift in Sources */,
+				3A61E617B2E40438D1851DA7 /* ServicesView.swift in Sources */,
+				A8E0EC4B87F83AC2A2872315 /* SettingsView.swift in Sources */,
+				C3BBF3B55CE43540437A7F3B /* SetupView.swift in Sources */,
+				9AE36981185038FBCA3F252C /* StatusBadgeView.swift in Sources */,
+				A4B1CD43E2D12EE9818B9E5B /* SystemMetrics.swift in Sources */,
+				A5D56449E287A7BFFA2DA3A6 /* WebSocketManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		371E30FB34EA355BF931A0A6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7DF5BD8802C9711586C955D2 /* App.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_EXPAND_BUILD_SETTINGS = YES;
+				INFOPLIST_FILE = Sources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nadeem.mentat;
+				PRODUCT_NAME = Mentat;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		3C8C25BF1E7F5AC15CD017C6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		5F688987893AB42CE8B61E7F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7DF5BD8802C9711586C955D2 /* App.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_EXPAND_BUILD_SETTINGS = YES;
+				INFOPLIST_FILE = Sources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.nadeem.mentat;
+				PRODUCT_NAME = Mentat;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		9B25EC5DF09E3550FCCB7B67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		0FEE2B92864A510E723D7A5C /* Build configuration list for PBXNativeTarget "Mentat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5F688987893AB42CE8B61E7F /* Debug */,
+				371E30FB34EA355BF931A0A6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4749B5308BBBFB97487CAD30 /* Build configuration list for PBXProject "Mentat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9B25EC5DF09E3550FCCB7B67 /* Debug */,
+				3C8C25BF1E7F5AC15CD017C6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A20BC7158765D065CD4AC3BA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio-ssh";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1FD2DCE5CB65EBD667E8FA16 /* NIOSSH */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A20BC7158765D065CD4AC3BA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */;
+			productName = NIOSSH;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 3316AC568CCF7830EE193CFA /* Project object */;
+}
