@@ -6,10 +6,12 @@
     <string>com.nadeem.raddle</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/nadeem/Documents/MacMiniServer/raddle.teams/start-raddle.sh</string>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] &amp;&amp; . "$NVM_DIR/nvm.sh"; cd /opt/projects/raddle.teams &amp;&amp; uv run ./rt install --sync &amp;&amp; exec uv run ./rt s --host 0.0.0.0</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/nadeem/Documents/MacMiniServer/raddle.teams</string>
+    <string>/opt/projects/raddle.teams</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>

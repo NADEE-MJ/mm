@@ -6,10 +6,12 @@
     <string>com.nadeem.jeopardy</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/nadeem/Documents/MacMiniServer/jeopardy/start-jeopardy.sh</string>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] &amp;&amp; . "$NVM_DIR/nvm.sh"; cd /opt/projects/jeopardy &amp;&amp; uv run ./j install --sync &amp;&amp; exec uv run ./j s --host 0.0.0.0 --port 3000</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/nadeem/Documents/MacMiniServer/jeopardy</string>
+    <string>/opt/projects/jeopardy</string>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
