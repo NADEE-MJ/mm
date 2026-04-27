@@ -1,0 +1,48 @@
+# Keep mm as a local reference only.
+mm/
+
+# OS
+.DS_Store
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+backend/.venv/
+backend/venv/
+backend/env/
+
+# Backend local runtime/state
+backend/.env
+backend/app.db
+backend/*.db
+backend/backups/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Mobile / Xcode
+mobile/.env
+mobile/Config/Env.generated.xcconfig
+mobile/Gymbo.xcodeproj/
+mobile/build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
