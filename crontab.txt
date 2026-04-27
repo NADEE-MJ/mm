@@ -1,1 +1,0 @@
-0 * * * * /opt/homebrew/bin/python3 /Users/nadeem/Documents/MacMiniServer/cloudflare-dns-update/script.py > /Users/nadeem/Documents/MacMiniServer/cloudflare-dns-update/cron-logs/cron.log 2>&1

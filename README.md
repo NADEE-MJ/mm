@@ -1,183 +1,118 @@
-# MacMiniServer Quickstart
+# Movie Manager
 
-Services running on the Mac Mini, replacing the Debian `maida-server`.
+Full-stack movie recommendation tracker with:
+- Web client (React + Vite)
+- Native iOS client (SwiftUI + GRDB)
+- FastAPI backend (SQLite + Alembic)
 
-## Architecture
+Full docs: [docs/README.md](docs/README.md)
 
-```
-Internet → Cloudflare → Mac Mini nginx (SSL terminator)
-                              ├── mm.nadee-mj.dev      → localhost:8155
-                              ├── raddle.nadee-mj.dev  → localhost:8000
-                              ├── jeopardy.nadee-mj.dev → localhost:3000
-                              ├── jelly.nadee-mj.dev   → 192.168.1.42:8096  (Debian)
-                              ├── vault.nadee-mj.dev   → 192.168.1.42:8080  (Debian)
-                              ├── hass.nadee-mj.dev    → 192.168.1.42:8123  (Debian)
-                              └── abs.nadee-mj.dev     → 192.168.1.42:13378 (Debian)
-```
+## Current Stack
 
-## Prerequisites
+| Layer | Tech |
+|---|---|
+| Backend | FastAPI, SQLAlchemy, Alembic, SQLite |
+| Web | React, Vite, Tailwind CSS |
+| iOS | SwiftUI, GRDB, Nuke, XcodeGen |
+| External data | TMDB, OMDb |
 
-Install via Homebrew:
+## Repository Layout
 
-```sh
-brew install nginx gh uv python3
-```
-
-Install nvm (for Node.js services):
-
-```sh
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-```
-
-## One-time setup
-
-### 1. `/opt/projects`
-
-```sh
-sudo mkdir /opt/projects
-sudo chown nadeem /opt/projects
+```text
+mm/
+├── backend/                 # FastAPI API + data model + migrations
+├── frontend/                # React web app
+├── mobile/                  # Native Swift iOS app
+├── docs/                    # Project documentation
+├── scripts/mm-cli.sh        # Repo CLI wrapper used by npm scripts
+└── package.json             # Root scripts
 ```
 
-### 2. SSL keys
+## Quick Start (Web + Backend)
 
-Place your Cloudflare origin certificates in `nginx/keys/` (gitignored):
+### 1. Install dependencies
 
-```sh
-mkdir -p /Users/nadeem/Documents/MacMiniServer/nginx/keys
-# Copy cloudflare.pem and cloudflare.key here
+```bash
+npm run install:all
 ```
 
-### 3. nginx
+### 2. Configure backend env
 
-```sh
-cd /Users/nadeem/Documents/MacMiniServer/nginx
-bash setup.sh
+```bash
+cp backend/.env.example backend/.env
 ```
 
-This symlinks `nginx/nginx.conf` to `/opt/homebrew/etc/nginx/nginx.conf` and reloads nginx.
+Set required keys in `backend/.env`:
+- `TMDB_API_KEY`
+- `OMDB_API_KEY`
+- `ADMIN_TOKEN`
 
-To start nginx on login (needs sudo to bind port 443):
+### 3. Run migrations
 
-```sh
-sudo brew services start nginx
+```bash
+npm run backend:migrate
 ```
 
-### 4. mm
+### 4. Start backend
 
-```sh
-cd /Users/nadeem/Documents/MacMiniServer/mm
-bash setup.sh
-# Then edit .frontend-env and .backend-env with real values
+```bash
+npm run backend:start
 ```
 
-### 5. raddle.teams
+Default backend URL: `http://localhost:8155`
 
-```sh
-cd /Users/nadeem/Documents/MacMiniServer/raddle.teams
-bash setup.sh
-# Then edit .env with real values
+### 5. Start frontend (new terminal)
+
+```bash
+npm run frontend:dev
 ```
 
-### 6. jeopardy
+Default frontend URL: `http://localhost:5173`
 
-```sh
-cd /Users/nadeem/Documents/MacMiniServer/jeopardy
-bash setup.sh
-# Then edit .env with real values
+Set `frontend/.env` if needed:
+
+```env
+VITE_API_URL=http://localhost:8155
 ```
 
-### 7. cloudflare-dns-update
+## Native iOS App (Swift)
 
-```sh
-cp /Users/nadeem/Documents/MacMiniServer/maida-server/cloudflare-dns-update/.env \
-   /Users/nadeem/Documents/MacMiniServer/cloudflare-dns-update/.env
-# Or create .env with API_TOKEN=... and ZONE_ID=...
-
-cd /Users/nadeem/Documents/MacMiniServer/cloudflare-dns-update
-bash setup.sh
+```bash
+cd mobile
+cp .env.example .env
+# edit .env if needed
+./scripts/generate-env-xcconfig.sh
+xcodegen generate
+open MovieManager.xcodeproj
 ```
 
-To install the cron job manually instead:
+Notes:
+- CI requires HTTPS via `MOBILE_API_BASE_URL`.
+- Optional file logging is controlled by `FILE_LOGGING_ENABLED` (`YES`/`NO`, defaults to `NO`).
+- Local HTTP development may require ATS exceptions in `mobile/Sources/Info.plist`.
 
-```sh
-crontab crontab.txt
+## CI/CD
+
+iOS workflow: `.github/workflows/build-mobile.yml`
+
+Outputs:
+- Artifact: `mobile-unsigned-ipa`
+- Release tag (on main/manual publish): `mobile-v{MARKETING_VERSION}`
+- IPA filename format: `mm-vX_Y.ipa` (or `mm-vX_Y-<suffix>.ipa`)
+
+## Useful Commands
+
+```bash
+npm run help
+npm run backend:migrate
+npm run backend:migrate:status
+npm run backend:migrate:down -- -1
+npm run import:convert -- --help
+npm run swift:xcodegen
+npm run swift:build
+npm run swift:run
 ```
 
-## Local access
+## License
 
-`nginx/sites/local.conf` adds `listen 80` HTTP blocks for all services (no SSL) plus a `default_server` catch-all. nginx binds port 80 on all interfaces, so `http://192.168.1.69` is reachable from any LAN device immediately.
-
-For subdomain routing to work from other devices (`http://mm.nadee-mj.dev` → Mac Mini instead of Cloudflare), those devices need to resolve the subdomains to `192.168.1.69`. Options:
-
-- **Router DNS override** _(recommended)_ — add a custom DNS record `*.nadee-mj.dev → 192.168.1.69` in your router admin panel. Covers all devices automatically.
-- **Pi-hole** — add a local DNS record under Local DNS → DNS Records.
-- **Per-device `/etc/hosts`** — add on each device:
-
-```
-192.168.1.69 mm.nadee-mj.dev
-192.168.1.69 raddle.nadee-mj.dev
-192.168.1.69 jeopardy.nadee-mj.dev
-192.168.1.69 jelly.nadee-mj.dev
-192.168.1.69 vault.nadee-mj.dev
-192.168.1.69 hass.nadee-mj.dev
-192.168.1.69 abs.nadee-mj.dev
-192.168.1.69 health.nadee-mj.dev
-```
-
-On the Mac Mini itself, use `127.0.0.1` instead of `192.168.1.69` in `/etc/hosts`.
-
-Note: port 80 also requires `sudo brew services start nginx`.
-
-## Verification
-
-### Services (launchd)
-
-```sh
-launchctl list | grep nadeem
-```
-
-All three should appear with a PID (first column) if running:
-
-```
-PID   Status  Label
-1234  0       com.nadeem.mm
-1235  0       com.nadeem.raddle
-1236  0       com.nadeem.jeopardy
-```
-
-View logs:
-
-```sh
-tail -f ~/Library/Logs/mm.log
-tail -f ~/Library/Logs/raddle.log
-tail -f ~/Library/Logs/jeopardy.log
-```
-
-### nginx
-
-```sh
-nginx -t                             # test config
-curl -sk https://health.nadee-mj.dev # should return 200
-```
-
-### cloudflare-dns-update
-
-```sh
-crontab -l                           # verify hourly job is present
-/opt/homebrew/bin/python3 /Users/nadeem/Documents/MacMiniServer/cloudflare-dns-update/script.py
-cat /Users/nadeem/Documents/MacMiniServer/cloudflare-dns-update/logs/cloudflare.log
-cat /Users/nadeem/Documents/MacMiniServer/cloudflare-dns-update/cron-logs/cron.log
-```
-
-## Managing services
-
-```sh
-# Restart a service
-launchctl kickstart -k gui/$(id -u)/com.nadeem.mm
-
-# Stop a service
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.nadeem.mm.plist
-
-# Start a service
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.nadeem.mm.plist
-```
+MIT (see `LICENSE`)

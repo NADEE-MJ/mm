@@ -1,1 +1,0 @@
-# Gymbo backend app package

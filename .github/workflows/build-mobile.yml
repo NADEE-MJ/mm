@@ -1,0 +1,570 @@
+name: Build iOS App
+
+# iOS build pipeline for Movie Manager
+# xcodegen -> xcodebuild (unsigned) -> IPA artifact -> versioned release (mobile-v{version})
+#
+# Triggers:
+#   - workflow_dispatch: manual run from UI, builds IPA + optional release
+#   - pull_request: build check on PRs that touch mobile/
+#   - push to main: automatically build and release when mobile/ changes
+on:
+  workflow_dispatch:
+    inputs:
+      runner_image:
+        description: "GitHub macOS runner image"
+        required: true
+        default: "macos-26"
+        type: choice
+        options:
+          - macos-latest
+          - macos-15
+          - macos-26
+      deployment_target:
+        description: "iOS deployment target for build setting (e.g. 26.0)"
+        required: true
+        default: "26.0"
+        type: string
+      publish_release:
+        description: "Publish/update versioned iOS release"
+        required: true
+        default: true
+        type: boolean
+      artifact_suffix:
+        description: "Optional suffix for IPA filename (letters, numbers, . _ -)"
+        required: false
+        default: ""
+        type: string
+
+  pull_request:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/build-mobile.yml"
+
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/build-mobile.yml"
+
+concurrency:
+  group: mobile-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build iOS App
+    runs-on: ${{ github.event.inputs.runner_image || 'macos-26' }}
+    timeout-minutes: 45
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Show Xcode and SDK info
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Validate API base URL (required secret)
+        env:
+          API_BASE_URL: ${{ secrets.MOBILE_API_BASE_URL }}
+        run: |
+          set -euo pipefail
+          API_BASE_URL=$(echo "${API_BASE_URL:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+
+          if [ -z "$API_BASE_URL" ]; then
+            echo "❌ ERROR: MOBILE_API_BASE_URL is not set"
+            echo "❌ Please set MOBILE_API_BASE_URL as a repository secret"
+            echo "❌ Format: https://your-domain.example.com/api"
+            echo "❌ This is a required configuration for building the mobile app"
+            exit 1
+          fi
+
+          if [[ ! "$API_BASE_URL" =~ ^https:// ]]; then
+            echo "❌ ERROR: MOBILE_API_BASE_URL must start with https://"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          if [[ "$API_BASE_URL" =~ localhost|127\.0\.0\.1|::1 ]]; then
+            echo "❌ ERROR: MOBILE_API_BASE_URL cannot point to localhost/loopback in CI"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          if [[ "$API_BASE_URL" =~ /api/?$ ]]; then
+            API_BASE_URL="${API_BASE_URL%/}"
+          elif [[ "$API_BASE_URL" =~ ^https://[^/]+/?$ ]]; then
+            API_BASE_URL="${API_BASE_URL%/}/api"
+          else
+            echo "❌ ERROR: MOBILE_API_BASE_URL must be a base host URL (https://host) or end with /api"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          if [[ "$API_BASE_URL" == *'$('* || "$API_BASE_URL" == *'${'* ]]; then
+            echo "❌ ERROR: MOBILE_API_BASE_URL contains unresolved variable syntax"
+            echo "❌ Received: $API_BASE_URL"
+            exit 1
+          fi
+
+          echo "✅ API base URL validated: $API_BASE_URL"
+          echo "API_BASE_URL=$API_BASE_URL" >> "$GITHUB_ENV"
+
+      - name: Resolve file logging flag (optional)
+        env:
+          FILE_LOGGING_ENABLED_FROM_VAR: ${{ vars.MOBILE_FILE_LOGGING_ENABLED }}
+          FILE_LOGGING_ENABLED_FROM_SECRET: ${{ secrets.MOBILE_FILE_LOGGING_ENABLED }}
+        run: |
+          set -euo pipefail
+
+          RAW_VALUE="${FILE_LOGGING_ENABLED_FROM_VAR:-}"
+          if [ -z "$RAW_VALUE" ]; then
+            RAW_VALUE="${FILE_LOGGING_ENABLED_FROM_SECRET:-}"
+          fi
+
+          RAW_VALUE=$(echo "${RAW_VALUE:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+          RAW_VALUE_LOWER=$(echo "$RAW_VALUE" | tr '[:upper:]' '[:lower:]')
+
+          if [ -z "$RAW_VALUE_LOWER" ]; then
+            FILE_LOGGING_ENABLED="NO"
+          elif [ "$RAW_VALUE_LOWER" = "yes" ]; then
+            FILE_LOGGING_ENABLED="YES"
+          elif [ "$RAW_VALUE_LOWER" = "no" ]; then
+            FILE_LOGGING_ENABLED="NO"
+          else
+            echo "❌ ERROR: MOBILE_FILE_LOGGING_ENABLED must be YES or NO"
+            echo "❌ Received: $RAW_VALUE"
+            exit 1
+          fi
+
+          echo "✅ FILE_LOGGING_ENABLED resolved to: $FILE_LOGGING_ENABLED"
+          echo "FILE_LOGGING_ENABLED=$FILE_LOGGING_ENABLED" >> "$GITHUB_ENV"
+
+      - name: Generate CI xcconfig from env
+        working-directory: mobile
+        env:
+          API_BASE_URL: ${{ env.API_BASE_URL }}
+          FILE_LOGGING_ENABLED: ${{ env.FILE_LOGGING_ENABLED }}
+        run: |
+          set -euo pipefail
+          ./scripts/generate-env-xcconfig.sh
+          if [ ! -f Config/Env.generated.xcconfig ]; then
+            echo "❌ Missing Config/Env.generated.xcconfig"
+            exit 1
+          fi
+          echo "✅ Generated Config/Env.generated.xcconfig"
+
+      - name: Generate Xcode project
+        working-directory: mobile
+        run: xcodegen generate
+
+      - name: Resolve SPM dependencies
+        working-directory: mobile
+        run: |
+          xcodebuild -project MovieManager.xcodeproj \
+            -scheme MovieManager \
+            -resolvePackageDependencies
+
+      - name: Verify plist build settings
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+          SETTINGS=$(xcodebuild \
+            -project MovieManager.xcodeproj \
+            -target MovieManager \
+            -configuration Release \
+            -showBuildSettings 2>/dev/null)
+
+          get_setting() {
+            local key="$1"
+            awk -F ' = ' -v key="$key" '
+              $1 ~ "^[[:space:]]*" key "[[:space:]]*$" { value=$2 }
+              END {
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+                print value
+              }
+            ' <<< "$SETTINGS"
+          }
+
+          GENERATE_INFOPLIST_FILE_VALUE="$(get_setting GENERATE_INFOPLIST_FILE)"
+          INFOPLIST_FILE_VALUE="$(get_setting INFOPLIST_FILE)"
+          API_BASE_URL_VALUE="$(get_setting API_BASE_URL)"
+          FILE_LOGGING_ENABLED_VALUE="$(get_setting FILE_LOGGING_ENABLED)"
+
+          echo "GENERATE_INFOPLIST_FILE = ${GENERATE_INFOPLIST_FILE_VALUE:-<unset>}"
+          echo "INFOPLIST_FILE = ${INFOPLIST_FILE_VALUE:-<unset>}"
+          echo "API_BASE_URL = ${API_BASE_URL_VALUE:-<unset>}"
+          echo "FILE_LOGGING_ENABLED = ${FILE_LOGGING_ENABLED_VALUE:-<unset>}"
+
+          if [ "${GENERATE_INFOPLIST_FILE_VALUE:-}" != "NO" ]; then
+            echo "❌ GENERATE_INFOPLIST_FILE must be NO"
+            exit 1
+          fi
+          if [[ -z "${INFOPLIST_FILE_VALUE:-}" || "${INFOPLIST_FILE_VALUE}" != *"Sources/Info.plist" ]]; then
+            echo "❌ INFOPLIST_FILE must point to Sources/Info.plist"
+            exit 1
+          fi
+          if [[ -z "${API_BASE_URL_VALUE:-}" || "${API_BASE_URL_VALUE}" == "__UNSET_API_BASE_URL__" ]]; then
+            echo "❌ API_BASE_URL is unresolved in build settings"
+            exit 1
+          fi
+          if [ "${API_BASE_URL_VALUE}" = "https:" ]; then
+            echo "❌ API_BASE_URL resolved to https: only (likely bad xcconfig escaping)"
+            exit 1
+          fi
+          if [[ -z "${FILE_LOGGING_ENABLED_VALUE:-}" || ! "${FILE_LOGGING_ENABLED_VALUE}" =~ ^(YES|NO)$ ]]; then
+            echo "❌ FILE_LOGGING_ENABLED must resolve to YES or NO"
+            exit 1
+          fi
+
+      - name: Build with xcodebuild
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+
+          if [ -z "${API_BASE_URL:-}" ]; then
+            echo "❌ API_BASE_URL is missing in build environment"
+            exit 1
+          fi
+          if [[ -z "${FILE_LOGGING_ENABLED:-}" || ! "${FILE_LOGGING_ENABLED}" =~ ^(YES|NO)$ ]]; then
+            echo "❌ FILE_LOGGING_ENABLED must be set to YES or NO in build environment"
+            exit 1
+          fi
+
+          if [ ! -f "Config/Env.generated.xcconfig" ]; then
+            echo "❌ Missing Config/Env.generated.xcconfig"
+            exit 1
+          fi
+
+          DEPLOYMENT_TARGET_RAW="${{ github.event.inputs.deployment_target }}"
+          DEPLOYMENT_TARGET=$(echo "$DEPLOYMENT_TARGET_RAW" | tr -cd '0-9.')
+          if [ -z "$DEPLOYMENT_TARGET" ]; then
+            DEPLOYMENT_TARGET="26.0"
+          fi
+          echo "Using IPHONEOS_DEPLOYMENT_TARGET=$DEPLOYMENT_TARGET"
+
+          set -o pipefail
+          xcodebuild \
+            -project MovieManager.xcodeproj \
+            -scheme MovieManager \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            IPHONEOS_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            build 2>&1 | tee build.log
+
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -name "*.app" -type d 2>/dev/null | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "❌ No .app bundle produced"
+            find build/Build/Products -maxdepth 3 -type d | sort
+            exit 1
+          fi
+
+          BUILT_INFO_PLIST="$APP_PATH/Info.plist"
+          if [ ! -f "$BUILT_INFO_PLIST" ]; then
+            echo "❌ Built app Info.plist not found: $BUILT_INFO_PLIST"
+            exit 1
+          fi
+
+          # Force-write API_BASE_URL into the built app plist so runtime config is guaranteed.
+          /usr/libexec/PlistBuddy -c "Set :API_BASE_URL $API_BASE_URL" "$BUILT_INFO_PLIST" >/dev/null 2>&1 || \
+            /usr/libexec/PlistBuddy -c "Add :API_BASE_URL string $API_BASE_URL" "$BUILT_INFO_PLIST"
+          /usr/libexec/PlistBuddy -c "Set :FILE_LOGGING_ENABLED $FILE_LOGGING_ENABLED" "$BUILT_INFO_PLIST" >/dev/null 2>&1 || \
+            /usr/libexec/PlistBuddy -c "Add :FILE_LOGGING_ENABLED string $FILE_LOGGING_ENABLED" "$BUILT_INFO_PLIST"
+
+          BUILT_API_BASE_URL=$(/usr/bin/plutil -extract API_BASE_URL raw -o - "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          if [ -z "${BUILT_API_BASE_URL:-}" ]; then
+            BUILT_API_BASE_URL=$(/usr/libexec/PlistBuddy -c "Print :API_BASE_URL" "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          fi
+          BUILT_API_BASE_URL=$(echo "${BUILT_API_BASE_URL:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+          BUILT_FILE_LOGGING_ENABLED=$(/usr/bin/plutil -extract FILE_LOGGING_ENABLED raw -o - "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          if [ -z "${BUILT_FILE_LOGGING_ENABLED:-}" ]; then
+            BUILT_FILE_LOGGING_ENABLED=$(/usr/libexec/PlistBuddy -c "Print :FILE_LOGGING_ENABLED" "$BUILT_INFO_PLIST" 2>/dev/null || true)
+          fi
+          BUILT_FILE_LOGGING_ENABLED=$(echo "${BUILT_FILE_LOGGING_ENABLED:-}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+
+          if [ -z "$BUILT_API_BASE_URL" ]; then
+            echo "❌ Built app API_BASE_URL is empty or missing in Info.plist"
+            echo "ℹ️ Built Info.plist snapshot:"
+            /usr/bin/plutil -p "$BUILT_INFO_PLIST" | sed -n '1,120p' || true
+            exit 1
+          fi
+          if [[ -z "$BUILT_FILE_LOGGING_ENABLED" || ! "$BUILT_FILE_LOGGING_ENABLED" =~ ^(YES|NO)$ ]]; then
+            echo "❌ Built app FILE_LOGGING_ENABLED is empty/invalid in Info.plist"
+            echo "ℹ️ Built Info.plist snapshot:"
+            /usr/bin/plutil -p "$BUILT_INFO_PLIST" | sed -n '1,120p' || true
+            exit 1
+          fi
+
+          if [ "$BUILT_API_BASE_URL" != "$API_BASE_URL" ]; then
+            echo "❌ Built app API_BASE_URL does not match pipeline secret"
+            echo "❌ Actual built value: $BUILT_API_BASE_URL"
+            exit 1
+          fi
+          if [ "$BUILT_FILE_LOGGING_ENABLED" != "$FILE_LOGGING_ENABLED" ]; then
+            echo "❌ Built app FILE_LOGGING_ENABLED does not match pipeline value"
+            echo "❌ Actual built value: $BUILT_FILE_LOGGING_ENABLED"
+            exit 1
+          fi
+
+          echo "✅ Found app bundle: $APP_PATH"
+          echo "✅ Built Info.plist API_BASE_URL verified: $BUILT_API_BASE_URL"
+          echo "✅ Built Info.plist FILE_LOGGING_ENABLED verified: $BUILT_FILE_LOGGING_ENABLED"
+          echo "APP_PATH=$APP_PATH" >> "$GITHUB_ENV"
+
+      - name: Package IPA
+        working-directory: mobile
+        run: |
+          set -euo pipefail
+
+          if [ -z "${{ env.APP_PATH }}" ]; then
+            echo "❌ APP_PATH is empty"
+            exit 1
+          fi
+
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "${{ env.APP_PATH }}" Payload/
+
+          VERSION=$(grep 'MARKETING_VERSION:' project.yml | head -1 | sed 's/.*MARKETING_VERSION:[[:space:]]*//' | tr -d '[:space:]')
+          if [ -z "$VERSION" ]; then
+            echo "❌ Could not read MARKETING_VERSION from mobile/project.yml"
+            exit 1
+          fi
+
+          VERSION_TAG="v$(echo "$VERSION" | tr '.' '_')"
+
+          # Build the IPA filename based on trigger type
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FULL_SHA="${{ github.sha }}"
+            SHORT_SHA="${FULL_SHA:0:7}"
+            IPA_NAME="mm-${VERSION_TAG}-pr${{ github.event.pull_request.number }}-${SHORT_SHA}.ipa"
+          else
+            SUFFIX_RAW="${{ github.event.inputs.artifact_suffix }}"
+            SUFFIX=$(echo "$SUFFIX_RAW" | tr -cd '[:alnum:]._-')
+            if [ -n "$SUFFIX" ]; then
+              IPA_NAME="mm-${VERSION_TAG}-${SUFFIX}.ipa"
+            else
+              IPA_NAME="mm-${VERSION_TAG}.ipa"
+            fi
+          fi
+
+          zip -r -9 "$IPA_NAME" Payload/
+
+          mv "$IPA_NAME" "$GITHUB_WORKSPACE/$IPA_NAME"
+          echo "IPA_PATH=$GITHUB_WORKSPACE/$IPA_NAME" >> "$GITHUB_ENV"
+          echo "IPA_NAME=$IPA_NAME" >> "$GITHUB_ENV"
+
+          echo "✅ Created $IPA_NAME"
+          du -h "$GITHUB_WORKSPACE/$IPA_NAME"
+
+      - name: Upload IPA artifact
+        id: upload_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.IPA_NAME || 'mobile-unsigned-ipa' }}
+          path: ${{ env.IPA_PATH }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publish PR IPA prerelease
+        if: success() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="mobile-pr-${{ github.event.pull_request.number }}"
+          DIRECT_URL="${{ github.server_url }}/${{ github.repository }}/releases/download/${TAG}/${{ env.IPA_NAME }}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --prerelease --title "iOS PR #${{ github.event.pull_request.number }}"
+          else
+            gh release create "$TAG" \
+              --prerelease \
+              --title "iOS PR #${{ github.event.pull_request.number }}" \
+              --notes "Unsigned iOS builds for PR #${{ github.event.pull_request.number }}. Each file corresponds to a different commit."
+          fi
+
+          gh release upload "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" --clobber
+          echo "IPA_DIRECT_URL=${DIRECT_URL}" >> "$GITHUB_ENV"
+          echo "✅ Published PR IPA: ${DIRECT_URL}"
+
+      - name: Publish versioned IPA release
+        if: success() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_release == 'true')) && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          VERSION=$(grep 'MARKETING_VERSION:' mobile/project.yml | head -1 | sed 's/.*MARKETING_VERSION:[[:space:]]*//' | tr -d '[:space:]')
+          if [ -z "$VERSION" ]; then
+            echo "❌ Could not read MARKETING_VERSION from mobile/project.yml"
+            exit 1
+          fi
+
+          TAG="mobile-v${VERSION}"
+          RELEASE_TITLE="iOS v${VERSION}"
+          RELEASE_URL="${{ github.server_url }}/${{ github.repository }}/releases/tag/${TAG}"
+
+          echo "Version: $VERSION  Tag: $TAG"
+
+          BUILD_TIME=$(TZ=America/Los_Angeles date '+%Y-%m-%d %I:%M %p %Z')
+          FULL_SHA="${{ github.sha }}"
+          SHORT_SHA="${FULL_SHA:0:7}"
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          NOTES=$(printf 'Unsigned iOS build for v%s.\n\n**Built:** %s\n**Commit:** [%s](%s)\n**Workflow run:** [#%s](%s)' \
+            "${VERSION}" "${BUILD_TIME}" "${SHORT_SHA}" "${COMMIT_URL}" "${{ github.run_number }}" "${RUN_URL}")
+
+          # Create tag only if it doesn't exist yet
+          if ! gh api "repos/${{ github.repository }}/git/ref/tags/${TAG}" >/dev/null 2>&1; then
+            gh api -X POST "repos/${{ github.repository }}/git/refs" \
+              -f ref="refs/tags/${TAG}" \
+              -f sha="${{ github.sha }}"
+            echo "Created tag $TAG"
+          else
+            echo "Tag $TAG already exists — reusing"
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$RELEASE_TITLE" --notes "$NOTES"
+          else
+            gh release create "$TAG" --title "$RELEASE_TITLE" --notes "$NOTES"
+          fi
+
+          gh release upload "$TAG" "${{ env.IPA_PATH }}#${{ env.IPA_NAME }}" --clobber
+          echo "RELEASE_URL=$RELEASE_URL" >> "$GITHUB_ENV"
+          echo "✅ Published release: $RELEASE_URL"
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-build-log
+          path: mobile/build.log
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Update PR build history comment
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JOB_STATUS: ${{ job.status }}
+          IPA_NAME: ${{ env.IPA_NAME }}
+          ARTIFACT_URL: ${{ steps.upload_artifact.outputs['artifact-url'] }}
+          IPA_DIRECT_URL: ${{ env.IPA_DIRECT_URL }}
+        run: |
+          set -euo pipefail
+
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          RUN_URL="${{ github.server_url }}/${REPO}/actions/runs/${{ github.run_id }}"
+          ARTIFACTS_URL="${RUN_URL}#artifacts"
+          FULL_SHA="${{ github.sha }}"
+          SHORT_SHA="${FULL_SHA:0:7}"
+          COMMIT_URL="${{ github.server_url }}/${REPO}/commit/${FULL_SHA}"
+          CREATED_AT_UTC="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          MARKER="<!-- ios-build-history-comment -->"
+
+          RESULT_LABEL="⚪ Unknown"
+          IPA_LABEL="—"
+          DOWNLOAD_TARGET="${ARTIFACTS_URL}"
+          DOWNLOAD_LABEL_TEXT="Artifacts"
+          if [ -n "${IPA_DIRECT_URL:-}" ]; then
+            DOWNLOAD_TARGET="${IPA_DIRECT_URL}"
+            DOWNLOAD_LABEL_TEXT="Download .ipa"
+          elif [ -n "${ARTIFACT_URL:-}" ]; then
+            DOWNLOAD_TARGET="${ARTIFACT_URL}"
+          fi
+          DOWNLOAD_LABEL="[${DOWNLOAD_LABEL_TEXT}](${DOWNLOAD_TARGET})"
+
+          case "${JOB_STATUS}" in
+            success)
+              RESULT_LABEL="✅ Success"
+              if [ -n "${IPA_NAME:-}" ]; then
+                IPA_LABEL="\`${IPA_NAME}\`"
+              else
+                IPA_LABEL="(not available)"
+              fi
+              ;;
+            failure)
+              RESULT_LABEL="❌ Failed ([Logs](${RUN_URL}))"
+              IPA_LABEL="—"
+              ;;
+            cancelled)
+              RESULT_LABEL="⛔ Cancelled ([Run](${RUN_URL}))"
+              IPA_LABEL="—"
+              ;;
+            *)
+              RESULT_LABEL="⚪ ${JOB_STATUS} ([Run](${RUN_URL}))"
+              IPA_LABEL="—"
+              ;;
+          esac
+
+          NEW_ROW="| ${CREATED_AT_UTC} | [\`${SHORT_SHA}\`](${COMMIT_URL}) | ${RESULT_LABEL} | ${IPA_LABEL} | ${DOWNLOAD_LABEL} |"
+
+          COMMENTS_JSON="$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments?per_page=100")"
+          COMMENT_ID="$(echo "$COMMENTS_JSON" | jq -r --arg marker "$MARKER" '.[] | select(.user.login == "github-actions[bot]" and (.body | contains($marker))) | .id' | head -n1)"
+
+          HEADER_TEXT="$(printf '%s\n## iOS Build History\n\n| Created (UTC) | Commit | Result | IPA | Download |\n|---|---|---|---|---|' "$MARKER")"
+
+          TMP_BODY="$(mktemp)"
+          trap 'rm -f "$TMP_BODY"' EXIT
+
+          if [ -n "${COMMENT_ID}" ]; then
+            CURRENT_BODY="$(gh api "repos/${REPO}/issues/comments/${COMMENT_ID}" --jq '.body')"
+            printf '%s\n%s\n' "$CURRENT_BODY" "$NEW_ROW" > "$TMP_BODY"
+            gh api "repos/${REPO}/issues/comments/${COMMENT_ID}" -X PATCH -F "body=@${TMP_BODY}" >/dev/null
+            echo "✅ Updated existing iOS build history comment (id=${COMMENT_ID})"
+          else
+            printf '%s\n%s\n' "$HEADER_TEXT" "$NEW_ROW" > "$TMP_BODY"
+            gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" -X POST -F "body=@${TMP_BODY}" >/dev/null
+            echo "✅ Created iOS build history comment"
+          fi
+
+          # Cleanup old one-off bot comments from prior workflow behavior.
+          LEGACY_IDS="$(echo "$COMMENTS_JSON" | jq -r '.[] | select(.user.login == "github-actions[bot]" and ((.body | startswith("✅ Build iOS App:")) or (.body | startswith("❌ Build iOS App:")))) | .id')"
+          if [ -n "${LEGACY_IDS}" ]; then
+            while IFS= read -r legacy_id; do
+              if [ -n "$legacy_id" ]; then
+                gh api "repos/${REPO}/issues/comments/${legacy_id}" -X DELETE >/dev/null
+                echo "🧹 Deleted legacy PR comment ${legacy_id}"
+              fi
+            done <<< "$LEGACY_IDS"
+          fi
+
+      - name: Build summary
+        if: success() && github.event_name == 'workflow_dispatch'
+        run: |
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: PR check summary
+        if: success() && github.event_name == 'pull_request'
+        run: |
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Push summary
+        if: success() && github.event_name == 'push'
+        run: |
+          ARTIFACTS_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          echo "✅ ${{ github.workflow }}: [Build artifacts](${ARTIFACTS_URL})" >> "$GITHUB_STEP_SUMMARY"

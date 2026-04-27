@@ -1,4 +1,0 @@
-.env
-logs/*
-cron-logs/*
-__pycache__

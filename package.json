@@ -1,8 +1,26 @@
 {
-  "name": "mac-mini-server",
+  "name": "mm-cli",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
-    "nginx:setup": "sudo bash nginx/setup.sh",
-    "nginx:reload": "sudo nginx -s reload"
+    "cli": "bash scripts/mm-cli.sh",
+    "help": "bash scripts/mm-cli.sh help",
+    "install:all": "bash scripts/mm-cli.sh install:all",
+    "install:frontend": "bash scripts/mm-cli.sh install:frontend",
+    "install:backend": "bash scripts/mm-cli.sh install:backend",
+    "install:sync": "bash scripts/mm-cli.sh install:sync",
+    "build:frontend": "bash scripts/mm-cli.sh build:frontend",
+    "frontend:dev": "bash scripts/mm-cli.sh frontend:dev",
+    "backend:migrate": "bash scripts/mm-cli.sh backend:migrate",
+    "backend:migrate:status": "bash scripts/mm-cli.sh backend:migrate:status",
+    "backend:migrate:down": "bash scripts/mm-cli.sh backend:migrate:down",
+    "backend:start": "bash scripts/mm-cli.sh backend:start",
+    "import:convert": "bash scripts/mm-cli.sh import:convert",
+    "swift:xcodegen": "bash scripts/mm-cli.sh swift:xcodegen",
+    "swift:build": "bash scripts/mm-cli.sh swift:build",
+    "swift:run": "bash scripts/mm-cli.sh swift:run",
+    "simulator:list": "bash scripts/mm-cli.sh simulator:list",
+    "simulator:boot": "bash scripts/mm-cli.sh simulator:boot",
+    "start": "bash scripts/mm-cli.sh start"
   }
 }
