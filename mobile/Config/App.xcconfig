@@ -1,0 +1,5 @@
+#include? "Env.generated.xcconfig"
+
+FORWARD_SLASH = /
+API_BASE_URL = http:$(FORWARD_SLASH)$(FORWARD_SLASH)localhost:8002
+FILE_LOGGING_ENABLED = NO
