@@ -52,6 +52,7 @@ class Movie(Base):
     )
     tmdb_data = Column(Text)  # JSON string of TMDB data
     omdb_data = Column(Text)  # JSON string of OMDb data
+    poster_override = Column(String, nullable=True)  # Explicit poster URL, overrides tmdb/omdb
     media_type = Column(String, nullable=False, default="movie")
     last_modified = Column(
         Float, default=lambda: time.time(), onupdate=lambda: time.time()
@@ -240,6 +241,7 @@ class MovieStatus(Base):
     user_id = Column(String, primary_key=True)
     status = Column(String, nullable=False, default="toWatch")
     custom_list_id = Column(String, nullable=True)  # For custom lists
+    notes = Column(Text, nullable=True)
 
     # Relationships
     movie = relationship(

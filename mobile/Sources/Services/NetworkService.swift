@@ -1,5 +1,16 @@
 import Foundation
 
+// MARK: - Poster URL Helper
+
+/// `posterPath` may already be a full URL (OMDb posters) or a bare TMDB path — in the
+/// latter case we can pick the delivered image size to avoid downloading/decoding a
+/// full-size poster for a small list thumbnail.
+private func tmdbImageURL(path: String?, size: String) -> URL? {
+    guard let path else { return nil }
+    if path.hasPrefix("http") { return URL(string: path) }
+    return URL(string: "https://image.tmdb.org/t/p/\(size)\(path)")
+}
+
 // MARK: - Data Models
 
 struct Movie: Identifiable, Hashable, Decodable {
@@ -22,14 +33,18 @@ struct Movie: Identifiable, Hashable, Decodable {
     let mediaType: String
     let recommendations: [Recommendation]
     let lastModified: Double?
+    let notes: String?
+    let posterOverride: String?
+    let tmdbPosterPath: String?
+    let omdbPosterPath: String?
 
     var id: String { imdbId }
 
-    var posterURL: URL? {
-        guard let posterPath else { return nil }
-        if posterPath.hasPrefix("http") { return URL(string: posterPath) }
-        return URL(string: "https://image.tmdb.org/t/p/w342\(posterPath)")
-    }
+    var posterURL: URL? { tmdbImageURL(path: posterPath, size: "w342") }
+    /// Sized for small list rows, so scrolling a long library doesn't decode full-size posters.
+    var posterThumbnailURL: URL? { tmdbImageURL(path: posterPath, size: "w185") }
+    var tmdbPosterURL: URL? { tmdbImageURL(path: tmdbPosterPath, size: "w342") }
+    var omdbPosterURL: URL? { tmdbImageURL(path: omdbPosterPath, size: "w342") }
 
     enum CodingKeys: String, CodingKey {
         case imdbId = "imdb_id"
@@ -50,6 +65,7 @@ struct Movie: Identifiable, Hashable, Decodable {
         case mediaTypeCamel = "mediaType"
         case recommendations
         case lastModified = "last_modified"
+        case notes
     }
 
     init(from decoder: Decoder) throws {
@@ -69,7 +85,11 @@ struct Movie: Identifiable, Hashable, Decodable {
             imdbId = backendMovie.imdbId
             tmdbId = tmdbData?.tmdbId
             title = tmdbData?.title ?? omdbData?.title ?? backendMovie.imdbId
-            posterPath = tmdbData?.poster ?? tmdbData?.posterPath ?? omdbData?.poster
+            let resolvedTmdbPoster = tmdbData?.poster ?? tmdbData?.posterPath
+            posterOverride = backendMovie.posterOverride
+            tmdbPosterPath = resolvedTmdbPoster
+            omdbPosterPath = omdbData?.poster
+            posterPath = backendMovie.posterOverride ?? resolvedTmdbPoster ?? omdbData?.poster
             overview = tmdbData?.plot ?? omdbData?.plot
             releaseDate = tmdbData?.year ?? omdbData?.yearString
             voteAverage = tmdbData?.voteAverage
@@ -92,6 +112,7 @@ struct Movie: Identifiable, Hashable, Decodable {
             }
             recommendations = mappedRecommendations
             lastModified = backendMovie.lastModified
+            notes = backendMovie.notes
             return
         }
 
@@ -100,6 +121,9 @@ struct Movie: Identifiable, Hashable, Decodable {
         tmdbId = try c.decodeIfPresent(Int.self, forKey: .tmdbId)
         title = try c.decode(String.self, forKey: .title)
         posterPath = try c.decodeIfPresent(String.self, forKey: .posterPath)
+        posterOverride = nil
+        tmdbPosterPath = nil
+        omdbPosterPath = nil
         overview = try c.decodeIfPresent(String.self, forKey: .overview)
         releaseDate = try c.decodeIfPresent(String.self, forKey: .releaseDate)
         voteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverage)
@@ -118,6 +142,7 @@ struct Movie: Identifiable, Hashable, Decodable {
         )
         recommendations = (try? c.decodeIfPresent([Recommendation].self, forKey: .recommendations)) ?? []
         lastModified = try? c.decodeIfPresent(Double.self, forKey: .lastModified)
+        notes = try? c.decodeIfPresent(String.self, forKey: .notes)
     }
 
     init(
@@ -139,7 +164,11 @@ struct Movie: Identifiable, Hashable, Decodable {
         dateWatched: String?,
         mediaType: String = "movie",
         recommendations: [Recommendation],
-        lastModified: Double? = nil
+        lastModified: Double? = nil,
+        notes: String? = nil,
+        posterOverride: String? = nil,
+        tmdbPosterPath: String? = nil,
+        omdbPosterPath: String? = nil
     ) {
         self.imdbId = imdbId
         self.tmdbId = tmdbId
@@ -160,6 +189,10 @@ struct Movie: Identifiable, Hashable, Decodable {
         self.mediaType = Self.normalizeMediaType(mediaType)
         self.recommendations = recommendations
         self.lastModified = lastModified
+        self.notes = notes
+        self.posterOverride = posterOverride
+        self.tmdbPosterPath = tmdbPosterPath
+        self.omdbPosterPath = omdbPosterPath
     }
 
     private static func mapBackendStatusToApp(_ backendStatus: String) -> String {
@@ -306,11 +339,9 @@ struct TMDBMovie: Identifiable, Hashable, Decodable {
     let mediaType: String
     let knownFor: [String]
 
-    var posterURL: URL? {
-        guard let posterPath else { return nil }
-        if posterPath.hasPrefix("http") { return URL(string: posterPath) }
-        return URL(string: "https://image.tmdb.org/t/p/w342\(posterPath)")
-    }
+    var posterURL: URL? { tmdbImageURL(path: posterPath, size: "w342") }
+    /// Sized for small list rows, so scrolling long result lists doesn't decode full-size posters.
+    var posterThumbnailURL: URL? { tmdbImageURL(path: posterPath, size: "w185") }
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -455,6 +486,8 @@ private struct TMDBDetailPayload: Codable {
     let posterPath: String?
     let plot: String?
     let genres: [String]?
+    let cast: [String]?
+    let director: String?
     let voteAverage: Double?
     let voteCount: Int?
     let numberOfSeasons: Int?
@@ -471,6 +504,8 @@ private struct TMDBDetailPayload: Codable {
         case posterPath = "poster_path"
         case plot
         case genres
+        case cast
+        case director
         case voteAverage
         case voteCount
         case numberOfSeasons
@@ -503,6 +538,8 @@ private struct TMDBDetailPayload: Codable {
         posterPath = try c.decodeIfPresent(String.self, forKey: .posterPath)
         plot = try c.decodeIfPresent(String.self, forKey: .plot)
         genres = try c.decodeIfPresent([String].self, forKey: .genres)
+        cast = try c.decodeIfPresent([String].self, forKey: .cast)
+        director = try c.decodeIfPresent(String.self, forKey: .director)
         var decodedVoteAverage = try c.decodeIfPresent(Double.self, forKey: .voteAverage)
         var decodedVoteCount = try c.decodeIfPresent(Int.self, forKey: .voteCount)
 
@@ -537,6 +574,8 @@ private struct TMDBDetailPayload: Codable {
         posterPath: String?,
         plot: String?,
         genres: [String]?,
+        cast: [String]? = nil,
+        director: String? = nil,
         voteAverage: Double?,
         voteCount: Int?,
         numberOfSeasons: Int? = nil,
@@ -552,6 +591,8 @@ private struct TMDBDetailPayload: Codable {
         self.posterPath = posterPath
         self.plot = plot
         self.genres = genres
+        self.cast = cast
+        self.director = director
         self.voteAverage = voteAverage
         self.voteCount = voteCount
         self.numberOfSeasons = numberOfSeasons
@@ -601,6 +642,8 @@ private struct BackendMovie: Decodable {
     let recommendations: [BackendRecommendation]
     let watchHistory: BackendWatchHistory?
     let lastModified: Double?
+    let notes: String?
+    let posterOverride: String?
 
     enum CodingKeys: String, CodingKey {
         case imdbId = "imdb_id"
@@ -611,6 +654,8 @@ private struct BackendMovie: Decodable {
         case recommendations
         case watchHistory = "watch_history"
         case lastModified = "last_modified"
+        case notes
+        case posterOverride = "poster_override"
     }
 
     init(from decoder: Decoder) throws {
@@ -623,6 +668,8 @@ private struct BackendMovie: Decodable {
         recommendations = (try? c.decodeIfPresent([BackendRecommendation].self, forKey: .recommendations)) ?? []
         watchHistory = try c.decodeIfPresent(BackendWatchHistory.self, forKey: .watchHistory)
         lastModified = try c.decodeIfPresent(Double.self, forKey: .lastModified)
+        notes = try? c.decodeIfPresent(String.self, forKey: .notes)
+        posterOverride = try? c.decodeIfPresent(String.self, forKey: .posterOverride)
     }
 }
 
@@ -675,6 +722,18 @@ private struct MarkWatchedRequest: Encodable {
     enum CodingKeys: String, CodingKey {
         case dateWatched = "date_watched"
         case myRating = "my_rating"
+    }
+}
+
+private struct UpdateMovieNotesRequest: Encodable {
+    let notes: String?
+}
+
+private struct UpdateMoviePosterRequest: Encodable {
+    let posterUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case posterUrl = "poster_url"
     }
 }
 
@@ -816,11 +875,9 @@ struct RankingEntry: Identifiable, Decodable {
 
     var id: String { imdbId }
 
-    var posterURL: URL? {
-        guard let posterPath else { return nil }
-        if posterPath.hasPrefix("http") { return URL(string: posterPath) }
-        return URL(string: "https://image.tmdb.org/t/p/w342\(posterPath)")
-    }
+    var posterURL: URL? { tmdbImageURL(path: posterPath, size: "w342") }
+    /// Sized for small list rows, so scrolling a long library doesn't decode full-size posters.
+    var posterThumbnailURL: URL? { tmdbImageURL(path: posterPath, size: "w185") }
 
     enum CodingKeys: String, CodingKey {
         case imdbId = "imdb_id"
@@ -842,11 +899,9 @@ struct UnrankedEntry: Identifiable, Decodable {
 
     var id: String { imdbId }
 
-    var posterURL: URL? {
-        guard let posterPath else { return nil }
-        if posterPath.hasPrefix("http") { return URL(string: posterPath) }
-        return URL(string: "https://image.tmdb.org/t/p/w342\(posterPath)")
-    }
+    var posterURL: URL? { tmdbImageURL(path: posterPath, size: "w342") }
+    /// Sized for small list rows, so scrolling a long library doesn't decode full-size posters.
+    var posterThumbnailURL: URL? { tmdbImageURL(path: posterPath, size: "w185") }
 
     enum CodingKeys: String, CodingKey {
         case imdbId = "imdb_id"
@@ -1097,6 +1152,39 @@ final class NetworkService {
         }
     }
 
+    @discardableResult
+    func updateMovieNotes(imdbId: String, notes: String?) async -> Bool {
+        lastError = nil
+        guard let encodedImdb = imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            lastError = "Invalid imdb id: \(imdbId)"
+            return false
+        }
+
+        let trimmed = notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = UpdateMovieNotesRequest(notes: (trimmed?.isEmpty ?? true) ? nil : trimmed)
+        return await put(
+            "\(baseURL)/movies/\(encodedImdb)/notes",
+            body: body,
+            validStatusCodes: [200]
+        )
+    }
+
+    @discardableResult
+    func updateMoviePoster(imdbId: String, posterUrl: String?) async -> Bool {
+        lastError = nil
+        guard let encodedImdb = imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            lastError = "Invalid imdb id: \(imdbId)"
+            return false
+        }
+
+        let body = UpdateMoviePosterRequest(posterUrl: posterUrl)
+        return await put(
+            "\(baseURL)/movies/\(encodedImdb)/poster",
+            body: body,
+            validStatusCodes: [200]
+        )
+    }
+
     func refreshMovieMetadata(imdbId: String) async -> Bool {
         lastError = nil
         guard let encodedImdb = imdbId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
@@ -1185,6 +1273,21 @@ final class NetworkService {
 
     func discoverTrendingMovies(timeWindow: String = "day") async -> [TMDBMovie] {
         await discoverMoviesByList(kind: "trending", region: "US", timeWindow: timeWindow)
+    }
+
+    /// Titles TMDB recommends based on movies/shows the user has upvoted in their library.
+    func discoverRecommendationsForYou(limit: Int = 20) async -> [TMDBMovie] {
+        lastError = nil
+        guard let data = await get("\(baseURL)/movies/recommendations/for-you?limit=\(limit)") else {
+            return []
+        }
+
+        guard let decoded = try? JSONDecoder().decode([TMDBMovie].self, from: data) else {
+            lastError = "Failed to decode recommendations response"
+            AppLog.warning("🌐 [NetworkService] Could not decode recommendations response", category: .network)
+            return []
+        }
+        return decoded
     }
 
     private func discoverMoviesByList(
@@ -1701,6 +1804,21 @@ final class NetworkService {
         }
 
         return details
+    }
+
+    struct DiscoverPreviewDetails {
+        let plot: String?
+        let cast: [String]
+        let director: String?
+    }
+
+    /// Fetch plot/cast/director for a search result before it's added, so the
+    /// confirm sheet can show more than title/year/rating.
+    func fetchPreviewDetails(tmdbId: Int, mediaType: String) async -> DiscoverPreviewDetails? {
+        guard let details = await fetchTMDBDetails(tmdbId: tmdbId, mediaType: mediaType) else {
+            return nil
+        }
+        return DiscoverPreviewDetails(plot: details.plot, cast: details.cast ?? [], director: details.director)
     }
 
     private func fetchTMDBDetails(tmdbId: Int, mediaType: String) async -> TMDBDetailPayload? {

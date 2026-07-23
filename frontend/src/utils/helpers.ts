@@ -26,6 +26,14 @@ export function formatRating(rating) {
 }
 
 /**
+ * Resolve which poster source to show for a movie: an explicit user override
+ * takes priority, falling back to OMDb then TMDB art (the pre-existing default).
+ */
+export function getMoviePosterSource(movie) {
+  return movie?.posterOverride || movie?.omdbData?.poster || movie?.tmdbData?.poster;
+}
+
+/**
  * Get poster URL or placeholder
  */
 export function getPoster(posterUrl) {
@@ -49,7 +57,12 @@ export function getPoster(posterUrl) {
 /**
  * Sort movies by various criteria
  */
-export function sortMovies(movies, sortBy) {
+export function sortMovies(movies, sortBy, direction = "desc") {
+  const sorted = sortMoviesInDefaultOrder(movies, sortBy);
+  return direction === "asc" ? sorted.reverse() : sorted;
+}
+
+function sortMoviesInDefaultOrder(movies, sortBy) {
   const sorted = [...movies];
 
   switch (sortBy) {

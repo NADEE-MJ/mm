@@ -8,15 +8,21 @@ import MovieHeader from "./MovieHeader";
 import MovieInfo from "./MovieInfo";
 import VotesSection from "./VotesSection";
 import ActionsBar from "./ActionsBar";
+import NotesSection from "./NotesSection";
 
 export default function MovieDetailContainer({
   movie,
   onClose,
   onMarkWatched,
   onUpdateStatus,
+  onUpdateNotes,
+  onUpdatePoster,
   onRemoveVote,
   onShowAddUpvote,
   onShowAddDownvote,
+  onOpenPerson,
+  onOpenGenre,
+  onOpenCompany,
 }) {
   if (!movie) return null;
 
@@ -31,6 +37,14 @@ export default function MovieDetailContainer({
 
   const handleStatusChange = async (newStatus) => {
     await onUpdateStatus(movie.imdbId, newStatus);
+  };
+
+  const handleNotesSave = async (notes) => {
+    await onUpdateNotes(movie.imdbId, notes);
+  };
+
+  const handlePosterChange = async (posterUrl) => {
+    await onUpdatePoster(movie.imdbId, posterUrl);
   };
 
   const handleRemoveVote = async (person) => {
@@ -54,8 +68,20 @@ export default function MovieDetailContainer({
       </header>
 
       <div className="pb-8">
-        <MovieHeader movie={movie} omdb={omdb} tmdb={tmdb} />
-        <MovieInfo omdb={omdb} tmdb={tmdb} />
+        <MovieHeader movie={movie} omdb={omdb} tmdb={tmdb} onChangePoster={handlePosterChange} />
+        <ActionsBar
+          movie={movie}
+          onMarkWatched={handleMarkWatched}
+          onStatusChange={handleStatusChange}
+        />
+        <NotesSection notes={movie.notes} onSave={handleNotesSave} />
+        <MovieInfo
+          omdb={omdb}
+          tmdb={tmdb}
+          onOpenPerson={onOpenPerson}
+          onOpenGenre={onOpenGenre}
+          onOpenCompany={onOpenCompany}
+        />
         <VotesSection
           allVotes={allVotes}
           watchHistory={watchHistory}
@@ -64,12 +90,6 @@ export default function MovieDetailContainer({
           onRemoveVote={handleRemoveVote}
         />
       </div>
-
-      <ActionsBar
-        movie={movie}
-        onMarkWatched={handleMarkWatched}
-        onStatusChange={handleStatusChange}
-      />
     </div>
   );
 }

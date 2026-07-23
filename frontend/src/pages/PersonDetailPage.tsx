@@ -13,29 +13,19 @@ import {
   TrendingUp,
   Pencil,
   X,
+  Target,
 } from "lucide-react";
-import { getPoster, formatRating } from "../utils/helpers";
-import { IOS_COLORS } from "../utils/constants";
+import { getPoster, getMoviePosterSource, formatRating } from "../utils/helpers";
+import { IOS_COLORS, PERSON_COLOR_OPTIONS as COLOR_OPTIONS, PERSON_EMOJI_OPTIONS as EMOJI_OPTIONS } from "../utils/constants";
 import { usePeople } from "../hooks/usePeople";
+import { useRankingContext } from "../contexts/RankingContext";
 import { buildPersonStats, getPeopleMetaCounts } from "../utils/people";
-
-const COLOR_OPTIONS = [
-  IOS_COLORS.blue,
-  IOS_COLORS.green,
-  IOS_COLORS.orange,
-  IOS_COLORS.purple,
-  IOS_COLORS.pink,
-  IOS_COLORS.teal,
-  IOS_COLORS.yellow,
-  IOS_COLORS.gray,
-];
-
-const EMOJI_OPTIONS = ["🍿", "🎬", "🎯", "🔥", "🌟", "💡", "🤝", "🎲", "🧠", "📽️"];
 
 export default function PersonDetailPage({ movies = [] }) {
   const navigate = useNavigate();
   const { name } = useParams();
   const { people, loading, updateTrust, updatePerson } = usePeople();
+  const { ranked } = useRankingContext();
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [nameError, setNameError] = useState("");
@@ -48,10 +38,15 @@ export default function PersonDetailPage({ movies = [] }) {
     [people],
   );
 
+  const rankingByImdbId = useMemo(
+    () => Object.fromEntries((ranked || []).map((r) => [r.imdb_id, r])),
+    [ranked],
+  );
+
   const person = useMemo(() => {
     const personRecord = people.find((entry) => entry.name === decodedName);
-    return personRecord ? buildPersonStats(personRecord, movies) : null;
-  }, [decodedName, people, movies]);
+    return personRecord ? buildPersonStats(personRecord, movies, rankingByImdbId) : null;
+  }, [decodedName, people, movies, rankingByImdbId]);
 
   const handleToggleTrust = async () => {
     if (!person) return;
@@ -240,6 +235,34 @@ export default function PersonDetailPage({ movies = [] }) {
         ))}
       </div>
 
+      {person.recommenderScore != null && (
+        <div
+          className={`ios-card p-4 border ${
+            person.recommenderScore >= 0
+              ? "bg-ios-green/5 border-ios-green/20"
+              : "bg-ios-red/5 border-ios-red/20"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Target className={`w-6 h-6 ${person.recommenderScore >= 0 ? "text-ios-green" : "text-ios-red"}`} />
+              <div>
+                <span className="text-ios-body text-ios-label">Recommender Score</span>
+                <p className="text-ios-caption2 text-ios-tertiary-label">How well their picks match your taste</p>
+              </div>
+            </div>
+            <span
+              className={`text-ios-title2 font-bold ${
+                person.recommenderScore >= 0 ? "text-ios-green" : "text-ios-red"
+              }`}
+            >
+              {person.recommenderScore > 0 ? "+" : ""}
+              {person.recommenderScore.toFixed(1)}
+            </span>
+          </div>
+        </div>
+      )}
+
       {person.avgRating && (
         <div className="ios-card p-4 bg-ios-blue/5 border border-ios-blue/20">
           <div className="flex items-center justify-between">
@@ -328,7 +351,7 @@ export default function PersonDetailPage({ movies = [] }) {
             {person.movies.map((movie) => {
               const title = movie.omdbData?.title || movie.tmdbData?.title || "Unknown";
               const year = movie.omdbData?.year || movie.tmdbData?.year;
-              const poster = getPoster(movie.omdbData?.poster || movie.tmdbData?.poster);
+              const poster = getPoster(getMoviePosterSource(movie));
               const rating = movie.watchHistory?.myRating;
               const isWatched = movie.status === "watched";
 

@@ -24,6 +24,7 @@ const POSTER_SIZE_LABELS = {
 export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie }) {
   const [currentTab, setCurrentTab] = useState("toWatch");
   const [sortBy, setSortBy] = useState(MOVIE_TAB_CONFIG.toWatch.defaultSort);
+  const [sortDirection, setSortDirection] = useState("desc");
   const [posterSize, setPosterSize] = useState("medium");
   const [mediaTypeFilter, setMediaTypeFilter] = useState("all");
   const [filterRecommender, setFilterRecommender] = useState("");
@@ -79,7 +80,7 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
 
   const sortedMovies = useMemo(() => {
     if (sortBy === "rank") {
-      return [...filteredMovies].sort((a, b) => {
+      const ranked = [...filteredMovies].sort((a, b) => {
         const ra = rankingByImdbId[a.imdbId];
         const rb = rankingByImdbId[b.imdbId];
         if (ra && rb) return ra.position - rb.position;
@@ -87,9 +88,10 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
         if (rb) return 1;
         return 0;
       });
+      return sortDirection === "asc" ? ranked.reverse() : ranked;
     }
-    return sortMovies(filteredMovies, sortBy);
-  }, [filteredMovies, sortBy, rankingByImdbId]);
+    return sortMovies(filteredMovies, sortBy, sortDirection);
+  }, [filteredMovies, sortBy, sortDirection, rankingByImdbId]);
 
   const recommenders = useMemo(() => getAllRecommenders(movies), [movies]);
   const genres = useMemo(() => getGenres(statusMovies), [statusMovies]);
@@ -307,6 +309,8 @@ export default function MoviesPage({ movies, onMovieClick, onRefresh, onAddMovie
         onClose={() => setShowFilters(false)}
         sortBy={sortBy}
         setSortBy={setSortBy}
+        sortDirection={sortDirection}
+        setSortDirection={setSortDirection}
         mediaTypeFilter={mediaTypeFilter}
         setMediaTypeFilter={setMediaTypeFilter}
         filterRecommender={filterRecommender}

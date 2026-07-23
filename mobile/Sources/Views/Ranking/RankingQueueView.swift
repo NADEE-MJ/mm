@@ -29,7 +29,7 @@ struct RankingQueueView: View {
                             selectedEntry = entry
                         } label: {
                             HStack(spacing: 12) {
-                                CachedAsyncImage(url: entry.posterURL) { image in
+                                CachedAsyncImage(url: entry.posterThumbnailURL) { image in
                                     image
                                         .resizable()
                                         .aspectRatio(contentMode: .fill)

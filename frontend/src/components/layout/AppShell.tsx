@@ -13,9 +13,11 @@ export default function AppShell({ children, panelOpen = false }) {
     location.pathname.startsWith("/lists");
   const hasDetailPanelInset =
     location.pathname === "/" || location.pathname.startsWith("/lists");
+  // Mirrors MovieDetailPanel's own fixed width (w-[min(500px,100vw)], widening to
+  // 540px at min-[1600px]) so the library grid never renders underneath the panel.
   const contentInsetClasses =
     panelOpen && hasDetailPanelInset
-      ? "lg:pr-[min(520px,_42vw)] min-[1920px]:pr-[560px]"
+      ? "md:pr-[min(500px,_100vw)] min-[1600px]:pr-[min(540px,_100vw)]"
       : "";
 
   return (

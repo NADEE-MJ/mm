@@ -34,15 +34,16 @@ export default function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[80] flex items-center justify-center p-4 max-md:p-0"
       role="dialog"
       aria-modal="true"
       aria-label={title || "Dialog"}
     >
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      {/* Below md, this becomes a full-screen sheet (iOS-style) instead of a floating card. */}
       <div
-        className="relative z-[1] flex max-h-[calc(100vh-2rem)] w-full flex-col overflow-hidden rounded-2xl border border-[var(--color-ios-separator)] bg-[#0f0f0f]"
-        style={{ maxWidth }}
+        className="relative z-[1] flex max-h-[calc(100vh-2rem)] w-full max-w-[var(--modal-max-width)] flex-col overflow-hidden rounded-2xl border border-[var(--color-ios-separator)] bg-[#0f0f0f] max-md:h-screen max-md:max-h-screen max-md:max-w-none max-md:rounded-none max-md:border-0"
+        style={{ "--modal-max-width": maxWidth }}
       >
         {(title || onClose) && (
           <header className="flex items-center justify-between gap-4 border-b border-[var(--color-ios-separator)] px-4 py-3.5">

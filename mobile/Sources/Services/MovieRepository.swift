@@ -341,6 +341,34 @@ final class MovieRepository: DataRepository {
         return .failure(.networkError(message))
     }
 
+    func updateNotes(imdbId: String, notes: String?) async -> Result<Movie, RepositoryError> {
+        let saved = await networkService.updateMovieNotes(imdbId: imdbId, notes: notes)
+        guard saved else {
+            let message = networkService.lastError ?? "Unknown network error"
+            return .failure(.networkError(message))
+        }
+
+        _ = await syncMovies()
+        guard let updated = movies.first(where: { $0.imdbId == imdbId }) else {
+            return .failure(.notFound("Movie not found after saving notes"))
+        }
+        return .success(updated)
+    }
+
+    func updatePoster(imdbId: String, posterUrl: String?) async -> Result<Movie, RepositoryError> {
+        let saved = await networkService.updateMoviePoster(imdbId: imdbId, posterUrl: posterUrl)
+        guard saved else {
+            let message = networkService.lastError ?? "Unknown network error"
+            return .failure(.networkError(message))
+        }
+
+        _ = await syncMovies()
+        guard let updated = movies.first(where: { $0.imdbId == imdbId }) else {
+            return .failure(.notFound("Movie not found after changing poster"))
+        }
+        return .success(updated)
+    }
+
     func refreshMovieMetadata(imdbId: String) async -> Result<Movie, RepositoryError> {
         let refreshed = await networkService.refreshMovieMetadata(imdbId: imdbId)
         guard refreshed else {

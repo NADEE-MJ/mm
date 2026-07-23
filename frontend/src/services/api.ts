@@ -137,6 +137,20 @@ class APIClient {
     });
   }
 
+  async updateMovieNotes(imdbId, notes) {
+    return this.request(`/api/movies/${imdbId}/notes`, {
+      method: "PUT",
+      body: JSON.stringify({ notes }),
+    });
+  }
+
+  async updateMoviePoster(imdbId, posterUrl) {
+    return this.request(`/api/movies/${imdbId}/poster`, {
+      method: "PUT",
+      body: JSON.stringify({ poster_url: posterUrl }),
+    });
+  }
+
   async refreshMovie(imdbId) {
     return this.request(`/api/movies/${imdbId}/refresh`, {
       method: "POST",
@@ -206,6 +220,29 @@ class APIClient {
 
   async getOMDBMovie(imdbId) {
     return this.request(`/api/external/omdb/movie/${imdbId}`);
+  }
+
+  async discoverTMDBByGenre(query) {
+    return this.request(`/api/external/tmdb/discover/genre?q=${encodeURIComponent(query)}`);
+  }
+
+  async discoverTMDBByPerson(query, role = "actor") {
+    return this.request(
+      `/api/external/tmdb/discover/person?q=${encodeURIComponent(query)}&role=${encodeURIComponent(role)}`,
+    );
+  }
+
+  async discoverTMDBByCompany(query) {
+    return this.request(`/api/external/tmdb/discover/company?q=${encodeURIComponent(query)}`);
+  }
+
+  async discoverTMDBList(kind, { region = "US", days = 30, timeWindow = "day" } = {}) {
+    const params = new URLSearchParams({ kind, region, days: String(days), time_window: timeWindow });
+    return this.request(`/api/external/tmdb/discover/list?${params.toString()}`);
+  }
+
+  async getRecommendationsForYou(limit = 30) {
+    return this.request(`/api/movies/recommendations/for-you?limit=${limit}`);
   }
 
   async getExternalCacheInfo() {

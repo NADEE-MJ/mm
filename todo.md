@@ -1,0 +1,42 @@
+- [x] add a way to add someone who downvoted a movie and track that in the users score
+- [x] scrolling up and down on mobile with a lot of movies is laggy, maybe its because of a bad network, not 100% sure (mitigated — see notes)
+- [x] searching for singing in the rain on mobile doesnt show the right movie but it does on the website
+- [x] when i search by an actor i need to be able to sort / filter results for the movies they were in
+- [x] need to be able to search by director and click into them to see more movies by them
+- [x] tv show information is lacking especially in search
+- [x] need to center icon / name for icons and also make them bigger / more options
+- [x] on mobile / web need more information when i click into a movie when adding the movie, like actors, director, description and stuff like that
+- [x] make the search function almost exactly like the tmdb search bar, seems like the search is off sometimes
+- [x] Need to move watched to watched to a different spot so I don't have to scroll all the way up
+- [x] Need to make it easier to mark a movie as watched without having to scroll all the way down
+- [ ] I want backups to Google Drive or something for the backend files for certain users, there should be a way to configure this, it should keep a backlog of a month up to date that you can import or export as JSON, the backups should also be JSON
+- [ ] Also make it so not just anyone can create an account, you need to be sent an invite by someone who already exists and there should be a seed user
+- [x] user score calculation should be based on the movies they have downvoted and the movies they have upvoted, and the scores of those movies.
+- [x] add better icons for rotten tomatoes on the movie details screen
+- [x] add a way to click into actor / director information to see their filmography and details, i want to be able to sort these by popularity, release date, and rating
+- [x] add a way to click into genre information to see movies in that genre
+- [x] add a way to click into production company information to see movies from that company (web only — see notes)
+- [x] add a way to search for new movies from like oscar winners / stuff like that (popular/top-rated/trending/coming-soon rails, not literally an oscar-winners list — see notes)
+- [x] add a way to show you recommendations based on the movies you have upvoted and downvoted, not sure if this is possible with the tmdb api but it would be really cool (based on upvotes — see notes)
+- [x] add jackson rating system that works like belli for rating movies where you say whether you liked that movie first then whether you liked it more or less than another movie and it does that till it finds the exact ranking of that movie in your list, then it can use that to calculate your user score and give you better recommendations
+- [x] ability to sort by ascending / descending order
+- [x] add a search bar to when you are adding a movie to search for people, also this page should be a full screen sheet
+- [x] ability to add notes to stuff, like come and see is suupposed to be the best war movie ever made
+- [x] on the web app the title cards need to be updated, there is still the black line at the bottom and also the white is really bright, it should probably be a darker color
+- [x] on web the bar on the left should not scroll with the rest of the page, it should be fixed to the page length, also the movies still go below the right side bar, and they really should not
+- [x] on the web app / and probably also on mobile it is not very clear who you are adding as recommenders when you click add movie
+- [x] when trying to search for a person on the web app i cant see their movies / doesn’t let me select the person to see movies they have made
+- [x] can't add tv shows on the web view
+- [x] discover page not on the web version
+- [x] ability to change the movie cover from tmdb to odmb or select other pictures somehow, idk how it works on ios vs web, maybe its different but they should use the same cover, also when im adding the movie on web vs the actual poster it uses it different, seems like its using the tmdb poster and then switching to the omdb poster after, need to fix in whose name mostly
+- [x] in the people page on mobile i need the view for the movies to be the same as the one on the movies page
+- [x] when adding a movie on the web need to show that i already have that movie added and maybe just give the ability to update recommenders right there
+- [x] more emoji / color options and i need them to work on mobile as well
+- [x] the line on the movie page does not go all the way across
+- [x] Remove the alert after adding a movie
+- [x] search bar for looking through people when adding a recommended movie
+- [x] need to be able to edit peoples names
+- [x] on the web app when i try to search the mangifying glass icon is in the way of the serach bar, they overlap on the left side
+- [x] need to rename erika to erica / add ability to edit names, fix katherines name
+- [x] cant add the movie a day
+- [x] Bundle is called mobile swift still

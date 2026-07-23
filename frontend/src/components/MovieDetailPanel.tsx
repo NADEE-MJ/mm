@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMoviesContext } from "../contexts/MoviesContext";
 import { usePeople } from "../hooks/usePeople";
+import { VOTE_TYPE } from "../utils/constants";
 import MovieDetail from "./MovieDetail";
 import UpvoteModal from "./features/MovieDetail/UpvoteModal";
 import DownvoteModal from "./features/MovieDetail/DownvoteModal";
 
-export default function MovieDetailPanel({ imdbId, onClose }) {
-  const { movies, markWatched, updateStatus, addRecommendation, removeRecommendation } =
-    useMoviesContext();
+export default function MovieDetailPanel({ imdbId, onClose, onOpenPerson, onOpenGenre, onOpenCompany }) {
+  const {
+    movies,
+    markWatched,
+    updateStatus,
+    updateNotes,
+    updatePoster,
+    addRecommendation,
+    removeRecommendation,
+  } = useMoviesContext();
   const { getPeopleNames } = usePeople();
 
   const [showAddUpvote, setShowAddUpvote] = useState(false);
@@ -69,9 +77,14 @@ export default function MovieDetailPanel({ imdbId, onClose }) {
               onClose={onClose}
               onMarkWatched={handleMarkWatched}
               onUpdateStatus={updateStatus}
+              onUpdateNotes={updateNotes}
+              onUpdatePoster={updatePoster}
               onRemoveVote={removeRecommendation}
               onShowAddUpvote={() => setShowAddUpvote(true)}
               onShowAddDownvote={() => setShowAddDownvote(true)}
+              onOpenPerson={onOpenPerson}
+              onOpenGenre={onOpenGenre}
+              onOpenCompany={onOpenCompany}
             />
           )}
         </section>

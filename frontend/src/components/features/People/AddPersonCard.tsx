@@ -1,19 +1,6 @@
 import { useState } from "react";
 import { Palette, Smile } from "lucide-react";
-import { IOS_COLORS } from "../../../utils/constants";
-
-const COLOR_OPTIONS = [
-  IOS_COLORS.blue,
-  IOS_COLORS.green,
-  IOS_COLORS.orange,
-  IOS_COLORS.purple,
-  IOS_COLORS.pink,
-  IOS_COLORS.teal,
-  IOS_COLORS.yellow,
-  IOS_COLORS.gray,
-];
-
-const EMOJI_OPTIONS = ["🍿", "🎬", "🎯", "🔥", "🌟", "💡", "🤝", "🎲", "🧠", "📽️"];
+import { PERSON_COLOR_OPTIONS as COLOR_OPTIONS, PERSON_EMOJI_OPTIONS as EMOJI_OPTIONS } from "../../../utils/constants";
 
 export default function AddPersonCard({ onAdd, existingNames }) {
   const [name, setName] = useState("");

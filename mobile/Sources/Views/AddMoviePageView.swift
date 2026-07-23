@@ -273,6 +273,7 @@ private struct DiscoverParsedFilters: Equatable {
 }
 
 private enum DiscoverRailCategory: CaseIterable, Identifiable, Hashable {
+    case forYou
     case popularNow
     case inTheaters
     case trendingNow
@@ -283,6 +284,8 @@ private enum DiscoverRailCategory: CaseIterable, Identifiable, Hashable {
         switch self {
         case .comingSoon:
             return "coming_soon"
+        case .forYou:
+            return "for_you"
         case .inTheaters:
             return "in_theaters"
         case .popularNow:
@@ -298,6 +301,8 @@ private enum DiscoverRailCategory: CaseIterable, Identifiable, Hashable {
         switch self {
         case .comingSoon:
             return "Coming Soon"
+        case .forYou:
+            return "For You"
         case .inTheaters:
             return "In Theaters"
         case .popularNow:
@@ -891,13 +896,12 @@ struct AddMoviePageView: View {
             results = results.filter { ($0.voteAverage ?? 0) >= minimumRating }
         }
 
-        let searchTerms = filters.freeText.lowercased().split(separator: " ").map(String.init)
-        if !searchTerms.isEmpty {
-            results = results.filter { movie in
-                let haystack = "\(movie.title) \(movie.overview ?? "")".lowercased()
-                return searchTerms.allSatisfy { haystack.contains($0) }
-            }
-        }
+        // Note: free text always feeds into `discoverTitleQuery` above when non-empty, so it has
+        // already driven a TMDB title-search bucket by this point. Re-checking those results with
+        // a literal substring match (as this used to do) dropped legitimate fuzzy matches — e.g.
+        // searching "singing in the rain" found "Singin' in the Rain" via TMDB, then filtered it
+        // back out because "singin'" doesn't literally contain "singing". Don't re-filter here;
+        // TMDB's own relevance ranking is authoritative for whatever text drove the search.
 
         var deduped: [Int: TMDBMovie] = [:]
         for movie in results {
@@ -998,12 +1002,14 @@ struct AddMoviePageView: View {
         async let popular = NetworkService.shared.discoverPopularMovies()
         async let topRated = NetworkService.shared.discoverTopRatedMovies()
         async let trending = NetworkService.shared.discoverTrendingMovies()
+        async let forYou = NetworkService.shared.discoverRecommendationsForYou()
 
         curatedMoviesByCategory[.comingSoon] = await comingSoon
         curatedMoviesByCategory[.inTheaters] = await inTheaters
         curatedMoviesByCategory[.popularNow] = await popular
         curatedMoviesByCategory[.topRatedNow] = await topRated
         curatedMoviesByCategory[.trendingNow] = await trending
+        curatedMoviesByCategory[.forYou] = await forYou
     }
 }
 
@@ -1015,7 +1021,7 @@ private struct SearchResultRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            CachedAsyncImage(url: movie.posterURL) { image in
+            CachedAsyncImage(url: movie.posterThumbnailURL) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -1087,7 +1093,7 @@ private struct LibrarySearchResultRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            CachedAsyncImage(url: movie.posterURL) { image in
+            CachedAsyncImage(url: movie.posterThumbnailURL) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -1174,7 +1180,7 @@ private struct CuratedMovieRailRow: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 6) {
                             ZStack(alignment: .topTrailing) {
-                                CachedAsyncImage(url: movie.posterURL) { image in
+                                CachedAsyncImage(url: movie.posterThumbnailURL) { image in
                                     image
                                         .resizable()
                                         .aspectRatio(contentMode: .fill)
@@ -1291,7 +1297,7 @@ private struct ResolvePendingMovieSheet: View {
                                 dismiss()
                             } label: {
                                 HStack(alignment: .top, spacing: 12) {
-                                    CachedAsyncImage(url: movie.posterURL) { image in
+                                    CachedAsyncImage(url: movie.posterThumbnailURL) { image in
                                         image
                                             .resizable()
                                             .aspectRatio(contentMode: .fill)
@@ -1372,6 +1378,7 @@ private struct AddMovieSheet: View {
     @State private var errorMessage: String? = nil
     @State private var newPersonName = ""
     @State private var filterText = ""
+    @State private var previewDetails: NetworkService.DiscoverPreviewDetails? = nil
 
     private var quickPeople: [Person] { people.filter { $0.isQuick } }
     private var regularPeople: [Person] { people.filter { !$0.isQuick } }
@@ -1440,6 +1447,26 @@ private struct AddMovieSheet: View {
                                         .foregroundStyle(.yellow)
                                 }
                             }
+                        }
+
+                        if let director = previewDetails?.director {
+                            LabeledContent(movie.mediaType == "tv" ? "Creator" : "Director") {
+                                Text(director)
+                            }
+                        }
+
+                        if let cast = previewDetails?.cast, !cast.isEmpty {
+                            LabeledContent("Cast") {
+                                Text(cast.prefix(5).joined(separator: ", "))
+                            }
+                        }
+
+                        let overview = previewDetails?.plot ?? movie.overview
+                        if let overview, !overview.isEmpty {
+                            Text(overview)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(4)
                         }
                     }
 
@@ -1577,6 +1604,11 @@ private struct AddMovieSheet: View {
                                         }
                                     }
                                 }
+                                .listRowBackground(
+                                    containsSelectedRecommender(named: person.name)
+                                        ? AppTheme.blue.opacity(0.12)
+                                        : nil
+                                )
                             }
                         }
                     }
@@ -1605,6 +1637,11 @@ private struct AddMovieSheet: View {
                                         }
                                     }
                                 }
+                                .listRowBackground(
+                                    containsSelectedRecommender(named: person.name)
+                                        ? AppTheme.blue.opacity(0.12)
+                                        : nil
+                                )
                             }
                         }
                     }
@@ -1634,6 +1671,12 @@ private struct AddMovieSheet: View {
             }
             .navigationTitle("Add Movie")
             .toolbarTitleDisplayMode(.inline)
+            .task {
+                previewDetails = await NetworkService.shared.fetchPreviewDetails(
+                    tmdbId: movie.id,
+                    mediaType: movie.mediaType
+                )
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button { dismiss() } label: {

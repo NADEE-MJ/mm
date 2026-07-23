@@ -1,5 +1,34 @@
 import SwiftUI
 
+// MARK: - Recommender Score
+
+// Movies land in the neutral middle of the 1-10 scale before they're ranked or rated.
+private let recommenderScoreNeutral = 5.5
+
+/// Rewards a person for upvoting movies that turned out great (high ranked/rated
+/// score) and for downvoting movies that turned out bad, and penalizes the
+/// opposite. Only movies with a known score (ranked or my-rated) count.
+/// Range is roughly -4.5 (always wrong) to +4.5 (always right).
+private func recommenderScore(personName: String, movies: [Movie], rankingByImdbId: [String: RankingEntry]) -> Double? {
+    var total = 0.0
+    var count = 0
+    for movie in movies {
+        guard let rec = movie.recommendations.first(where: { $0.recommender == personName }) else { continue }
+        let movieScore: Double?
+        if let ranked = rankingByImdbId[movie.imdbId] {
+            movieScore = ranked.score
+        } else if let myRating = movie.myRating {
+            movieScore = Double(myRating)
+        } else {
+            movieScore = nil
+        }
+        guard let score = movieScore else { continue }
+        total += rec.voteType == "downvote" ? recommenderScoreNeutral - score : score - recommenderScoreNeutral
+        count += 1
+    }
+    return count > 0 ? total / Double(count) : nil
+}
+
 // MARK: - People Page
 
 struct PeoplePageView: View {
@@ -28,6 +57,10 @@ struct PeoplePageView: View {
     @State private var sortBy: SortOption = .name
     @State private var showFilters = false
     @State private var showAddPerson = false
+
+    private var rankingByImdbId: [String: RankingEntry] {
+        Dictionary(uniqueKeysWithValues: repository.rankedMovies.map { ($0.imdbId, $0) })
+    }
 
     private var filteredPeople: [Person] {
         var result = people
@@ -95,7 +128,14 @@ struct PeoplePageView: View {
                                     await loadPeople()
                                 }
                             } label: {
-                                PersonRow(person: person)
+                                PersonRow(
+                                    person: person,
+                                    score: recommenderScore(
+                                        personName: person.name,
+                                        movies: repository.movies,
+                                        rankingByImdbId: rankingByImdbId
+                                    )
+                                )
                             }
                             .swipeActions(edge: .leading, allowsFullSwipe: true) {
                                 Button {
@@ -209,6 +249,12 @@ struct PeoplePageView: View {
             _ = await repository.syncPeople(force: true)
         }
         let result = await repository.getPeople()
+        if repository.movies.isEmpty {
+            _ = await repository.getMovies(status: nil)
+        }
+        if repository.rankedMovies.isEmpty {
+            await repository.fetchRankingData()
+        }
         switch result {
         case .success(let loaded):
             people = loaded
@@ -303,6 +349,7 @@ private struct PeopleFilterSortSheet: View {
 
 private struct PersonRow: View {
     let person: Person
+    let score: Double?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -326,6 +373,11 @@ private struct PersonRow: View {
             Spacer()
 
             HStack(spacing: 8) {
+                if let score = score {
+                    Label(String(format: "%@%.1f", score > 0 ? "+" : "", score), systemImage: "scope")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(score >= 0 ? .green : .red)
+                }
                 if person.isQuick {
                     Image(systemName: "bolt.fill")
                         .foregroundColor(PersonAppearance.color(from: PersonAppearance.quickFallbackColorHex, isQuick: true))
@@ -368,6 +420,13 @@ private struct PersonDetailView: View {
         _selectedEmoji = State(initialValue: PersonAppearance.normalizedEmoji(person.emoji))
     }
 
+    private var currentRecommenderScore: Double? {
+        let rankingByImdbId = Dictionary(
+            uniqueKeysWithValues: MovieRepository.shared.rankedMovies.map { ($0.imdbId, $0) }
+        )
+        return recommenderScore(personName: person.name, movies: recommendedMovies, rankingByImdbId: rankingByImdbId)
+    }
+
     var body: some View {
         Form {
             Section("Profile") {
@@ -401,6 +460,18 @@ private struct PersonDetailView: View {
                     editedName = person.name
                     renameError = nil
                     showRenameAlert = true
+                }
+            }
+
+            if let score = currentRecommenderScore {
+                Section {
+                    LabeledContent("Recommender Score") {
+                        Text(String(format: "%@%.1f", score > 0 ? "+" : "", score))
+                            .font(.headline)
+                            .foregroundStyle(score >= 0 ? .green : .red)
+                    }
+                } footer: {
+                    Text("How well their upvotes and downvotes have matched your ratings.")
                 }
             }
 
@@ -498,7 +569,7 @@ private struct PersonDetailView: View {
                             MovieDetailView(movie: movie)
                         } label: {
                             HStack(alignment: .top, spacing: 12) {
-                                CachedAsyncImage(url: movie.posterURL) { image in
+                                CachedAsyncImage(url: movie.posterThumbnailURL) { image in
                                     image
                                         .resizable()
                                         .aspectRatio(contentMode: .fill)

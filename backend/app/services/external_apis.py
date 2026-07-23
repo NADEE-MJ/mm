@@ -6,6 +6,7 @@ to reduce external API calls and improve response times.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -323,6 +324,55 @@ async def discover_tmdb_movies_by_person(
     return results
 
 
+async def discover_tmdb_movies_by_company(company_query: str) -> list[dict[str, Any]]:
+    """Discover TMDB movies by production company name."""
+    _require_api_key(TMDB_API_KEY, "TMDB")
+
+    query = company_query.strip().lower()
+    if not query:
+        return []
+
+    cache_key = _get_cache_key("tmdb_discover_company", query)
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    search_url = f"{TMDB_BASE_URL}/search/company"
+    search_params = {"api_key": TMDB_API_KEY, "query": company_query.strip(), "page": 1}
+
+    async with httpx.AsyncClient() as client:
+        search_data = await _fetch_json(client, search_url, search_params, provider="TMDB")
+        companies = search_data.get("results", [])
+        if not companies:
+            return []
+
+        exact = next(
+            (c for c in companies if str(c.get("name", "")).strip().lower() == query),
+            None,
+        )
+        selected_company = exact if exact else companies[0]
+        company_id = selected_company.get("id")
+        if company_id is None:
+            return []
+
+        discover_url = f"{TMDB_BASE_URL}/discover/movie"
+        discover_params = {
+            "api_key": TMDB_API_KEY,
+            "with_companies": str(company_id),
+            "sort_by": "popularity.desc",
+            "include_adult": "false",
+            "page": 1,
+        }
+        data = await _fetch_json(client, discover_url, discover_params, provider="TMDB")
+
+    results = [
+        _to_simple_movie_result(movie)
+        for movie in data.get("results", [])
+        if movie.get("id") and movie.get("title")
+    ]
+    _cache[cache_key] = results
+    return results
+
+
 async def discover_tmdb_movies_by_category(
     kind: str,
     *,
@@ -456,6 +506,14 @@ async def get_tmdb_movie_details(
         "cast": [
             c["name"] for c in movie.get("credits", {}).get("cast", [])[:10]
         ],
+        "director": ", ".join(
+            c["name"]
+            for c in movie.get("credits", {}).get("crew", [])
+            if str(c.get("job", "")).strip().lower() == "director"
+        ) or None,
+        "productionCompanies": [
+            c["name"] for c in movie.get("production_companies", []) if c.get("name")
+        ],
         "runtime": movie.get("runtime"),
         "voteAverage": movie.get("vote_average"),
         "voteCount": movie.get("vote_count"),
@@ -501,6 +559,10 @@ async def get_tmdb_tv_details(
         "genres": [g["name"] for g in show.get("genres", [])],
         "cast": [
             c["name"] for c in show.get("aggregate_credits", {}).get("cast", [])[:10]
+        ],
+        "director": ", ".join(c["name"] for c in show.get("created_by", [])) or None,
+        "productionCompanies": [
+            c["name"] for c in show.get("production_companies", []) if c.get("name")
         ],
         "runtime": (show.get("episode_run_time") or [None])[0],
         "voteAverage": show.get("vote_average"),
@@ -593,6 +655,74 @@ async def get_omdb_movie(imdb_id: str, *, force_refresh: bool = False) -> dict[s
 
     _cache[cache_key] = result
     return result
+
+
+async def _fetch_tmdb_recommendations_for_seed(
+    client: httpx.AsyncClient, tmdb_id: int, media_type: str
+) -> list[dict[str, Any]]:
+    """Fetch TMDB's "recommendations" list for a single movie/show, tolerating failures."""
+    normalized_type = "tv" if media_type == "tv" else "movie"
+    cache_key = _get_cache_key("tmdb_recommendations", normalized_type, tmdb_id)
+    if cache_key in _cache:
+        return _cache[cache_key]
+
+    url = f"{TMDB_BASE_URL}/{normalized_type}/{tmdb_id}/recommendations"
+    params = {"api_key": TMDB_API_KEY, "page": 1}
+    try:
+        data = await _fetch_json(client, url, params, provider="TMDB")
+    except HTTPException:
+        return []
+
+    results = data.get("results", [])
+    normalized = [
+        _to_simple_tv_result(item) if normalized_type == "tv" else _to_simple_movie_result(item)
+        for item in results
+    ]
+    _cache[cache_key] = normalized
+    return normalized
+
+
+async def get_recommendations_for_seeds(
+    seeds: list[tuple[int, str]], *, exclude_ids: set[int] | None = None, limit: int = 30
+) -> list[dict[str, Any]]:
+    """Aggregate TMDB "recommendations" across several seed titles (e.g. movies a user upvoted).
+
+    Titles recommended from multiple seeds are ranked higher, since that's a stronger signal
+    that they match the user's taste. `exclude_ids` filters out anything already in the library.
+    """
+    _require_api_key(TMDB_API_KEY, "TMDB")
+
+    if not seeds:
+        return []
+
+    exclude = exclude_ids or set()
+    aggregated: dict[tuple[str, int], dict[str, Any]] = {}
+    hit_counts: dict[tuple[str, int], int] = {}
+
+    async with httpx.AsyncClient() as client:
+        results_per_seed = await asyncio.gather(
+            *[_fetch_tmdb_recommendations_for_seed(client, tmdb_id, media_type) for tmdb_id, media_type in seeds]
+        )
+
+    for seed_results in results_per_seed:
+        for item in seed_results:
+            item_id = item.get("id")
+            if not item_id or item_id in exclude:
+                continue
+            key = (item.get("mediaType", "movie"), item_id)
+            hit_counts[key] = hit_counts.get(key, 0) + 1
+            if key not in aggregated:
+                aggregated[key] = item
+
+    ranked = sorted(
+        aggregated.values(),
+        key=lambda item: (
+            hit_counts[(item.get("mediaType", "movie"), item.get("id"))],
+            item.get("voteAverage") or 0,
+        ),
+        reverse=True,
+    )
+    return ranked[:limit]
 
 
 def clear_cache() -> None:

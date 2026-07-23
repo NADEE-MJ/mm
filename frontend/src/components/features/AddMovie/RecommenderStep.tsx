@@ -1,9 +1,13 @@
 import { useState } from "react";
-import { X, Plus, Check, Search, Loader2 } from "lucide-react";
+import { X, Plus, Check, Search, Loader2, CheckCircle, ArrowUpRight } from "lucide-react";
 import { getPoster } from "../../../utils/helpers";
 
 export default function RecommenderStep({
   movieData,
+  mediaType = "movie",
+  isExisting = false,
+  existingRecommenderNames = [],
+  onViewDetails,
   selectedRecommenders,
   toggleRecommender,
   allRecommenders,
@@ -21,9 +25,35 @@ export default function RecommenderStep({
   const filteredRecommenders = allRecommenders.filter((option) =>
     option.name.toLowerCase().includes(filterQuery.toLowerCase())
   );
+  const existingRecommenderSet = new Set(existingRecommenderNames.map((name) => name.toLowerCase()));
 
   return (
     <div className="space-y-6">
+      {/* Already in Library Banner */}
+      {isExisting && (
+        <div className="ios-card p-4 bg-ios-blue/10 border border-ios-blue/20">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-ios-blue text-sm font-semibold">
+              <CheckCircle className="w-4 h-4" />
+              Already in your library
+            </div>
+            <button
+              type="button"
+              onClick={onViewDetails}
+              className="inline-flex items-center gap-1 text-ios-blue text-sm font-medium"
+            >
+              View Details
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {existingRecommenderNames.length > 0 && (
+            <p className="text-ios-caption1 text-ios-secondary-label mt-2">
+              Recommended by {existingRecommenderNames.join(", ")}. Pick anyone else below to add them too.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Selected Movie Preview */}
       <div className="ios-card p-4">
         <div className="flex gap-4">
@@ -64,6 +94,28 @@ export default function RecommenderStep({
             </div>
           </div>
         </div>
+
+        {movieData.director && (
+          <p className="text-ios-caption1 text-ios-secondary-label mt-3">
+            <span className="text-ios-tertiary-label">
+              {mediaType === "tv" ? "Creator: " : "Director: "}
+            </span>
+            {movieData.director}
+          </p>
+        )}
+
+        {movieData.actors?.length > 0 || movieData.cast?.length > 0 ? (
+          <p className="text-ios-caption1 text-ios-secondary-label mt-1">
+            <span className="text-ios-tertiary-label">Cast: </span>
+            {(movieData.actors || movieData.cast).slice(0, 5).join(", ")}
+          </p>
+        ) : null}
+
+        {movieData.plot && (
+          <p className="text-ios-caption1 text-ios-secondary-label mt-3 leading-relaxed line-clamp-4">
+            {movieData.plot}
+          </p>
+        )}
       </div>
 
       {/* Recommender Selection */}
@@ -103,7 +155,9 @@ export default function RecommenderStep({
               Adding...
             </span>
           ) : (
-            `Add Title with ${selectedRecommenders.length} Recommender${selectedRecommenders.length !== 1 ? "s" : ""}`
+            isExisting
+              ? `Add ${selectedRecommenders.length} Recommender${selectedRecommenders.length !== 1 ? "s" : ""}`
+              : `Add Title with ${selectedRecommenders.length} Recommender${selectedRecommenders.length !== 1 ? "s" : ""}`
           )}
         </button>
 
@@ -165,13 +219,15 @@ export default function RecommenderStep({
           ) : (
             filteredRecommenders.map((option) => {
               const isSelected = selectedRecommenders.includes(option.name);
+              const alreadyRecommended = existingRecommenderSet.has(option.name.toLowerCase());
               const avatarBg = option.color || "#f2f2f7";
               const displayEmoji = option.emoji || option.name?.charAt(0)?.toUpperCase() || "?";
               return (
                 <button
                   key={option.name}
-                  onClick={() => toggleRecommender(option.name)}
-                  className={`ios-list-item py-3 w-full text-left ${isSelected ? "bg-ios-blue/5" : ""}`}
+                  onClick={() => !alreadyRecommended && toggleRecommender(option.name)}
+                  disabled={alreadyRecommended}
+                  className={`ios-list-item py-3 w-full text-left ${isSelected ? "bg-ios-blue/5" : ""} ${alreadyRecommended ? "opacity-50" : ""}`}
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -186,8 +242,11 @@ export default function RecommenderStep({
                         Quick
                       </span>
                     )}
+                    {alreadyRecommended && (
+                      <span className="text-ios-caption2 text-ios-secondary-label">Already added</span>
+                    )}
                   </div>
-                  {isSelected && <Check className="w-5 h-5 text-ios-blue" />}
+                  {isSelected && !alreadyRecommended && <Check className="w-5 h-5 text-ios-blue" />}
                 </button>
               );
             })

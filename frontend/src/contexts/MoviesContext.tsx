@@ -14,8 +14,10 @@ function normalizeMovie(serverMovie) {
     mediaType: serverMovie.media_type || serverMovie.tmdb_data?.mediaType || "movie",
     tmdbData: serverMovie.tmdb_data || null,
     omdbData: serverMovie.omdb_data || null,
+    posterOverride: serverMovie.poster_override || null,
     lastModified: (serverMovie.last_modified || 0) * 1000,
     status: serverMovie.status || "toWatch",
+    notes: serverMovie.notes || "",
     recommendations: (serverMovie.recommendations || []).map((rec) => ({
       id: rec.id,
       person: rec.person,
@@ -136,6 +138,22 @@ export function MoviesProvider({ children }) {
     [refreshMovies],
   );
 
+  const updateNotes = useCallback(
+    async (imdbId, notes) => {
+      await api.updateMovieNotes(imdbId, notes);
+      await refreshMovies();
+    },
+    [refreshMovies],
+  );
+
+  const updatePoster = useCallback(
+    async (imdbId, posterUrl) => {
+      await api.updateMoviePoster(imdbId, posterUrl);
+      await refreshMovies();
+    },
+    [refreshMovies],
+  );
+
   const getMoviesByStatus = useCallback(
     (status) => movies.filter((movie) => movie.status === status),
     [movies],
@@ -151,6 +169,8 @@ export function MoviesProvider({ children }) {
     removeRecommendation,
     markWatched,
     updateStatus,
+    updateNotes,
+    updatePoster,
     getMoviesByStatus,
   };
 

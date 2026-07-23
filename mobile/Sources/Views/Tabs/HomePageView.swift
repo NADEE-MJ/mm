@@ -11,6 +11,7 @@ struct HomePageView: View {
     @State private var isSearchPresented = false
     @State private var selectedStatus = "to_watch"
     @State private var sortBy = "dateRecommended"
+    @State private var sortDirection = "desc"
     @State private var showFilters = false
     @State private var filterRecommender: String?
     @State private var filterGenre: String?
@@ -107,7 +108,8 @@ struct HomePageView: View {
             }
         }
 
-        return sortedMovies(result)
+        let sorted = sortedMovies(result)
+        return sortDirection == "asc" ? Array(sorted.reversed()) : sorted
     }
 
     private var allRecommenders: [String] {
@@ -240,6 +242,7 @@ struct HomePageView: View {
             .sheet(isPresented: $showFilters) {
                 FilterSortSheet(
                     sortBy: $sortBy,
+                    sortDirection: $sortDirection,
                     filterRecommender: $filterRecommender,
                     filterGenre: $filterGenre,
                     filterDirector: $filterDirector,
@@ -435,7 +438,7 @@ private struct MovieRowView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            CachedAsyncImage(url: movie.posterURL) { image in
+            CachedAsyncImage(url: movie.posterThumbnailURL) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -527,9 +530,23 @@ struct MovieDetailView: View {
     @State private var isRefreshingMetadata = false
     @State private var feedbackMessage = ""
     @State private var showFeedbackAlert = false
+    @State private var notesText: String = ""
+    @State private var isSavingNotes = false
 
     init(movie: Movie) {
         _currentMovie = State(initialValue: movie)
+        _notesText = State(initialValue: movie.notes ?? "")
+    }
+
+    private func saveNotesIfChanged() async {
+        guard notesText != (currentMovie.notes ?? "") else { return }
+        isSavingNotes = true
+        let result = await MovieRepository.shared.updateNotes(imdbId: currentMovie.imdbId, notes: notesText)
+        if case .success(let updated) = result {
+            currentMovie = updated
+            notesText = updated.notes ?? ""
+        }
+        isSavingNotes = false
     }
 
     private var likedRecommendations: [Recommendation] {
@@ -575,6 +592,13 @@ struct MovieDetailView: View {
                 }
                 .frame(maxWidth: .infinity, minHeight: 260)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                if currentMovie.tmdbPosterURL != nil && currentMovie.omdbPosterURL != nil {
+                    HStack(spacing: 12) {
+                        posterChoiceButton(label: "TMDB", url: currentMovie.tmdbPosterURL, path: currentMovie.tmdbPosterPath)
+                        posterChoiceButton(label: "OMDb", url: currentMovie.omdbPosterURL, path: currentMovie.omdbPosterPath)
+                    }
+                }
             }
 
             Section("Details") {
@@ -588,6 +612,107 @@ struct MovieDetailView: View {
                     }
                 }
 
+            }
+
+            Section("Notes") {
+                TextEditor(text: $notesText)
+                    .frame(minHeight: 80)
+                if isSavingNotes {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                        Text("Saving...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            if currentMovie.status == "to_watch" {
+                Section {
+                    Button {
+                        Task {
+                            await loadPeople(forceSync: true)
+                            showAddRecommenderSheet = true
+                        }
+                    } label: {
+                        Label("Add Upvote", systemImage: "hand.thumbsup.fill")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
+
+                Section {
+                    Button {
+                        Task {
+                            await loadPeople(forceSync: true)
+                            showAddDislikeSheet = true
+                        }
+                    } label: {
+                        Label("Add Downvote", systemImage: "hand.thumbsdown.fill")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
+
+                Section {
+                    Button {
+                        Task {
+                            _ = await MovieRepository.shared.updateMovie(
+                                movie: currentMovie,
+                                rating: nil,
+                                status: "watched"
+                            )
+                            await refreshCurrentMovie()
+                        }
+                    } label: {
+                        Label("Mark as Watched", systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+
+                    Button(role: .destructive) {
+                        Task {
+                            _ = await MovieRepository.shared.updateMovie(
+                                movie: currentMovie,
+                                rating: nil,
+                                status: "deleted"
+                            )
+                            await refreshCurrentMovie()
+                        }
+                    } label: {
+                        Label("Delete from List", systemImage: "trash")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
+            } else if currentMovie.status == "watched" {
+                Section {
+                    Button {
+                        Task {
+                            _ = await MovieRepository.shared.updateMovie(
+                                movie: currentMovie,
+                                rating: nil,
+                                status: "to_watch"
+                            )
+                            await refreshCurrentMovie()
+                        }
+                    } label: {
+                        Label("Move to To Watch", systemImage: "arrow.uturn.backward.circle.fill")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
+            } else if currentMovie.status == "deleted" {
+                Section {
+                    Button {
+                        Task {
+                            _ = await MovieRepository.shared.updateMovie(
+                                movie: currentMovie,
+                                rating: nil,
+                                status: "to_watch"
+                            )
+                            await refreshCurrentMovie()
+                        }
+                    } label: {
+                        Label("Restore to To Watch", systemImage: "arrow.uturn.backward.circle.fill")
+                            .frame(maxWidth: .infinity, alignment: .center)
+                    }
+                }
             }
 
             if !uniqueGenres.isEmpty {
@@ -783,47 +908,9 @@ struct MovieDetailView: View {
                 }
             }
 
-            if currentMovie.status == "to_watch" {
-                Section {
-                    Button {
-                        Task {
-                            await loadPeople(forceSync: true)
-                            showAddRecommenderSheet = true
-                        }
-                    } label: {
-                        Label("Add Upvote", systemImage: "hand.thumbsup.fill")
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                }
-
-                Section {
-                    Button {
-                        Task {
-                            await loadPeople(forceSync: true)
-                            showAddDislikeSheet = true
-                        }
-                    } label: {
-                        Label("Add Downvote", systemImage: "hand.thumbsdown.fill")
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                }
-
-                Section {
-                    Button {
-                        Task {
-                            _ = await MovieRepository.shared.updateMovie(
-                                movie: currentMovie,
-                                rating: nil,
-                                status: "watched"
-                            )
-                            await refreshCurrentMovie()
-                        }
-                    } label: {
-                        Label("Mark as Watched", systemImage: "checkmark.circle.fill")
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                }
-            }
+        }
+        .onDisappear {
+            Task { await saveNotesIfChanged() }
         }
         .navigationTitle("Details")
         .toolbarTitleDisplayMode(.inline)
@@ -928,6 +1015,40 @@ struct MovieDetailView: View {
         case .failure:
             people = MovieRepository.shared.people
         }
+    }
+
+    @ViewBuilder
+    private func posterChoiceButton(label: String, url: URL?, path: String?) -> some View {
+        let isActive = currentMovie.posterOverride != nil
+            ? currentMovie.posterOverride == path
+            : (currentMovie.posterOverride == nil && label == (currentMovie.omdbPosterPath != nil ? "OMDb" : "TMDB"))
+
+        Button {
+            Task {
+                let result = await MovieRepository.shared.updatePoster(imdbId: currentMovie.imdbId, posterUrl: path)
+                if case .success(let updated) = result {
+                    currentMovie = updated
+                }
+            }
+        } label: {
+            VStack(spacing: 4) {
+                CachedAsyncImage(url: url) { image in
+                    image.resizable().aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle().fill(.secondary.opacity(0.15))
+                }
+                .frame(width: 60, height: 90)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(isActive ? AppTheme.blue : .clear, lineWidth: 2)
+                )
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private func refreshCurrentMovie() async {
@@ -1070,6 +1191,7 @@ struct AddRecommenderSheet: View {
 
 private struct FilterSortSheet: View {
     @Binding var sortBy: String
+    @Binding var sortDirection: String
     @Binding var filterRecommender: String?
     @Binding var filterGenre: String?
     @Binding var filterDirector: String?
@@ -1136,6 +1258,12 @@ private struct FilterSortSheet: View {
                     .pickerStyle(.inline)
                     .labelsHidden()
                     .accessibilityLabel("Sort By")
+
+                    Picker("Direction", selection: $sortDirection) {
+                        Label("Descending", systemImage: "arrow.down").tag("desc")
+                        Label("Ascending", systemImage: "arrow.up").tag("asc")
+                    }
+                    .pickerStyle(.segmented)
                 }
 
                 if !recommenders.isEmpty {
@@ -1256,6 +1384,7 @@ private struct FilterSortSheet: View {
                 Section {
                     Button("Clear All Filters", role: .destructive) {
                         sortBy = status == "watched" ? "dateWatched" : "dateRecommended"
+                        sortDirection = "desc"
                         filterRecommender = nil
                         filterGenre = nil
                         filterDirector = nil

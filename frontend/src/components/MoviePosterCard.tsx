@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Film, Star, ThumbsUp, ThumbsDown, Trophy } from "lucide-react";
-import { getPoster, formatRating } from "../utils/helpers";
+import { getPoster, getMoviePosterSource, formatRating } from "../utils/helpers";
 import { POSTER_PLACEHOLDER, VOTE_TYPE } from "../utils/constants";
 
 export default function MoviePosterCard({ movie, onClick, rankingEntry = null }) {
@@ -9,7 +9,7 @@ export default function MoviePosterCard({ movie, onClick, rankingEntry = null })
 
   const title = omdb.title || tmdb.title || "Unknown";
   const year = omdb.year || tmdb.year || "";
-  const poster = getPoster(omdb.poster || tmdb.poster);
+  const poster = getPoster(getMoviePosterSource(movie));
   const imdbRating = omdb.imdbRating;
   const allVotes = movie.recommendations || [];
   const upvotes = allVotes.filter((vote) => vote.vote_type !== VOTE_TYPE.DOWNVOTE).length;
@@ -64,16 +64,16 @@ export default function MoviePosterCard({ movie, onClick, rankingEntry = null })
           </div>
         )}
       </div>
-      <div className="flex min-h-[106px] flex-col bg-[#f9f9f9] px-2.5 py-2.5 text-[#161616]">
+      <div className="flex min-h-[106px] flex-col bg-[#1c1c1e] px-2.5 py-2.5 text-[#f2f2f2]">
         <h3
           className="m-0 min-h-[2.1em] overflow-hidden text-[0.87rem] font-bold leading-[1.2] [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
           title={title}
         >
           {title}
         </h3>
-        <p className="mt-0.5 text-[0.78rem] text-[#555555]">{year || "Unknown Year"}</p>
+        <p className="mt-0.5 text-[0.78rem] text-[#a3a3a6]">{year || "Unknown Year"}</p>
 
-        <div className="mt-auto flex flex-wrap gap-2 text-[0.72rem] font-bold text-[#333333]">
+        <div className="mt-auto flex flex-wrap gap-2 text-[0.72rem] font-bold text-[#d0d0d3]">
           <span className="inline-flex items-center gap-1">
             <Star className="w-3.5 h-3.5" />
             {imdbRating ? formatRating(imdbRating) : "N/A"}
@@ -87,7 +87,7 @@ export default function MoviePosterCard({ movie, onClick, rankingEntry = null })
             {downvotes}
           </span>
           {rankingEntry && (
-            <span className="inline-flex items-center gap-1 text-[#1a6fd4]">
+            <span className="inline-flex items-center gap-1 text-[#5aa9f8]">
               <Trophy className="w-3.5 h-3.5" />
               {rankingEntry.score?.toFixed(1)}/10
             </span>

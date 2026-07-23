@@ -99,7 +99,7 @@ struct RankedListView: View {
                 .background(Color.blue, in: Capsule())
                 .fixedSize()
 
-            CachedAsyncImage(url: entry.posterURL) { image in
+            CachedAsyncImage(url: entry.posterThumbnailURL) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)

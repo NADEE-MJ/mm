@@ -9,6 +9,8 @@ from typing import List
 from auth import get_required_user
 from app.schemas.movies import (
     BulkRecommendationCreate,
+    MovieNotesUpdate,
+    MoviePosterUpdate,
     MovieResponse,
     MovieStatusUpdate,
     RecommendationCreate,
@@ -18,6 +20,7 @@ from app.schemas.movies import (
 )
 from app.services.external_apis import (
     get_omdb_movie,
+    get_recommendations_for_seeds,
     get_tmdb_movie_details,
     get_tmdb_tv_details,
 )
@@ -395,6 +398,93 @@ async def update_movie_status(
         "custom_list_id": movie_status.custom_list_id,
         "last_modified": movie.last_modified,
     }
+
+
+@router.put("/{imdb_id}/notes", response_model=dict)
+async def update_movie_notes(
+    imdb_id: str,
+    notes_update: MovieNotesUpdate,
+    user: User = Depends(get_required_user),
+    db: Session = Depends(get_db),
+):
+    """Set or clear the free-text notes for a movie."""
+    movie = get_or_create_movie(db, user.id, imdb_id)
+
+    movie_status = (
+        db.query(MovieStatus)
+        .filter(MovieStatus.imdb_id == imdb_id, MovieStatus.user_id == user.id)
+        .first()
+    )
+    notes_value = (notes_update.notes or "").strip() or None
+    if movie_status:
+        movie_status.notes = notes_value
+    else:
+        movie_status = MovieStatus(
+            imdb_id=imdb_id, user_id=user.id, status="toWatch", notes=notes_value
+        )
+        db.add(movie_status)
+
+    movie.last_modified = time.time()
+    db.commit()
+
+    await notify_movie_change(user.id, imdb_id)
+
+    return {"imdb_id": imdb_id, "notes": movie_status.notes, "last_modified": movie.last_modified}
+
+
+@router.put("/{imdb_id}/poster", response_model=dict)
+async def update_movie_poster(
+    imdb_id: str,
+    poster_update: MoviePosterUpdate,
+    user: User = Depends(get_required_user),
+    db: Session = Depends(get_db),
+):
+    """Set or clear the poster override for a movie (e.g. switch between TMDB/OMDb art)."""
+    movie = get_or_create_movie(db, user.id, imdb_id)
+
+    movie.poster_override = (poster_update.poster_url or "").strip() or None
+    movie.last_modified = time.time()
+    db.commit()
+
+    await notify_movie_change(user.id, imdb_id)
+
+    return {
+        "imdb_id": imdb_id,
+        "poster_override": movie.poster_override,
+        "last_modified": movie.last_modified,
+    }
+
+
+@router.get("/recommendations/for-you", response_model=list[dict])
+async def get_recommendations_for_you(
+    limit: int = 30,
+    user: User = Depends(get_required_user),
+    db: Session = Depends(get_db),
+):
+    """Suggest new titles based on TMDB's "recommendations" for movies/shows the user upvoted."""
+    movies = db.query(Movie).filter(Movie.user_id == user.id).all()
+
+    seeds: list[tuple[int, str]] = []
+    exclude_ids: set[int] = set()
+
+    for movie in movies:
+        tmdb_payload = json.loads(movie.tmdb_data) if movie.tmdb_data else {}
+        tmdb_id = tmdb_payload.get("tmdbId") or tmdb_payload.get("id")
+        if not tmdb_id:
+            continue
+        exclude_ids.add(int(tmdb_id))
+
+        has_upvote = any(
+            getattr(rec, "vote_type", True) for rec in movie.recommendations
+        )
+        if has_upvote:
+            media_type = movie.media_type or tmdb_payload.get("mediaType") or "movie"
+            seeds.append((int(tmdb_id), media_type))
+
+    # Most recently upvoted titles are the strongest taste signal; cap to keep latency reasonable.
+    seeds = seeds[-15:]
+
+    return await get_recommendations_for_seeds(seeds, exclude_ids=exclude_ids, limit=limit)
 
 
 @router.get("/{imdb_id}", response_model=MovieResponse)

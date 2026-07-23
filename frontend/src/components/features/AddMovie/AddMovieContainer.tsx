@@ -5,18 +5,53 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { ChevronLeft } from "lucide-react";
-import { searchMovies as searchTMDB, getMovieDetails, getTVDetails } from "../../../services/tmdbAPI";
+import {
+  searchMovies as searchTMDB,
+  getMovieDetails,
+  getTVDetails,
+  discoverByGenre,
+  discoverByPerson,
+  discoverByCompany,
+  discoverList,
+  getRecommendationsForYou,
+} from "../../../services/tmdbAPI";
 import { getMovieByImdbId } from "../../../services/omdbAPI";
 import SearchStep from "./SearchStep";
 import RecommenderStep from "./RecommenderStep";
 
 const DEFAULT_PERSON_COLOR = "#0a84ff";
 
+const CURATED_CATEGORIES = [
+  { kind: "for_you", label: "For You" },
+  { kind: "popular", label: "Popular" },
+  { kind: "top_rated", label: "Top Rated" },
+  { kind: "trending", label: "Trending" },
+  { kind: "now_playing", label: "In Theaters" },
+  { kind: "coming_soon", label: "Coming Soon" },
+];
+
 function normalizeErrorMessage(err, fallback = "An unexpected error occurred") {
   return err?.message || fallback;
 }
 
-export default function AddMovieContainer({ onAdd, onClose, people = [], peopleNames = [], movies = [] }) {
+function sortDiscoverResults(results, sortMode) {
+  if (sortMode === "rating") {
+    return [...results].sort((a, b) => (b.voteAverage || 0) - (a.voteAverage || 0));
+  }
+  if (sortMode === "year") {
+    return [...results].sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0));
+  }
+  return results;
+}
+
+export default function AddMovieContainer({
+  onAdd,
+  onClose,
+  people = [],
+  peopleNames = [],
+  movies = [],
+  initialDiscover = null,
+}) {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -26,6 +61,11 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
   const [customRecommender, setCustomRecommender] = useState("");
   const [showRecommenderInput, setShowRecommenderInput] = useState(false);
   const [addingMovie, setAddingMovie] = useState(false);
+  const [discoverContext, setDiscoverContext] = useState(null);
+  const [discoverResults, setDiscoverResults] = useState([]);
+  const [sortMode, setSortMode] = useState("popularity");
+  const [curatedByCategory, setCuratedByCategory] = useState({});
+  const [curatedLoading, setCuratedLoading] = useState(false);
 
   const searchInputRef = useRef(null);
   const customInputRef = useRef(null);
@@ -107,16 +147,146 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
     }
   };
 
-  const handleSelectMovie = async (movie) => {
-    if (movie.mediaType === "person") {
-      setError("Select a movie or TV show to add.");
+  // Live search-as-you-type, like TMDB's own search bar. `handleSearch` (Enter / button)
+  // stays available for an immediate, non-debounced lookup.
+  useEffect(() => {
+    if (discoverContext) return;
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      setSearchResults([]);
+      setError(null);
       return;
     }
 
-    // If already in library, navigate to its detail panel directly.
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchTMDB(trimmedQuery);
+        if (cancelled) return;
+        setSearchResults(results);
+        if (results.length === 0) {
+          setError("No results found. Try a different search term.");
+        }
+      } catch (err) {
+        if (!cancelled) setError(normalizeErrorMessage(err, "Search failed"));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, discoverContext]);
+
+  const runDiscover = async ({ mode, query: discoverQuery, role, label }) => {
+    setLoading(true);
+    setError(null);
+    setSortMode("popularity");
+    try {
+      let results;
+      if (mode === "genre") {
+        results = await discoverByGenre(discoverQuery);
+      } else if (mode === "company") {
+        results = await discoverByCompany(discoverQuery);
+      } else {
+        results = await discoverByPerson(discoverQuery, role || "actor");
+      }
+
+      // Actors are rarely credited as directors; fall back to a director search
+      // if the requested role came up empty (covers e.g. actor-directors).
+      if (mode === "person" && results.length === 0 && role !== "director") {
+        results = await discoverByPerson(discoverQuery, "director");
+      }
+
+      setDiscoverResults(results);
+      setDiscoverContext({ mode, query: discoverQuery, role, label });
+      if (results.length === 0) {
+        setError(`No movies found for ${label}.`);
+      }
+    } catch (err) {
+      setError(normalizeErrorMessage(err, "Failed to load results"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!initialDiscover) return;
+    setQuery("");
+    setSearchResults([]);
+    runDiscover(initialDiscover);
+  }, [initialDiscover]);
+
+  // Load "browse" rails once, so there's something to look at before typing a search —
+  // mirrors mobile's curated categories in the Discover tab.
+  useEffect(() => {
+    let cancelled = false;
+    setCuratedLoading(true);
+    Promise.all(
+      CURATED_CATEGORIES.map((category) =>
+        category.kind === "for_you" ? getRecommendationsForYou(20) : discoverList(category.kind),
+      ),
+    )
+      .then((results) => {
+        if (cancelled) return;
+        const byCategory = {};
+        CURATED_CATEGORIES.forEach((category, idx) => {
+          byCategory[category.kind] = results[idx] || [];
+        });
+        setCuratedByCategory(byCategory);
+      })
+      .catch(() => {
+        if (!cancelled) setCuratedByCategory({});
+      })
+      .finally(() => {
+        if (!cancelled) setCuratedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const exitDiscover = () => {
+    setDiscoverContext(null);
+    setDiscoverResults([]);
+    setSortMode("popularity");
+    setError(null);
+  };
+
+  const sortedDiscoverResults = useMemo(
+    () => sortDiscoverResults(discoverResults, sortMode),
+    [discoverResults, sortMode],
+  );
+
+  const visibleResults = discoverContext ? sortedDiscoverResults : searchResults;
+
+  const handleSelectMovie = async (movie) => {
+    if (movie.mediaType === "person") {
+      await runDiscover({ mode: "person", query: movie.title, role: "actor", label: movie.title });
+      return;
+    }
+
+    // If already in library, let the user add another recommender right here instead of
+    // bouncing them out to the detail panel.
     const existingImdbId = existingTmdbIdToImdbId.get(movie.id);
     if (existingImdbId) {
-      onClose(existingImdbId);
+      const existingMovie = movies.find((entry) => entry.imdbId === existingImdbId);
+      if (existingMovie) {
+        setSelectedMovie({
+          imdbId: existingMovie.imdbId,
+          mediaType: existingMovie.mediaType || "movie",
+          tmdbData: existingMovie.tmdbData,
+          omdbData: existingMovie.omdbData,
+          isExisting: true,
+          existingRecommenderNames: (existingMovie.recommendations || []).map((rec) => rec.person),
+        });
+      } else {
+        onClose(existingImdbId);
+      }
       return;
     }
 
@@ -203,7 +373,14 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
     }
   };
 
-  const movieData = selectedMovie?.omdbData || selectedMovie?.tmdbData || {};
+  // Merge per-field (not whole-object) so a missing OMDb poster/rating doesn't blank out
+  // a perfectly good TMDB one — this is what made the add-flow preview show a different
+  // (or missing) poster than the movie's actual detail page after saving.
+  const movieData = {
+    ...(selectedMovie?.tmdbData || {}),
+    ...(selectedMovie?.omdbData || {}),
+    poster: selectedMovie?.omdbData?.poster || selectedMovie?.tmdbData?.poster,
+  };
 
   return (
     <div className="flex flex-col min-h-[62vh]">
@@ -227,14 +404,25 @@ export default function AddMovieContainer({ onAdd, onClose, people = [], peopleN
             handleSearch={handleSearch}
             loading={loading}
             error={error}
-            searchResults={searchResults}
+            searchResults={visibleResults}
             handleSelectMovie={handleSelectMovie}
             searchInputRef={searchInputRef}
             existingTmdbIds={existingTmdbIds}
+            discoverContext={discoverContext}
+            sortMode={sortMode}
+            setSortMode={setSortMode}
+            onExitDiscover={exitDiscover}
+            curatedCategories={CURATED_CATEGORIES}
+            curatedByCategory={curatedByCategory}
+            curatedLoading={curatedLoading}
           />
         ) : (
           <RecommenderStep
             movieData={movieData}
+            mediaType={selectedMovie.mediaType}
+            isExisting={selectedMovie.isExisting}
+            existingRecommenderNames={selectedMovie.existingRecommenderNames}
+            onViewDetails={() => onClose(selectedMovie.imdbId)}
             selectedRecommenders={selectedRecommenders}
             toggleRecommender={toggleRecommender}
             allRecommenders={allRecommenders}

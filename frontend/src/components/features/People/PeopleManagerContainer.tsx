@@ -14,13 +14,16 @@ import {
   Plus,
   Search,
   X,
+  Target,
 } from "lucide-react";
 import { usePeople } from "../../../hooks/usePeople";
+import { useRankingContext } from "../../../contexts/RankingContext";
 import { IOS_COLORS } from "../../../utils/constants";
 import { buildPeopleWithStats, getPeopleMetaCounts } from "../../../utils/people";
 
 export default function PeopleManagerContainer({ movies, onAddPerson, onPersonSelect }) {
   const { people } = usePeople();
+  const { ranked } = useRankingContext();
   const [filter, setFilter] = useState("people");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -29,8 +32,16 @@ export default function PeopleManagerContainer({ movies, onAddPerson, onPersonSe
     [people],
   );
 
+  const rankingByImdbId = useMemo(
+    () => Object.fromEntries((ranked || []).map((r) => [r.imdb_id, r])),
+    [ranked],
+  );
+
   // Calculate recommendation stats
-  const peopleWithStats = useMemo(() => buildPeopleWithStats(people, movies), [people, movies]);
+  const peopleWithStats = useMemo(
+    () => buildPeopleWithStats(people, movies, rankingByImdbId),
+    [people, movies, rankingByImdbId],
+  );
 
   const filteredPeople = peopleWithStats.filter((person) => {
     if (filter === "trusted") return person.is_trusted;
@@ -156,6 +167,20 @@ export default function PeopleManagerContainer({ movies, onAddPerson, onPersonSe
                       {person.avgRating ? ` • ${person.avgRating.toFixed(1)} avg` : ""}
                     </p>
                   </div>
+                  {person.recommenderScore != null && (
+                    <span
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[0.7rem] font-bold ${
+                        person.recommenderScore >= 0
+                          ? "bg-[rgba(48,209,88,0.14)] text-[#8ddea2]"
+                          : "bg-[rgba(255,69,58,0.14)] text-[#ff8f88]"
+                      }`}
+                      title="Recommender score: how well their picks have matched your ratings"
+                    >
+                      <Target className="w-3.5 h-3.5" />
+                      {person.recommenderScore > 0 ? "+" : ""}
+                      {person.recommenderScore.toFixed(1)}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2">

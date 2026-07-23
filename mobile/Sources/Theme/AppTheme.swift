@@ -18,19 +18,26 @@ enum AppTheme {
 }
 
 enum PersonAppearance {
+    // Keep in sync with frontend/src/utils/constants.ts (PERSON_COLOR_OPTIONS/PERSON_EMOJI_OPTIONS).
     static let colorHexOptions = [
         "#0a84ff", // Blue
         "#30d158", // Green
+        "#ff453a", // Red
         "#ff9f0a", // Orange
+        "#ffd60a", // Yellow
         "#bf5af2", // Purple
         "#ff375f", // Pink
         "#64d2ff", // Teal
-        "#ffd60a", // Yellow
+        "#5e5ce6", // Indigo
+        "#63e6be", // Mint
+        "#ac8e68", // Brown
+        "#32ade6", // Cyan
         "#8e8e93", // Gray
     ]
 
     static let emojiOptions = [
         "🍿", "🎬", "🎯", "🔥", "🌟", "💡", "🤝", "🎲", "🧠", "📽️",
+        "🎥", "🏆", "👑", "🕵️", "🦹", "🎭", "🍭", "🕶️", "🐉", "🌈",
     ]
 
     static let defaultColorHex = "#0a84ff"
@@ -107,12 +114,12 @@ struct PersonAvatarView: View {
     let colorHex: String?
     let isQuick: Bool
     let isTrusted: Bool
-    var size: CGFloat = 40
+    var size: CGFloat = 44
 
     var body: some View {
         let foreground = PersonAppearance.avatarForegroundColor(for: colorHex, isQuick: isQuick)
 
-        ZStack(alignment: .bottomTrailing) {
+        ZStack {
             Circle()
                 .fill(PersonAppearance.color(from: colorHex, isQuick: isQuick))
 
@@ -120,7 +127,11 @@ struct PersonAvatarView: View {
                 .font(size >= 44 ? .title3 : .headline)
                 .fontWeight(.bold)
                 .foregroundStyle(foreground)
-
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+        }
+        .frame(width: size, height: size)
+        .overlay(alignment: .bottomTrailing) {
             if isTrusted {
                 Image(systemName: "star.fill")
                     .font(.system(size: max(11, size * 0.28), weight: .bold))
@@ -130,7 +141,6 @@ struct PersonAvatarView: View {
                     .offset(x: 2, y: 2)
             }
         }
-        .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             Text(

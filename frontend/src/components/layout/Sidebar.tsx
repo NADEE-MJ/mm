@@ -9,7 +9,7 @@ const mainItems = [
 
 export default function Sidebar({ collapsed, mobileOpen, onToggle, onCloseMobile }) {
   const sidebarClasses = [
-    "z-30 flex flex-col gap-2 overflow-hidden border-r border-[var(--color-app-border)] bg-[rgba(16,16,16,0.95)] py-3 transition-[width,transform] duration-200 ease-out max-md:fixed max-md:bottom-0 max-md:left-0 max-md:top-0 max-md:w-60 max-md:shadow-[0_16px_30px_rgba(0,0,0,0.5)]",
+    "z-30 flex flex-col gap-2 border-r border-[var(--color-app-border)] bg-[rgba(16,16,16,0.95)] py-3 transition-[width,transform] duration-200 ease-out md:sticky md:top-0 md:h-screen md:overflow-y-auto md:overflow-x-hidden max-md:fixed max-md:bottom-0 max-md:left-0 max-md:top-0 max-md:w-60 max-md:overflow-hidden max-md:shadow-[0_16px_30px_rgba(0,0,0,0.5)]",
     collapsed ? "w-16 px-2" : "w-60 px-3",
     mobileOpen ? "max-md:translate-x-0" : "max-md:-translate-x-full",
   ].join(" ");

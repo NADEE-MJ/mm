@@ -46,5 +46,31 @@ export const IOS_COLORS = {
   purple: "#bf5af2",
   pink: "#ff375f",
   teal: "#64d2ff",
+  indigo: "#5e5ce6",
+  mint: "#63e6be",
+  brown: "#ac8e68",
+  cyan: "#32ade6",
   gray: "#8e8e93",
 };
+
+// Keep in sync with mobile/Sources/Theme/AppTheme.swift (PersonAppearance.colorHexOptions/emojiOptions).
+export const PERSON_COLOR_OPTIONS = [
+  IOS_COLORS.blue,
+  IOS_COLORS.green,
+  IOS_COLORS.red,
+  IOS_COLORS.orange,
+  IOS_COLORS.yellow,
+  IOS_COLORS.purple,
+  IOS_COLORS.pink,
+  IOS_COLORS.teal,
+  IOS_COLORS.indigo,
+  IOS_COLORS.mint,
+  IOS_COLORS.brown,
+  IOS_COLORS.cyan,
+  IOS_COLORS.gray,
+];
+
+export const PERSON_EMOJI_OPTIONS = [
+  "🍿", "🎬", "🎯", "🔥", "🌟", "💡", "🤝", "🎲", "🧠", "📽️",
+  "🎥", "🏆", "👑", "🕵️", "🦹", "🎭", "🍭", "🕶️", "🐉", "🌈",
+];

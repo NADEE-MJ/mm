@@ -89,9 +89,11 @@ def serialize_movie(movie: Movie) -> dict:
         "user_id": movie.user_id,
         "tmdb_data": json.loads(movie.tmdb_data) if movie.tmdb_data else None,
         "omdb_data": json.loads(movie.omdb_data) if movie.omdb_data else None,
+        "poster_override": movie.poster_override,
         "media_type": movie.media_type or "movie",
         "last_modified": movie.last_modified,
         "status": movie.status.status if movie.status else None,
+        "notes": movie.status.notes if movie.status else None,
         "recommendations": [
             {
                 "id": r.id,

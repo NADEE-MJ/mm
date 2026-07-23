@@ -86,14 +86,28 @@ class MovieStatusUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MovieNotesUpdate(BaseModel):
+    notes: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class MoviePosterUpdate(BaseModel):
+    poster_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MovieResponse(BaseModel):
     imdb_id: str
     user_id: Optional[str] = None
     tmdb_data: Optional[dict] = None
     omdb_data: Optional[dict] = None
+    poster_override: Optional[str] = None
     media_type: Optional[str] = "movie"
     last_modified: float
     status: Optional[str] = None
+    notes: Optional[str] = None
     recommendations: List[RecommendationResponse] = Field(default_factory=list)
     watch_history: Optional[WatchHistoryResponse] = None
 

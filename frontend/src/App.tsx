@@ -31,7 +31,7 @@ function LoadingScreen({ label = "Loading..." }) {
   );
 }
 
-function AddMovieModal({ onClose, onMovieAdded }) {
+function AddMovieModal({ onClose, onMovieAdded, initialDiscover }) {
   const { addRecommendation, movies } = useMoviesContext();
   const { people, getPeopleNames } = usePeople();
 
@@ -50,6 +50,7 @@ function AddMovieModal({ onClose, onMovieAdded }) {
         people={people}
         peopleNames={getPeopleNames()}
         movies={movies}
+        initialDiscover={initialDiscover}
       />
     </Modal>
   );
@@ -63,7 +64,23 @@ function UserAppContent() {
   useSync();
 
   const [showAddMovie, setShowAddMovie] = useState(false);
+  const [addMovieDiscover, setAddMovieDiscover] = useState(null);
   const selectedMovieId = searchParams.get("movie");
+
+  const openDiscoverPerson = useCallback((name, role) => {
+    setAddMovieDiscover({ mode: "person", query: name, role, label: name });
+    setShowAddMovie(true);
+  }, []);
+
+  const openDiscoverGenre = useCallback((genre) => {
+    setAddMovieDiscover({ mode: "genre", query: genre, label: genre });
+    setShowAddMovie(true);
+  }, []);
+
+  const openDiscoverCompany = useCallback((company) => {
+    setAddMovieDiscover({ mode: "company", query: company, label: company });
+    setShowAddMovie(true);
+  }, []);
 
   const setSelectedMovieId = useCallback(
     (imdbId) => {
@@ -121,13 +138,23 @@ function UserAppContent() {
       </Routes>
 
       {selectedMovieId && (
-        <MovieDetailPanel imdbId={selectedMovieId} onClose={() => setSelectedMovieId(null)} />
+        <MovieDetailPanel
+          imdbId={selectedMovieId}
+          onClose={() => setSelectedMovieId(null)}
+          onOpenPerson={openDiscoverPerson}
+          onOpenGenre={openDiscoverGenre}
+          onOpenCompany={openDiscoverCompany}
+        />
       )}
 
       {showAddMovie && (
         <AddMovieModal
-          onClose={() => setShowAddMovie(false)}
+          onClose={() => {
+            setShowAddMovie(false);
+            setAddMovieDiscover(null);
+          }}
           onMovieAdded={(imdbId) => setSelectedMovieId(imdbId)}
+          initialDiscover={addMovieDiscover}
         />
       )}
     </AppShell>

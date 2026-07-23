@@ -1,4 +1,4 @@
-import { CheckCircle } from "lucide-react";
+import { ArrowDownWideNarrow, ArrowUpWideNarrow, CheckCircle } from "lucide-react";
 import {
   MOVIE_SORT_LABELS,
   getDefaultSortForStatus,
@@ -11,6 +11,8 @@ export default function FilterSheet({
   onClose,
   sortBy,
   setSortBy,
+  sortDirection = "desc",
+  setSortDirection,
   mediaTypeFilter,
   setMediaTypeFilter,
   filterRecommender,
@@ -31,7 +33,23 @@ export default function FilterSheet({
       <div className="space-y-6">
         {/* Sort */}
         <div>
-          <label className="text-ios-label text-sm mb-3 block">Sort By</label>
+          <div className="mb-3 flex items-center justify-between">
+            <label className="text-ios-label text-sm">Sort By</label>
+            {setSortDirection && (
+              <button
+                onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
+                className="ios-pill inline-flex items-center gap-1.5"
+                title={sortDirection === "asc" ? "Ascending" : "Descending"}
+              >
+                {sortDirection === "asc" ? (
+                  <ArrowUpWideNarrow className="w-4 h-4" />
+                ) : (
+                  <ArrowDownWideNarrow className="w-4 h-4" />
+                )}
+                <span>{sortDirection === "asc" ? "Ascending" : "Descending"}</span>
+              </button>
+            )}
+          </div>
           <div className="ios-list">
             {sortOptions.map((option) => (
               <button
@@ -142,6 +160,7 @@ export default function FilterSheet({
         <button
           onClick={() => {
             setSortBy(getDefaultSortForStatus(status));
+            setSortDirection?.("desc");
             setMediaTypeFilter("all");
             setFilterRecommender("");
             setFilterGenre("");

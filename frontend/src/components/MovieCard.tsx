@@ -4,7 +4,7 @@
  */
 
 import { Users, ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
-import { getPoster, formatDate } from "../utils/helpers";
+import { getPoster, getMoviePosterSource, formatDate } from "../utils/helpers";
 import { VOTE_TYPE } from "../utils/constants";
 
 export default function MovieCard({ movie, onClick }) {
@@ -13,7 +13,7 @@ export default function MovieCard({ movie, onClick }) {
 
   const title = omdb.title || tmdb.title || "Unknown";
   const year = omdb.year || tmdb.year || "";
-  const poster = getPoster(omdb.poster || tmdb.poster);
+  const poster = getPoster(getMoviePosterSource(movie));
   const genres = omdb.genres || tmdb.genres || [];
   const imdbRating = omdb.imdbRating;
   const rtRating = omdb.rtRating;

@@ -10,6 +10,7 @@ from typing import Any
 
 from app.services.external_apis import (
     discover_tmdb_movies_by_category,
+    discover_tmdb_movies_by_company,
     discover_tmdb_movies_by_genre,
     discover_tmdb_movies_by_person,
     get_cache_info,
@@ -63,6 +64,15 @@ async def tmdb_discover_by_person(
 ) -> list[dict[str, Any]]:
     """Discover movies by actor or director."""
     return await discover_tmdb_movies_by_person(q, role=role)
+
+
+@router.get("/tmdb/discover/company")
+async def tmdb_discover_by_company(
+    q: str = Query(..., min_length=1, description="Production company name"),
+    _user: User = Depends(get_required_user),
+) -> list[dict[str, Any]]:
+    """Discover movies by production company."""
+    return await discover_tmdb_movies_by_company(q)
 
 
 @router.get("/tmdb/discover/list")
