@@ -26,6 +26,7 @@ OMDB_API_KEY = config.OMDB_API_KEY
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 OMDB_BASE_URL = "https://www.omdbapi.com"
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p"
+TMDB_WATCH_REGION = config.TMDB_WATCH_REGION
 
 
 def _get_cache_key(prefix: str, *args: Any) -> str:
@@ -124,6 +125,43 @@ async def _fetch_tmdb_genres() -> list[dict[str, Any]]:
     genres = data.get("genres", [])
     _cache[cache_key] = genres
     return genres
+
+
+def _to_simple_provider(provider: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a TMDB watch-provider entry to the app's shared format."""
+    logo_path = provider.get("logo_path")
+    return {
+        "id": provider.get("provider_id"),
+        "name": provider.get("provider_name"),
+        "logo": f"{TMDB_IMAGE_BASE}/w92{logo_path}" if logo_path else None,
+    }
+
+
+def _extract_watch_providers(
+    payload: dict[str, Any], *, region: str = TMDB_WATCH_REGION
+) -> dict[str, Any] | None:
+    """Pull streaming/rent/buy availability for a region out of a TMDB details payload.
+
+    TMDB's `watch/providers` append_to_response returns per-country data
+    sourced from JustWatch. We only surface the plain provider names/logos
+    (no JustWatch branding or attribution) since this is a personal app.
+    """
+    region_data = (
+        payload.get("watch/providers", {}).get("results", {}).get(region.upper())
+    )
+    if not region_data:
+        return None
+
+    result = {
+        "region": region.upper(),
+        "link": region_data.get("link"),
+        "stream": [_to_simple_provider(p) for p in region_data.get("flatrate", [])],
+        "rent": [_to_simple_provider(p) for p in region_data.get("rent", [])],
+        "buy": [_to_simple_provider(p) for p in region_data.get("buy", [])],
+    }
+    if not result["stream"] and not result["rent"] and not result["buy"]:
+        return None
+    return result
 
 
 def _to_simple_movie_result(movie: dict[str, Any]) -> dict[str, Any]:
@@ -479,7 +517,10 @@ async def get_tmdb_movie_details(
         return _cache[cache_key]
 
     url = f"{TMDB_BASE_URL}/movie/{tmdb_id}"
-    params = {"api_key": TMDB_API_KEY, "append_to_response": "credits,external_ids"}
+    params = {
+        "api_key": TMDB_API_KEY,
+        "append_to_response": "credits,external_ids,watch/providers",
+    }
 
     async with httpx.AsyncClient() as client:
         movie = await _fetch_json(client, url, params, provider="TMDB")
@@ -517,6 +558,7 @@ async def get_tmdb_movie_details(
         "runtime": movie.get("runtime"),
         "voteAverage": movie.get("vote_average"),
         "voteCount": movie.get("vote_count"),
+        "watchProviders": _extract_watch_providers(movie),
     }
 
     _cache[cache_key] = result
@@ -534,7 +576,10 @@ async def get_tmdb_tv_details(
         return _cache[cache_key]
 
     url = f"{TMDB_BASE_URL}/tv/{tmdb_id}"
-    params = {"api_key": TMDB_API_KEY, "append_to_response": "aggregate_credits,external_ids"}
+    params = {
+        "api_key": TMDB_API_KEY,
+        "append_to_response": "aggregate_credits,external_ids,watch/providers",
+    }
 
     async with httpx.AsyncClient() as client:
         show = await _fetch_json(client, url, params, provider="TMDB")
@@ -569,6 +614,7 @@ async def get_tmdb_tv_details(
         "voteCount": show.get("vote_count"),
         "numberOfSeasons": show.get("number_of_seasons"),
         "numberOfEpisodes": show.get("number_of_episodes"),
+        "watchProviders": _extract_watch_providers(show),
     }
 
     _cache[cache_key] = result

@@ -26,6 +26,9 @@ class Config:
     TMDB_API_KEY: str | None = os.getenv("TMDB_API_KEY")
     OMDB_API_KEY: str | None = os.getenv("OMDB_API_KEY")
 
+    # Region used for TMDB watch-provider (streaming/rent/buy) lookups
+    TMDB_WATCH_REGION: str = os.getenv("TMDB_WATCH_REGION", "US")
+
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 

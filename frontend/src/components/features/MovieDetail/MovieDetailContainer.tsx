@@ -6,6 +6,7 @@
 import { ChevronRight } from "lucide-react";
 import MovieHeader from "./MovieHeader";
 import MovieInfo from "./MovieInfo";
+import WatchProviders from "./WatchProviders";
 import VotesSection from "./VotesSection";
 import ActionsBar from "./ActionsBar";
 import NotesSection from "./NotesSection";
@@ -75,6 +76,7 @@ export default function MovieDetailContainer({
           onStatusChange={handleStatusChange}
         />
         <NotesSection notes={movie.notes} onSave={handleNotesSave} />
+        <WatchProviders watchProviders={tmdb.watchProviders} />
         <MovieInfo
           omdb={omdb}
           tmdb={tmdb}
