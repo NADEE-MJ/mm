@@ -37,6 +37,7 @@ struct Movie: Identifiable, Hashable, Decodable {
     let posterOverride: String?
     let tmdbPosterPath: String?
     let omdbPosterPath: String?
+    let watchProviders: MovieWatchProviders?
 
     var id: String { imdbId }
 
@@ -113,6 +114,7 @@ struct Movie: Identifiable, Hashable, Decodable {
             recommendations = mappedRecommendations
             lastModified = backendMovie.lastModified
             notes = backendMovie.notes
+            watchProviders = tmdbData?.watchProviders
             return
         }
 
@@ -143,6 +145,7 @@ struct Movie: Identifiable, Hashable, Decodable {
         recommendations = (try? c.decodeIfPresent([Recommendation].self, forKey: .recommendations)) ?? []
         lastModified = try? c.decodeIfPresent(Double.self, forKey: .lastModified)
         notes = try? c.decodeIfPresent(String.self, forKey: .notes)
+        watchProviders = nil
     }
 
     init(
@@ -168,7 +171,8 @@ struct Movie: Identifiable, Hashable, Decodable {
         notes: String? = nil,
         posterOverride: String? = nil,
         tmdbPosterPath: String? = nil,
-        omdbPosterPath: String? = nil
+        omdbPosterPath: String? = nil,
+        watchProviders: MovieWatchProviders? = nil
     ) {
         self.imdbId = imdbId
         self.tmdbId = tmdbId
@@ -193,6 +197,7 @@ struct Movie: Identifiable, Hashable, Decodable {
         self.posterOverride = posterOverride
         self.tmdbPosterPath = tmdbPosterPath
         self.omdbPosterPath = omdbPosterPath
+        self.watchProviders = watchProviders
     }
 
     private static func mapBackendStatusToApp(_ backendStatus: String) -> String {
@@ -475,6 +480,34 @@ private struct BackendWatchHistory: Decodable {
     }
 }
 
+struct MovieWatchProvider: Codable, Hashable {
+    let id: Int?
+    let name: String?
+    let logo: String?
+
+    var logoURL: URL? {
+        guard let logo else { return nil }
+        return URL(string: logo)
+    }
+}
+
+struct MovieWatchProviders: Codable, Hashable {
+    let region: String?
+    let link: String?
+    let stream: [MovieWatchProvider]?
+    let rent: [MovieWatchProvider]?
+    let buy: [MovieWatchProvider]?
+
+    var linkURL: URL? {
+        guard let link else { return nil }
+        return URL(string: link)
+    }
+
+    var isEmpty: Bool {
+        (stream?.isEmpty ?? true) && (rent?.isEmpty ?? true) && (buy?.isEmpty ?? true)
+    }
+}
+
 private struct TMDBDetailPayload: Codable {
     let tmdbId: Int?
     let imdbId: String?
@@ -492,6 +525,7 @@ private struct TMDBDetailPayload: Codable {
     let voteCount: Int?
     let numberOfSeasons: Int?
     let numberOfEpisodes: Int?
+    let watchProviders: MovieWatchProviders?
 
     enum CodingKeys: String, CodingKey {
         case tmdbId
@@ -510,6 +544,7 @@ private struct TMDBDetailPayload: Codable {
         case voteCount
         case numberOfSeasons
         case numberOfEpisodes
+        case watchProviders
     }
 
     private enum AlternateDecodingKeys: String, CodingKey {
@@ -561,6 +596,7 @@ private struct TMDBDetailPayload: Codable {
         voteCount = decodedVoteCount
         numberOfSeasons = try c.decodeIfPresent(Int.self, forKey: .numberOfSeasons)
         numberOfEpisodes = try c.decodeIfPresent(Int.self, forKey: .numberOfEpisodes)
+        watchProviders = try c.decodeIfPresent(MovieWatchProviders.self, forKey: .watchProviders)
     }
 
     init(
@@ -579,7 +615,8 @@ private struct TMDBDetailPayload: Codable {
         voteAverage: Double?,
         voteCount: Int?,
         numberOfSeasons: Int? = nil,
-        numberOfEpisodes: Int? = nil
+        numberOfEpisodes: Int? = nil,
+        watchProviders: MovieWatchProviders? = nil
     ) {
         self.tmdbId = tmdbId
         self.imdbId = imdbId
@@ -597,6 +634,7 @@ private struct TMDBDetailPayload: Codable {
         self.voteCount = voteCount
         self.numberOfSeasons = numberOfSeasons
         self.numberOfEpisodes = numberOfEpisodes
+        self.watchProviders = watchProviders
     }
 }
 

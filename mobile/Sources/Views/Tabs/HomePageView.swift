@@ -627,6 +627,20 @@ struct MovieDetailView: View {
                 }
             }
 
+            if let watchProviders = currentMovie.watchProviders, !watchProviders.isEmpty {
+                Section("Where to Watch") {
+                    WatchProvidersRow(label: "Stream", providers: watchProviders.stream)
+                    WatchProvidersRow(label: "Rent", providers: watchProviders.rent)
+                    WatchProvidersRow(label: "Buy", providers: watchProviders.buy)
+
+                    if let linkURL = watchProviders.linkURL {
+                        Link(destination: linkURL) {
+                            Text("More watch options")
+                        }
+                    }
+                }
+            }
+
             if currentMovie.status == "to_watch" {
                 Section {
                     Button {
@@ -1114,6 +1128,31 @@ struct MovieDetailView: View {
             feedbackMessage = error.localizedDescription
             showFeedbackAlert = true
             await refreshCurrentMovie()
+        }
+    }
+}
+
+// MARK: - Watch Providers Row
+
+private struct WatchProvidersRow: View {
+    let label: String
+    let providers: [MovieWatchProvider]?
+
+    var body: some View {
+        if let providers, !providers.isEmpty {
+            LabeledContent(label) {
+                HStack(spacing: 6) {
+                    ForEach(providers, id: \.self) { provider in
+                        CachedAsyncImage(url: provider.logoURL) { image in
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            Rectangle().fill(.secondary.opacity(0.15))
+                        }
+                        .frame(width: 24, height: 24)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    }
+                }
+            }
         }
     }
 }
