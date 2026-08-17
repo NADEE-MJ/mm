@@ -8,7 +8,7 @@
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] &amp;&amp; . "$NVM_DIR/nvm.sh"; cd /opt/projects/mm &amp;&amp; npm run install:sync &amp;&amp; npm run backend:migrate &amp;&amp; exec npm run start -- --host 0.0.0.0 --port 8155</string>
+        <string>export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] &amp;&amp; . "$NVM_DIR/nvm.sh"; cd /opt/projects/mm &amp;&amp; npm run install:sync &amp;&amp; npm run backend:migrate &amp;&amp; exec npm run start -- --host 127.0.0.1 --port 8155</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/opt/projects/mm</string>
